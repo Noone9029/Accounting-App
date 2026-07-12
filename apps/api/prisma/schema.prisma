@@ -580,6 +580,68 @@ enum RecurringInvoiceDateMode {
   RUN_DATE
 }
 
+enum RecurringTransactionType {
+  SALES_INVOICE
+  PURCHASE_BILL
+  EXPENSE
+  MANUAL_JOURNAL
+}
+
+enum RecurringTransactionStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+enum RecurringFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+}
+
+enum RecurringCatchUpPolicy {
+  SKIP_MISSED
+  GENERATE_LATEST_ONLY
+  GENERATE_ALL
+}
+
+enum RecurringGenerationMode {
+  DRAFT_ONLY
+}
+
+enum RecurringExchangeRatePolicy {
+  BASE_CURRENCY_ONLY
+  FIXED_TEMPLATE_RATE
+  REQUIRE_RATE_AT_RUN
+  RATE_SNAPSHOT
+}
+
+enum RecurringRunStatus {
+  PENDING
+  CLAIMED
+  GENERATED
+  BLOCKED
+  SKIPPED
+  FAILED
+  CANCELLED
+}
+
+enum RecurringRunTrigger {
+  SCHEDULED
+  MANUAL
+  RETRY
+}
+
+enum RecurringExpenseProposalStatus {
+  DRAFT
+  REVIEWED
+  CANCELLED
+}
+
 enum DeliveryNoteStatus {
   DRAFT
   ISSUED
@@ -882,6 +944,11 @@ enum ImportEntityType {
   SUPPLIERS
   PRODUCTS_SERVICES
   CHART_OF_ACCOUNTS
+  RECURRING_SALES_INVOICE_TEMPLATES
+  RECURRING_PURCHASE_BILL_TEMPLATES
+  RECURRING_EXPENSE_TEMPLATES
+  RECURRING_JOURNAL_TEMPLATES
+  RECURRING_TRANSACTION_RUNS
 }
 
 enum ImportJobStatus {
@@ -1190,6 +1257,9 @@ model User {
   createdSalesQuotes                                SalesQuote[]                                @relation("SalesQuoteCreatedBy")
   createdRecurringInvoiceTemplates                  RecurringInvoiceTemplate[]                  @relation("RecurringInvoiceTemplateCreatedBy")
   generatedRecurringInvoiceRuns                     RecurringInvoiceRun[]                       @relation("RecurringInvoiceRunGeneratedBy")
+  createdRecurringTransactionTemplates              RecurringTransactionTemplate[]              @relation("RecurringTransactionTemplateCreatedBy")
+  updatedRecurringTransactionTemplates              RecurringTransactionTemplate[]              @relation("RecurringTransactionTemplateUpdatedBy")
+  reviewedRecurringExpenseProposals                 RecurringExpenseProposal[]                   @relation("RecurringExpenseProposalReviewedBy")
   createdDeliveryNotes                              DeliveryNote[]                              @relation("DeliveryNoteCreatedBy")
   createdSalesInventoryReturns                      SalesInventoryReturn[]                      @relation("SalesInventoryReturnCreatedBy")
   approvedSalesInventoryReturns                     SalesInventoryReturn[]                      @relation("SalesInventoryReturnApprovedBy")
@@ -1410,6 +1480,11 @@ model Organization {
   recurringInvoiceTemplates                 RecurringInvoiceTemplate[]
   recurringInvoiceTemplateLines             RecurringInvoiceTemplateLine[]
   recurringInvoiceRuns                      RecurringInvoiceRun[]
+  recurringTransactionTemplates             RecurringTransactionTemplate[]
+  recurringTransactionTemplateLines         RecurringTransactionTemplateLine[]
+  recurringTransactionRuns                  RecurringTransactionRun[]
+  recurringExpenseProposals                 RecurringExpenseProposal[]
+  recurringExpenseProposalLines             RecurringExpenseProposalLine[]
   deliveryNotes                             DeliveryNote[]
   deliveryNoteLines                         DeliveryNoteLine[]
   collectionCases                           CollectionCase[]
@@ -2739,7 +2814,9 @@ model Branch {
   organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   salesInvoices      SalesInvoice[]
   salesQuotes        SalesQuote[]
-  recurringInvoiceTemplates RecurringInvoiceTemplate[]
+  recurringInvoiceTemplates     RecurringInvoiceTemplate[]
+  recurringTransactionTemplates RecurringTransactionTemplate[] @relation("RecurringTransactionTemplateBranch")
+  recurringExpenseProposals     RecurringExpenseProposal[]      @relation("RecurringExpenseProposalBranch")
   deliveryNotes      DeliveryNote[]
   creditNotes        CreditNote[]
   purchaseOrders     PurchaseOrder[]
@@ -2752,6 +2829,7 @@ model Branch {
   onboardingChecklistEvents OnboardingChecklistEvent[]
 
   @@index([organizationId])
+  @@unique([organizationId, id])
 }
 
 model Contact {
@@ -2788,7 +2866,9 @@ model Contact {
   organization               Organization                @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   salesInvoices              SalesInvoice[]              @relation("SalesInvoiceCustomer")
   salesQuotes                SalesQuote[]                @relation("SalesQuoteCustomer")
-  recurringInvoiceTemplates  RecurringInvoiceTemplate[]   @relation("RecurringInvoiceTemplateCustomer")
+  recurringInvoiceTemplates     RecurringInvoiceTemplate[]    @relation("RecurringInvoiceTemplateCustomer")
+  recurringTransactionTemplates RecurringTransactionTemplate[] @relation("RecurringTransactionTemplateParty")
+  recurringExpenseProposals     RecurringExpenseProposal[]      @relation("RecurringExpenseProposalContact")
   deliveryNotes              DeliveryNote[]              @relation("DeliveryNoteCustomer")
   salesInventoryReturns      SalesInventoryReturn[]      @relation("SalesInventoryReturnCustomer")
   creditNotes                CreditNote[]                @relation("CreditNoteCustomer")
@@ -2838,6 +2918,10 @@ model Account {
   salesInvoiceLines                    SalesInvoiceLine[]
   salesQuoteLines                      SalesQuoteLine[]
   recurringInvoiceTemplateLines        RecurringInvoiceTemplateLine[]
+  recurringTransactionTemplateLines    RecurringTransactionTemplateLine[] @relation("RecurringTransactionTemplateLineAccount")
+  recurringTransactionPaidTemplates    RecurringTransactionTemplate[]     @relation("RecurringTransactionTemplatePaidThrough")
+  recurringExpenseProposalLines        RecurringExpenseProposalLine[]     @relation("RecurringExpenseProposalLineAccount")
+  recurringExpensePaidProposals        RecurringExpenseProposal[]         @relation("RecurringExpenseProposalPaidThrough")
   creditNoteLines                      CreditNoteLine[]
   purchaseOrderLines                   PurchaseOrderLine[]
   purchaseBillLines                    PurchaseBillLine[]
@@ -2887,9 +2971,15 @@ model CostCenter {
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  journalLines   JournalLine[]
+  journalLines                       JournalLine[]
+  recurringTransactionTemplateLines RecurringTransactionTemplateLine[] @relation("RecurringTransactionTemplateLineCostCenter")
+  recurringExpenseProposalLines     RecurringExpenseProposalLine[]     @relation("RecurringExpenseProposalLineCostCenter")
+  salesInvoiceLines                 SalesInvoiceLine[]                  @relation("SalesInvoiceLineCostCenter")
+  purchaseBillLines                 PurchaseBillLine[]                  @relation("PurchaseBillLineCostCenter")
+  cashExpenseLines                  CashExpenseLine[]                   @relation("CashExpenseLineCostCenter")
 
   @@unique([organizationId, code])
+  @@unique([organizationId, id])
   @@index([organizationId])
   @@index([organizationId, status])
 }
@@ -2904,9 +2994,15 @@ model Project {
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  journalLines   JournalLine[]
+  journalLines                       JournalLine[]
+  recurringTransactionTemplateLines RecurringTransactionTemplateLine[] @relation("RecurringTransactionTemplateLineProject")
+  recurringExpenseProposalLines     RecurringExpenseProposalLine[]     @relation("RecurringExpenseProposalLineProject")
+  salesInvoiceLines                 SalesInvoiceLine[]                  @relation("SalesInvoiceLineProject")
+  purchaseBillLines                 PurchaseBillLine[]                  @relation("PurchaseBillLineProject")
+  cashExpenseLines                  CashExpenseLine[]                   @relation("CashExpenseLineProject")
 
   @@unique([organizationId, code])
+  @@unique([organizationId, id])
   @@index([organizationId])
   @@index([organizationId, status])
 }
@@ -2933,7 +3029,9 @@ model CurrencyRateSnapshot {
   supplierPayments    SupplierPayment[]   @relation("SupplierPaymentRateSnapshot")
   customerRefunds     CustomerRefund[]    @relation("CustomerRefundRateSnapshot")
   supplierRefunds     SupplierRefund[]    @relation("SupplierRefundRateSnapshot")
-  journalLines        JournalLine[]        @relation("JournalLineRateSnapshot")
+  journalLines                  JournalLine[]                    @relation("JournalLineRateSnapshot")
+  recurringTransactionTemplates RecurringTransactionTemplate[]   @relation("RecurringTransactionTemplateRateSnapshot")
+  recurringExpenseProposals     RecurringExpenseProposal[]       @relation("RecurringExpenseProposalRateSnapshot")
   fxRevaluationLines              FxRevaluationLine[]                  @relation("FxRevaluationLineRateSnapshot")
   fxMonetaryBalances              FxMonetaryBalance[]                  @relation("FxMonetaryBalanceRateSnapshot")
   customerAllocationCarryingRates CustomerPaymentAllocation[]          @relation("CustomerPaymentAllocationCarryingRateSnapshot")
@@ -3760,7 +3858,9 @@ model TaxRate {
   itemPurchaseTaxItems   Item[]                  @relation("ItemPurchaseTaxRate")
   salesInvoiceLines      SalesInvoiceLine[]
   salesQuoteLines        SalesQuoteLine[]
-  recurringInvoiceTemplateLines RecurringInvoiceTemplateLine[]
+  recurringInvoiceTemplateLines     RecurringInvoiceTemplateLine[]
+  recurringTransactionTemplateLines RecurringTransactionTemplateLine[] @relation("RecurringTransactionTemplateLineTaxRate")
+  recurringExpenseProposalLines     RecurringExpenseProposalLine[]     @relation("RecurringExpenseProposalLineTaxRate")
   creditNoteLines        CreditNoteLine[]
   purchaseOrderLines     PurchaseOrderLine[]
   purchaseBillLines      PurchaseBillLine[]
@@ -3768,6 +3868,7 @@ model TaxRate {
   cashExpenseLines       CashExpenseLine[]
 
   @@unique([organizationId, name])
+  @@unique([organizationId, id])
   @@index([organizationId])
 }
 
@@ -3800,7 +3901,9 @@ model Item {
   purchaseTaxRate        TaxRate?                @relation("ItemPurchaseTaxRate", fields: [purchaseTaxRateId], references: [id])
   salesInvoiceLines      SalesInvoiceLine[]
   salesQuoteLines        SalesQuoteLine[]
-  recurringInvoiceTemplateLines RecurringInvoiceTemplateLine[]
+  recurringInvoiceTemplateLines     RecurringInvoiceTemplateLine[]
+  recurringTransactionTemplateLines RecurringTransactionTemplateLine[] @relation("RecurringTransactionTemplateLineItem")
+  recurringExpenseProposalLines     RecurringExpenseProposalLine[]     @relation("RecurringExpenseProposalLineItem")
   deliveryNoteLines      DeliveryNoteLine[]
   creditNoteLines        CreditNoteLine[]
   purchaseOrderLines     PurchaseOrderLine[]
@@ -3818,6 +3921,7 @@ model Item {
   salesInventoryReturnLines SalesInventoryReturnLine[]
 
   @@unique([organizationId, sku])
+  @@unique([organizationId, id])
   @@index([organizationId])
   @@index([revenueAccountId])
   @@index([salesTaxRateId])
@@ -4125,6 +4229,7 @@ model SalesInvoice {
   zatcaSignedArtifactDrafts   ZatcaSignedArtifactDraft[]
   convertedFromQuote          SalesQuote?                          @relation("SalesQuoteConvertedInvoice")
   recurringInvoiceRun         RecurringInvoiceRun?                  @relation("RecurringInvoiceRunGeneratedInvoice")
+  recurringTransactionRun     RecurringTransactionRun?              @relation("RecurringRunSalesInvoice")
   deliveryNotes               DeliveryNote[]                        @relation("DeliveryNoteSourceInvoice")
   collectionCases             CollectionCase[]                      @relation("CollectionCaseSalesInvoice")
   collectionActivities        CollectionActivity[]                   @relation("CollectionActivitySalesInvoice")
@@ -4153,6 +4258,8 @@ model SalesInvoiceLine {
   unitPrice       Decimal               @db.Decimal(20, 4)
   discountRate    Decimal               @default(0) @db.Decimal(7, 4)
   taxRateId       String?               @db.Uuid
+  costCenterId    String?               @db.Uuid
+  projectId       String?               @db.Uuid
   lineGrossAmount Decimal               @default(0) @db.Decimal(20, 4)
   discountAmount  Decimal               @default(0) @db.Decimal(20, 4)
   taxableAmount   Decimal               @default(0) @db.Decimal(20, 4)
@@ -4172,6 +4279,8 @@ model SalesInvoiceLine {
   item            Item?                 @relation(fields: [itemId], references: [id], onDelete: SetNull)
   account         Account               @relation(fields: [accountId], references: [id])
   taxRate         TaxRate?              @relation(fields: [taxRateId], references: [id], onDelete: SetNull)
+  costCenter      CostCenter?           @relation("SalesInvoiceLineCostCenter", fields: [organizationId, costCenterId], references: [organizationId, id], onDelete: NoAction)
+  project         Project?              @relation("SalesInvoiceLineProject", fields: [organizationId, projectId], references: [organizationId, id], onDelete: NoAction)
   stockIssueLines SalesStockIssueLine[]
   deliveryNoteLines DeliveryNoteLine[]   @relation("DeliveryNoteSourceInvoiceLine")
   salesInventoryReturnLines SalesInventoryReturnLine[] @relation("SalesInventoryReturnSourceInvoiceLine")
@@ -4180,6 +4289,8 @@ model SalesInvoiceLine {
   @@index([invoiceId])
   @@index([itemId])
   @@index([accountId])
+  @@index([organizationId, costCenterId])
+  @@index([organizationId, projectId])
 }
 
 model SalesQuote {
@@ -4364,6 +4475,249 @@ model RecurringInvoiceRun {
   @@index([templateId])
   @@index([runDate])
   @@index([generatedById])
+}
+
+model RecurringTransactionTemplate {
+  id                   String                       @id @default(uuid()) @db.Uuid
+  organizationId       String                       @db.Uuid
+  transactionType      RecurringTransactionType
+  templateCode         String
+  name                 String
+  description          String?
+  status               RecurringTransactionStatus  @default(DRAFT)
+  timezone             String
+  frequency            RecurringFrequency
+  interval             Int                          @default(1)
+  dayOfWeek            Int?
+  dayOfMonth           Int?
+  monthOfYear          Int?
+  startDate            DateTime                     @db.Date
+  endDate              DateTime?                    @db.Date
+  nextRunAt            DateTime                     @db.Timestamptz(3)
+  lastRunAt            DateTime?                    @db.Timestamptz(3)
+  catchUpPolicy        RecurringCatchUpPolicy       @default(SKIP_MISSED)
+  generationMode       RecurringGenerationMode      @default(DRAFT_ONLY)
+  templateVersion      Int                          @default(1)
+  currencyCode         String
+  exchangeRatePolicy   RecurringExchangeRatePolicy  @default(BASE_CURRENCY_ONLY)
+  fixedExchangeRate    Decimal?                     @db.Decimal(18, 8)
+  rateSnapshotId       String?                      @db.Uuid
+  partyId              String?                      @db.Uuid
+  branchId             String?                      @db.Uuid
+  paidThroughAccountId String?                      @db.Uuid
+  paymentTermsDays     Int                          @default(0)
+  reference            String?
+  notes                String?
+  terms                String?
+  taxMode              SalesInvoiceTaxMode?
+  inventoryPostingMode PurchaseBillInventoryPostingMode?
+  subtotal             Decimal                      @default(0) @db.Decimal(20, 4)
+  discountTotal        Decimal                      @default(0) @db.Decimal(20, 4)
+  taxableTotal         Decimal                      @default(0) @db.Decimal(20, 4)
+  taxTotal             Decimal                      @default(0) @db.Decimal(20, 4)
+  total                Decimal                      @default(0) @db.Decimal(20, 4)
+  createdByUserId      String?                      @db.Uuid
+  updatedByUserId      String?                      @db.Uuid
+  archivedAt           DateTime?                    @db.Timestamptz(3)
+  createdAt            DateTime                     @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime                     @updatedAt @db.Timestamptz(3)
+  organization         Organization                 @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  rateSnapshot         CurrencyRateSnapshot?        @relation("RecurringTransactionTemplateRateSnapshot", fields: [organizationId, rateSnapshotId], references: [organizationId, id], onDelete: NoAction)
+  party                Contact?                     @relation("RecurringTransactionTemplateParty", fields: [organizationId, partyId], references: [organizationId, id], onDelete: NoAction)
+  branch               Branch?                      @relation("RecurringTransactionTemplateBranch", fields: [organizationId, branchId], references: [organizationId, id], onDelete: NoAction)
+  paidThroughAccount   Account?                     @relation("RecurringTransactionTemplatePaidThrough", fields: [organizationId, paidThroughAccountId], references: [organizationId, id], onDelete: NoAction)
+  createdBy            User?                        @relation("RecurringTransactionTemplateCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedBy            User?                        @relation("RecurringTransactionTemplateUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  lines                RecurringTransactionTemplateLine[]
+  runs                 RecurringTransactionRun[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, templateCode])
+  @@index([organizationId, status, nextRunAt])
+  @@index([status, nextRunAt])
+  @@index([organizationId, transactionType, status])
+  @@index([organizationId, partyId])
+  @@index([organizationId, branchId])
+  @@index([organizationId, paidThroughAccountId])
+  @@index([organizationId, currencyCode])
+  @@index([organizationId, rateSnapshotId])
+  @@index([createdByUserId])
+  @@index([updatedByUserId])
+}
+
+model RecurringTransactionTemplateLine {
+  id              String                       @id @default(uuid()) @db.Uuid
+  organizationId  String                       @db.Uuid
+  templateId      String                       @db.Uuid
+  itemId          String?                      @db.Uuid
+  accountId       String                       @db.Uuid
+  taxRateId       String?                      @db.Uuid
+  costCenterId    String?                      @db.Uuid
+  projectId       String?                      @db.Uuid
+  description     String
+  quantity        Decimal                      @default(1) @db.Decimal(20, 4)
+  unitPrice       Decimal                      @default(0) @db.Decimal(20, 4)
+  discountRate    Decimal                      @default(0) @db.Decimal(7, 4)
+  debit           Decimal                      @default(0) @db.Decimal(20, 4)
+  credit          Decimal                      @default(0) @db.Decimal(20, 4)
+  lineGrossAmount Decimal                      @default(0) @db.Decimal(20, 4)
+  discountAmount  Decimal                      @default(0) @db.Decimal(20, 4)
+  taxableAmount   Decimal                      @default(0) @db.Decimal(20, 4)
+  taxAmount       Decimal                      @default(0) @db.Decimal(20, 4)
+  lineTotal       Decimal                      @default(0) @db.Decimal(20, 4)
+  sortOrder       Int                          @default(0)
+  createdAt       DateTime                     @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime                     @updatedAt @db.Timestamptz(3)
+  organization    Organization                 @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  template        RecurringTransactionTemplate @relation(fields: [organizationId, templateId], references: [organizationId, id], onDelete: Cascade)
+  item            Item?                        @relation("RecurringTransactionTemplateLineItem", fields: [organizationId, itemId], references: [organizationId, id], onDelete: NoAction)
+  account         Account                      @relation("RecurringTransactionTemplateLineAccount", fields: [organizationId, accountId], references: [organizationId, id], onDelete: NoAction)
+  taxRate         TaxRate?                     @relation("RecurringTransactionTemplateLineTaxRate", fields: [organizationId, taxRateId], references: [organizationId, id], onDelete: NoAction)
+  costCenter      CostCenter?                  @relation("RecurringTransactionTemplateLineCostCenter", fields: [organizationId, costCenterId], references: [organizationId, id], onDelete: NoAction)
+  project         Project?                     @relation("RecurringTransactionTemplateLineProject", fields: [organizationId, projectId], references: [organizationId, id], onDelete: NoAction)
+
+  @@unique([organizationId, templateId, sortOrder])
+  @@index([organizationId, templateId])
+  @@index([organizationId, itemId])
+  @@index([organizationId, accountId])
+  @@index([organizationId, taxRateId])
+  @@index([organizationId, costCenterId])
+  @@index([organizationId, projectId])
+}
+
+model RecurringTransactionRun {
+  id                         String                      @id @default(uuid()) @db.Uuid
+  organizationId             String                      @db.Uuid
+  templateId                 String                      @db.Uuid
+  templateVersion            Int
+  scheduledFor               DateTime                    @db.Timestamptz(3)
+  scheduledLocalDate         DateTime                    @db.Date
+  timezone                   String
+  trigger                    RecurringRunTrigger
+  status                     RecurringRunStatus           @default(PENDING)
+  attemptCount               Int                          @default(0)
+  nextAttemptAt              DateTime?                    @db.Timestamptz(3)
+  idempotencyKey             String
+  workerClaimId              String?
+  startedAt                  DateTime?                    @db.Timestamptz(3)
+  completedAt                DateTime?                    @db.Timestamptz(3)
+  generatedSalesInvoiceId    String?                      @unique @db.Uuid
+  generatedPurchaseBillId    String?                      @unique @db.Uuid
+  generatedJournalEntryId    String?                      @unique @db.Uuid
+  generatedExpenseProposalId String?                      @unique @db.Uuid
+  failureCode                String?
+  failureMessageSafe         String?
+  failureRetriable           Boolean                      @default(false)
+  requestId                  String?
+  sourceSnapshot             Json
+  createdAt                  DateTime                     @default(now()) @db.Timestamptz(3)
+  updatedAt                  DateTime                     @updatedAt @db.Timestamptz(3)
+  organization              Organization                 @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  template                  RecurringTransactionTemplate @relation(fields: [organizationId, templateId], references: [organizationId, id], onDelete: NoAction)
+  generatedSalesInvoice     SalesInvoice?                @relation("RecurringRunSalesInvoice", fields: [organizationId, generatedSalesInvoiceId], references: [organizationId, id], onDelete: NoAction)
+  generatedPurchaseBill     PurchaseBill?                @relation("RecurringRunPurchaseBill", fields: [organizationId, generatedPurchaseBillId], references: [organizationId, id], onDelete: NoAction)
+  generatedJournalEntry     JournalEntry?                @relation("RecurringRunJournalEntry", fields: [organizationId, generatedJournalEntryId], references: [organizationId, id], onDelete: NoAction)
+  generatedExpenseProposal  RecurringExpenseProposal?    @relation("RecurringRunExpenseProposal", fields: [organizationId, generatedExpenseProposalId], references: [organizationId, id], onDelete: NoAction)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, templateId, scheduledFor])
+  @@unique([organizationId, idempotencyKey])
+  @@unique([organizationId, generatedSalesInvoiceId])
+  @@unique([organizationId, generatedPurchaseBillId])
+  @@unique([organizationId, generatedJournalEntryId])
+  @@unique([organizationId, generatedExpenseProposalId])
+  @@index([organizationId, status, scheduledFor])
+  @@index([organizationId, templateId, createdAt])
+  @@index([status, nextAttemptAt])
+  @@index([status, createdAt])
+  @@index([workerClaimId])
+  @@index([requestId])
+}
+
+model RecurringExpenseProposal {
+  id                    String                          @id @default(uuid()) @db.Uuid
+  organizationId        String                          @db.Uuid
+  status                RecurringExpenseProposalStatus  @default(DRAFT)
+  proposedDate          DateTime                        @db.Date
+  contactId             String?                         @db.Uuid
+  branchId              String?                         @db.Uuid
+  paidThroughAccountId  String                          @db.Uuid
+  currency              String
+  baseCurrency          String
+  exchangeRate          Decimal?                        @db.Decimal(18, 8)
+  rateDate              DateTime?                       @db.Date
+  rateSource            CurrencyRateSource?
+  rateSnapshotId        String?                         @db.Uuid
+  subtotal              Decimal                         @default(0) @db.Decimal(20, 4)
+  discountTotal         Decimal                         @default(0) @db.Decimal(20, 4)
+  taxableTotal          Decimal                         @default(0) @db.Decimal(20, 4)
+  taxTotal              Decimal                         @default(0) @db.Decimal(20, 4)
+  total                 Decimal                         @default(0) @db.Decimal(20, 4)
+  description           String?
+  notes                 String?
+  reviewIdempotencyKey  String?
+  reviewedCashExpenseId String?                         @unique @db.Uuid
+  reviewedByUserId      String?                         @db.Uuid
+  reviewedAt            DateTime?                       @db.Timestamptz(3)
+  createdAt             DateTime                        @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime                        @updatedAt @db.Timestamptz(3)
+  organization          Organization                    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sourceRun             RecurringTransactionRun?        @relation("RecurringRunExpenseProposal")
+  contact               Contact?                        @relation("RecurringExpenseProposalContact", fields: [organizationId, contactId], references: [organizationId, id], onDelete: NoAction)
+  branch                Branch?                         @relation("RecurringExpenseProposalBranch", fields: [organizationId, branchId], references: [organizationId, id], onDelete: NoAction)
+  paidThroughAccount    Account                         @relation("RecurringExpenseProposalPaidThrough", fields: [organizationId, paidThroughAccountId], references: [organizationId, id], onDelete: NoAction)
+  rateSnapshot          CurrencyRateSnapshot?           @relation("RecurringExpenseProposalRateSnapshot", fields: [organizationId, rateSnapshotId], references: [organizationId, id], onDelete: NoAction)
+  reviewedCashExpense   CashExpense?                    @relation("RecurringExpenseProposalReviewedCashExpense", fields: [organizationId, reviewedCashExpenseId], references: [organizationId, id], onDelete: NoAction)
+  reviewedBy            User?                           @relation("RecurringExpenseProposalReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  lines                 RecurringExpenseProposalLine[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, reviewIdempotencyKey])
+  @@unique([organizationId, reviewedCashExpenseId])
+  @@index([organizationId, status, proposedDate])
+  @@index([organizationId, contactId])
+  @@index([organizationId, branchId])
+  @@index([organizationId, paidThroughAccountId])
+  @@index([organizationId, rateSnapshotId])
+  @@index([reviewedByUserId])
+}
+
+model RecurringExpenseProposalLine {
+  id              String                       @id @default(uuid()) @db.Uuid
+  organizationId  String                       @db.Uuid
+  proposalId      String                       @db.Uuid
+  itemId          String?                      @db.Uuid
+  accountId       String                       @db.Uuid
+  taxRateId       String?                      @db.Uuid
+  costCenterId    String?                      @db.Uuid
+  projectId       String?                      @db.Uuid
+  description     String
+  quantity        Decimal                      @default(1) @db.Decimal(20, 4)
+  unitPrice       Decimal                      @default(0) @db.Decimal(20, 4)
+  discountRate    Decimal                      @default(0) @db.Decimal(7, 4)
+  lineGrossAmount Decimal                      @default(0) @db.Decimal(20, 4)
+  discountAmount  Decimal                      @default(0) @db.Decimal(20, 4)
+  taxableAmount   Decimal                      @default(0) @db.Decimal(20, 4)
+  taxAmount       Decimal                      @default(0) @db.Decimal(20, 4)
+  lineTotal       Decimal                      @default(0) @db.Decimal(20, 4)
+  sortOrder       Int                          @default(0)
+  createdAt       DateTime                     @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime                     @updatedAt @db.Timestamptz(3)
+  organization    Organization                 @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  proposal        RecurringExpenseProposal     @relation(fields: [organizationId, proposalId], references: [organizationId, id], onDelete: Cascade)
+  item            Item?                        @relation("RecurringExpenseProposalLineItem", fields: [organizationId, itemId], references: [organizationId, id], onDelete: NoAction)
+  account         Account                      @relation("RecurringExpenseProposalLineAccount", fields: [organizationId, accountId], references: [organizationId, id], onDelete: NoAction)
+  taxRate         TaxRate?                     @relation("RecurringExpenseProposalLineTaxRate", fields: [organizationId, taxRateId], references: [organizationId, id], onDelete: NoAction)
+  costCenter      CostCenter?                  @relation("RecurringExpenseProposalLineCostCenter", fields: [organizationId, costCenterId], references: [organizationId, id], onDelete: NoAction)
+  project         Project?                     @relation("RecurringExpenseProposalLineProject", fields: [organizationId, projectId], references: [organizationId, id], onDelete: NoAction)
+
+  @@unique([organizationId, proposalId, sortOrder])
+  @@index([organizationId, proposalId])
+  @@index([organizationId, itemId])
+  @@index([organizationId, accountId])
+  @@index([organizationId, taxRateId])
+  @@index([organizationId, costCenterId])
+  @@index([organizationId, projectId])
 }
 
 model DeliveryNote {
@@ -4829,6 +5183,7 @@ model PurchaseBill {
   journalEntry                        JournalEntry?                        @relation("PurchaseBillJournal", fields: [journalEntryId], references: [id])
   reversalJournalEntry                JournalEntry?                        @relation("PurchaseBillReversalJournal", fields: [reversalJournalEntryId], references: [id])
   lines                               PurchaseBillLine[]
+  recurringTransactionRun             RecurringTransactionRun?       @relation("RecurringRunPurchaseBill")
   paymentAllocations                  SupplierPaymentAllocation[]
   supplierPaymentUnappliedAllocations SupplierPaymentUnappliedAllocation[]
   debitNoteAllocations                PurchaseDebitNoteAllocation[]
@@ -4914,6 +5269,8 @@ model PurchaseBillLine {
   unitPrice            Decimal               @db.Decimal(20, 4)
   discountRate         Decimal               @default(0) @db.Decimal(7, 4)
   taxRateId            String?               @db.Uuid
+  costCenterId         String?               @db.Uuid
+  projectId            String?               @db.Uuid
   lineGrossAmount      Decimal               @default(0) @db.Decimal(20, 4)
   discountAmount       Decimal               @default(0) @db.Decimal(20, 4)
   taxableAmount        Decimal               @default(0) @db.Decimal(20, 4)
@@ -4932,6 +5289,8 @@ model PurchaseBillLine {
   item                 Item?                 @relation(fields: [itemId], references: [id], onDelete: SetNull)
   account              Account               @relation(fields: [accountId], references: [id])
   taxRate              TaxRate?              @relation(fields: [taxRateId], references: [id], onDelete: SetNull)
+  costCenter           CostCenter?           @relation("PurchaseBillLineCostCenter", fields: [organizationId, costCenterId], references: [organizationId, id], onDelete: NoAction)
+  project              Project?              @relation("PurchaseBillLineProject", fields: [organizationId, projectId], references: [organizationId, id], onDelete: NoAction)
   purchaseReceiptLines PurchaseReceiptLine[]
   purchaseReturnLines  PurchaseReturnLine[]
 
@@ -4939,6 +5298,8 @@ model PurchaseBillLine {
   @@index([billId])
   @@index([itemId])
   @@index([accountId])
+  @@index([organizationId, costCenterId])
+  @@index([organizationId, projectId])
 }
 
 model PurchaseReceipt {
@@ -5434,8 +5795,10 @@ model CashExpense {
   journalEntry               JournalEntry?     @relation("CashExpenseJournal", fields: [journalEntryId], references: [id])
   voidReversalJournalEntry   JournalEntry?     @relation("CashExpenseVoidReversalJournal", fields: [voidReversalJournalEntryId], references: [id])
   lines                      CashExpenseLine[]
+  reviewedRecurringExpenseProposal RecurringExpenseProposal? @relation("RecurringExpenseProposalReviewedCashExpense")
 
   @@unique([organizationId, expenseNumber])
+  @@unique([organizationId, id])
   @@index([organizationId])
   @@index([contactId])
   @@index([branchId])
@@ -5455,6 +5818,8 @@ model CashExpenseLine {
   unitPrice       Decimal      @db.Decimal(20, 4)
   discountRate    Decimal      @default(0) @db.Decimal(7, 4)
   taxRateId       String?      @db.Uuid
+  costCenterId    String?      @db.Uuid
+  projectId       String?      @db.Uuid
   lineGrossAmount Decimal      @default(0) @db.Decimal(20, 4)
   discountAmount  Decimal      @default(0) @db.Decimal(20, 4)
   taxableAmount   Decimal      @default(0) @db.Decimal(20, 4)
@@ -5473,11 +5838,15 @@ model CashExpenseLine {
   item            Item?        @relation(fields: [itemId], references: [id], onDelete: SetNull)
   account         Account      @relation(fields: [accountId], references: [id])
   taxRate         TaxRate?     @relation(fields: [taxRateId], references: [id], onDelete: SetNull)
+  costCenter      CostCenter?  @relation("CashExpenseLineCostCenter", fields: [organizationId, costCenterId], references: [organizationId, id], onDelete: NoAction)
+  project         Project?     @relation("CashExpenseLineProject", fields: [organizationId, projectId], references: [organizationId, id], onDelete: NoAction)
 
   @@index([organizationId])
   @@index([cashExpenseId])
   @@index([itemId])
   @@index([accountId])
+  @@index([organizationId, costCenterId])
+  @@index([organizationId, projectId])
 }
 
 model PurchaseDebitNoteAllocation {
@@ -5916,6 +6285,7 @@ model JournalEntry {
   fxRevaluationPostedRun                FxRevaluationRun?                    @relation("FxRevaluationPostedJournal")
   fxRevaluationReversalRun              FxRevaluationRun?                    @relation("FxRevaluationReversalJournal")
   lines                                 JournalLine[]
+  recurringTransactionRun               RecurringTransactionRun?          @relation("RecurringRunJournalEntry")
 
   @@unique([organizationId, entryNumber])
   @@unique([organizationId, id])

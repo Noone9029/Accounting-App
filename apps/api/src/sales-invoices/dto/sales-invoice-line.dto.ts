@@ -28,6 +28,14 @@ export class SalesInvoiceLineDto {
   taxRateId?: string | null;
 
   @IsOptional()
+  @IsUUID()
+  costCenterId?: string | null;
+
+  @IsOptional()
+  @IsUUID()
+  projectId?: string | null;
+
+  @IsOptional()
   @IsInt()
   @Min(0)
   sortOrder?: number;

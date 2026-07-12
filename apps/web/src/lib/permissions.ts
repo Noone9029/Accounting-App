@@ -142,6 +142,16 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
     return [PERMISSIONS.salesInvoices.view];
   }
 
+  if (pathname === "/recurring-transactions/new") {
+    return [PERMISSIONS.recurringTransactions.manage];
+  }
+  if (pathname.startsWith("/recurring-transactions/") && pathname.endsWith("/edit")) {
+    return [PERMISSIONS.recurringTransactions.manage];
+  }
+  if (pathname.startsWith("/recurring-transactions")) {
+    return [PERMISSIONS.recurringTransactions.read];
+  }
+
   if (pathname === "/sales/delivery-notes/new") {
     return [PERMISSIONS.salesInvoices.create];
   }

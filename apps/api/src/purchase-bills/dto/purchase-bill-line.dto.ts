@@ -29,6 +29,14 @@ export class PurchaseBillLineDto {
   taxRateId?: string | null;
 
   @IsOptional()
+  @IsPostgresUuid()
+  costCenterId?: string | null;
+
+  @IsOptional()
+  @IsPostgresUuid()
+  projectId?: string | null;
+
+  @IsOptional()
   @IsInt()
   @Min(0)
   sortOrder?: number;

@@ -27,6 +27,7 @@ import {
   InventoryValuationMethod,
 } from "@prisma/client";
 import { AuditLogService } from "../audit-log/audit-log.service";
+import { lockActiveDocumentLineDimensions, normalizedDocumentLineDimensions } from "../accounting/document-line-dimensions";
 import { documentFxAuditEvidence, isForeignDocumentFxContext, shouldAuditDocumentFxContextChange } from "../audit-log/audit-events";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
@@ -76,6 +77,8 @@ const purchaseBillInclude = {
       item: { select: { id: true, name: true, sku: true, inventoryTracking: true } },
       account: { select: { id: true, code: true, name: true, type: true } },
       taxRate: { select: { id: true, name: true, rate: true } },
+      costCenter: { select: { id: true, code: true, name: true, status: true } },
+      project: { select: { id: true, code: true, name: true, status: true } },
     },
   },
   paymentAllocations: {
@@ -145,6 +148,8 @@ interface PreparedLine {
   unitPrice: string;
   discountRate: string;
   taxRateId?: string;
+  costCenterId: string | null;
+  projectId: string | null;
   taxRate: string;
   lineGrossAmount: string;
   discountAmount: string;
@@ -531,28 +536,37 @@ export class PurchaseBillService {
   }
 
   async create(organizationId: string, actorUserId: string, dto: CreatePurchaseBillDto) {
-    const prepared = await this.preparePurchaseBill(organizationId, dto.lines);
-    await this.validateHeaderReferences(organizationId, dto.supplierId, dto.branchId ?? undefined);
+    return this.prisma.$transaction((tx) => this.createDraftInTransaction(organizationId, actorUserId, dto, tx));
+  }
+
+  async createDraftInTransaction(
+    organizationId: string,
+    actorUserId: string | null,
+    dto: CreatePurchaseBillDto,
+    tx: Prisma.TransactionClient,
+  ) {
+    const prepared = await this.preparePurchaseBill(organizationId, dto.lines, tx);
+    await this.validateHeaderReferences(organizationId, dto.supplierId, dto.branchId ?? undefined, tx);
     const inventoryPostingMode = dto.inventoryPostingMode ?? PurchaseBillInventoryPostingMode.DIRECT_EXPENSE_OR_ASSET;
-    await this.validateInventoryPostingMode(organizationId, inventoryPostingMode, prepared.lines);
+    await this.validateInventoryPostingMode(organizationId, inventoryPostingMode, prepared.lines, tx);
 
-    const bill = await this.prisma.$transaction(async (tx) => {
-      const fx = await this.documentFxContext().resolve(
-        organizationId,
-        {
-          currency: dto.currency,
-          documentDate: dto.billDate,
-          exchangeRate: dto.exchangeRate,
-          rateDate: dto.rateDate,
-          rateSource: dto.rateSource,
-          rateSnapshotId: dto.rateSnapshotId,
-        },
-        tx,
-      );
-      const converted = convertTransactionDocumentAmounts(prepared.lines, fx.exchangeRate);
-      const billNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.BILL, tx);
+    await lockActiveDocumentLineDimensions(tx, organizationId, prepared.lines);
+    const fx = await this.documentFxContext().resolve(
+      organizationId,
+      {
+        currency: dto.currency,
+        documentDate: dto.billDate,
+        exchangeRate: dto.exchangeRate,
+        rateDate: dto.rateDate,
+        rateSource: dto.rateSource,
+        rateSnapshotId: dto.rateSnapshotId,
+      },
+      tx,
+    );
+    const converted = convertTransactionDocumentAmounts(prepared.lines, fx.exchangeRate);
+    const billNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.BILL, tx);
 
-      return tx.purchaseBill.create({
+    const bill = await tx.purchaseBill.create({
         data: {
           organizationId,
           billNumber,
@@ -585,10 +599,8 @@ export class PurchaseBillService {
           lines: { create: this.toLineCreateMany(organizationId, prepared.lines, converted.lines) },
         },
         include: purchaseBillInclude,
-      });
     });
-
-    await this.auditLogService.log({ organizationId, actorUserId, action: "CREATE", entityType: "PurchaseBill", entityId: bill.id, after: bill });
+    await this.auditLogService.log({ organizationId, actorUserId: actorUserId ?? undefined, action: "CREATE", entityType: "PurchaseBill", entityId: bill.id, after: bill }, tx);
     return bill;
   }
 
@@ -621,6 +633,8 @@ export class PurchaseBillService {
       unitPrice: String(line.unitPrice),
       discountRate: String(line.discountRate),
       taxRateId: line.taxRateId,
+      costCenterId: line.costCenterId,
+      projectId: line.projectId,
       sortOrder: line.sortOrder,
     }));
     const prepared = shouldRecalculate ? await this.preparePurchaseBill(organizationId, recalculationLines ?? []) : null;
@@ -657,6 +671,7 @@ export class PurchaseBillService {
       }
       const converted = prepared ? convertTransactionDocumentAmounts(prepared.lines, fx.exchangeRate) : null;
       if (prepared) {
+        await lockActiveDocumentLineDimensions(tx, organizationId, prepared.lines);
         await tx.purchaseBillLine.deleteMany({ where: { organizationId, billId: id } });
       }
 
@@ -1069,11 +1084,12 @@ export class PurchaseBillService {
     organizationId: string,
     mode: PurchaseBillInventoryPostingMode,
     lines: Array<{ itemId?: string | null; inventoryTracking?: boolean; item?: { inventoryTracking: boolean } | null }>,
+    executor: PrismaExecutor = this.prisma,
   ): Promise<void> {
     if (mode === PurchaseBillInventoryPostingMode.DIRECT_EXPENSE_OR_ASSET) {
       return;
     }
-    const readiness = await this.inventoryClearingModeReadiness(organizationId, lines);
+    const readiness = await this.inventoryClearingModeReadiness(organizationId, lines, executor);
     if (readiness.blockingReasons.length > 0) {
       throw new BadRequestException(readiness.blockingReasons);
     }
@@ -1172,10 +1188,10 @@ export class PurchaseBillService {
     });
   }
 
-  private async preparePurchaseBill(organizationId: string, lines: PurchaseBillLineDto[]): Promise<PreparedPurchaseBill> {
+  private async preparePurchaseBill(organizationId: string, lines: PurchaseBillLineDto[], executor: PrismaExecutor = this.prisma): Promise<PreparedPurchaseBill> {
     const itemIds = lines.map((line) => this.cleanOptional(line.itemId ?? undefined)).filter((itemId): itemId is string => Boolean(itemId));
     const items = itemIds.length
-      ? await this.prisma.item.findMany({
+      ? await executor.item.findMany({
           where: { organizationId, id: { in: [...new Set(itemIds)] }, status: ItemStatus.ACTIVE },
           select: { id: true, name: true, description: true, expenseAccountId: true, purchaseTaxRateId: true, inventoryTracking: true },
         })
@@ -1204,6 +1220,7 @@ export class PurchaseBillService {
         unitPrice: line.unitPrice,
         discountRate: line.discountRate ?? "0",
         taxRateId,
+        ...normalizedDocumentLineDimensions(line),
         sortOrder: line.sortOrder ?? index,
       };
     });
@@ -1211,10 +1228,12 @@ export class PurchaseBillService {
     await this.validateLineAccounts(
       organizationId,
       baseLines.map((line) => line.accountId),
+      executor,
     );
     const taxRatesById = await this.getTaxRatesById(
       organizationId,
       baseLines.map((line) => line.taxRateId).filter((taxRateId): taxRateId is string => Boolean(taxRateId)),
+      executor,
     );
 
     const totals = this.calculateTotals(
@@ -1254,21 +1273,21 @@ export class PurchaseBillService {
     };
   }
 
-  private async validateHeaderReferences(organizationId: string, supplierId: string, branchId?: string): Promise<void> {
-    await this.validateSupplier(organizationId, supplierId);
+  private async validateHeaderReferences(organizationId: string, supplierId: string, branchId?: string, executor: PrismaExecutor = this.prisma): Promise<void> {
+    await this.validateSupplier(organizationId, supplierId, executor);
 
     if (!branchId) {
       return;
     }
 
-    const branch = await this.prisma.branch.findFirst({ where: { id: branchId, organizationId }, select: { id: true } });
+    const branch = await executor.branch.findFirst({ where: { id: branchId, organizationId }, select: { id: true } });
     if (!branch) {
       throw new BadRequestException("Branch does not exist in this organization.");
     }
   }
 
-  private async validateSupplier(organizationId: string, supplierId: string): Promise<void> {
-    const supplier = await this.prisma.contact.findFirst({
+  private async validateSupplier(organizationId: string, supplierId: string, executor: PrismaExecutor = this.prisma): Promise<void> {
+    const supplier = await executor.contact.findFirst({
       where: {
         id: supplierId,
         organizationId,
@@ -1305,9 +1324,9 @@ export class PurchaseBillService {
     }
   }
 
-  private async validateLineAccounts(organizationId: string, accountIds: string[]): Promise<void> {
+  private async validateLineAccounts(organizationId: string, accountIds: string[], executor: PrismaExecutor = this.prisma): Promise<void> {
     const uniqueAccountIds = [...new Set(accountIds)];
-    const accounts = await this.prisma.account.findMany({
+    const accounts = await executor.account.findMany({
       where: {
         organizationId,
         id: { in: uniqueAccountIds },
@@ -1323,13 +1342,13 @@ export class PurchaseBillService {
     }
   }
 
-  private async getTaxRatesById(organizationId: string, taxRateIds: string[]) {
+  private async getTaxRatesById(organizationId: string, taxRateIds: string[], executor: PrismaExecutor = this.prisma) {
     const uniqueTaxRateIds = [...new Set(taxRateIds)];
     if (uniqueTaxRateIds.length === 0) {
       return new Map<string, { id: string; rate: Prisma.Decimal }>();
     }
 
-    const taxRates = await this.prisma.taxRate.findMany({
+    const taxRates = await executor.taxRate.findMany({
       where: {
         organizationId,
         id: { in: uniqueTaxRateIds },
@@ -1450,6 +1469,8 @@ export class PurchaseBillService {
       item: line.itemId ? { connect: { id: line.itemId } } : undefined,
       account: { connect: { id: line.accountId } },
       taxRate: line.taxRateId ? { connect: { id: line.taxRateId } } : undefined,
+      costCenter: line.costCenterId ? { connect: { organizationId_id: { organizationId, id: line.costCenterId } } } : undefined,
+      project: line.projectId ? { connect: { organizationId_id: { organizationId, id: line.projectId } } } : undefined,
       description: line.description,
       quantity: line.quantity,
       unitPrice: line.unitPrice,

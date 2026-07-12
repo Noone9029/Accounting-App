@@ -22,6 +22,12 @@ describe("MigrationToolkitService", () => {
       headers: expect.arrayContaining(["currency", "exchangeRate", "rateDate", "rateSource", "rateSnapshotId"]),
       requiredHeaders: ["name", "type", "sellingPrice", "revenueAccountCode"],
     }));
+    expect(service.templates().supportedImports).toEqual(expect.arrayContaining([
+      expect.objectContaining({ entityType: ImportEntityType.RECURRING_SALES_INVOICE_TEMPLATES, headers: expect.arrayContaining(["timezone", "frequency", "currencyCode", "accountCode", "costCenterCode", "projectCode"]) }),
+      expect.objectContaining({ entityType: ImportEntityType.RECURRING_PURCHASE_BILL_TEMPLATES }),
+      expect.objectContaining({ entityType: ImportEntityType.RECURRING_EXPENSE_TEMPLATES }),
+      expect.objectContaining({ entityType: ImportEntityType.RECURRING_JOURNAL_TEMPLATES }),
+    ]));
   });
 
   it("creates preview jobs with row validation, duplicate detection, requestId, and no accounting mutation", async () => {
@@ -73,6 +79,76 @@ describe("MigrationToolkitService", () => {
       data: { status: ImportJobStatus.READY_FOR_REVIEW },
     });
     expect(job.status).toBe(ImportJobStatus.READY_FOR_REVIEW);
+  });
+
+  it("previews a tenant-resolved recurring sales template as an inactive one-line draft", async () => {
+    const { service, prisma } = makeService({
+      baseCurrency: "AED",
+      contacts: [{ id: "customer-1", name: "Beta Customer", type: ContactType.CUSTOMER, isActive: true }],
+      accounts: [{ id: "revenue-1", code: "410", type: AccountType.REVENUE, isActive: true, allowPosting: true }],
+      costCenters: [{ id: "cc-1", code: "OPS", status: "ACTIVE" }],
+      projects: [{ id: "project-1", code: "FALCON", status: "ACTIVE" }],
+    });
+
+    const preview = await service.createImportJob("org-1", "user-1", {
+      entityType: ImportEntityType.RECURRING_SALES_INVOICE_TEMPLATES,
+      filename: "recurring-sales.csv",
+      csvContent: "name,timezone,frequency,startDate,currencyCode,exchangeRatePolicy,partyName,description,accountCode,costCenterCode,projectCode,quantity,unitPrice\nMonthly support,Asia/Dubai,MONTHLY,2026-08-31,AED,BASE_CURRENCY_ONLY,Beta Customer,Support retainer,410,OPS,FALCON,1.0000,100.0000",
+    });
+
+    expect(preview.rows[0]).toMatchObject({
+      status: ImportJobRowStatus.VALID,
+      normalizedJson: expect.objectContaining({ transactionType: "SALES_INVOICE", partyId: "customer-1", accountId: "revenue-1", costCenterId: "cc-1", projectId: "project-1", activate: false }),
+    });
+    expect(prisma.recurringTransactionTemplate.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { organizationId: "org-1" } }));
+  });
+
+  it("rejects recurring imports with invalid timezone or missing tenant references", async () => {
+    const { service } = makeService({ baseCurrency: "AED", contacts: [], accounts: [] });
+    const preview = await service.createImportJob("org-1", "user-1", {
+      entityType: ImportEntityType.RECURRING_PURCHASE_BILL_TEMPLATES,
+      filename: "recurring-bills.csv",
+      csvContent: "name,timezone,frequency,startDate,currencyCode,exchangeRatePolicy,partyName,description,accountCode\nBad schedule,Mars/Olympus,MONTHLY,2026-08-01,AED,BASE_CURRENCY_ONLY,Missing Supplier,Hosting,999",
+    });
+    expect(preview.validationIssues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: "INVALID_TIMEZONE" }),
+      expect.objectContaining({ code: "INVALID_REFERENCE", field: "partyName" }),
+      expect.objectContaining({ code: "INVALID_REFERENCE", field: "accountCode" }),
+    ]));
+  });
+
+  it("revalidates and commits recurring imports through the normal draft template service", async () => {
+    const { service, prisma, recurringTemplates } = makeService({
+      baseCurrency: "AED",
+      contacts: [{ id: "customer-1", name: "Beta Customer", type: ContactType.CUSTOMER, isActive: true }],
+      accounts: [{ id: "revenue-1", code: "410", type: AccountType.REVENUE, isActive: true, allowPosting: true }],
+    });
+    await service.createImportJob("org-1", "user-1", {
+      entityType: ImportEntityType.RECURRING_SALES_INVOICE_TEMPLATES,
+      filename: "recurring-sales.csv",
+      csvContent: "name,timezone,frequency,startDate,currencyCode,exchangeRatePolicy,partyName,description,accountCode,quantity,unitPrice\nMonthly support,Asia/Dubai,MONTHLY,2026-08-31,AED,BASE_CURRENCY_ONLY,Beta Customer,Support retainer,410,1.0000,100.0000",
+    });
+
+    await service.commitImportJob("org-1", "user-1", "job-1", { confirmReviewed: true });
+
+    expect(recurringTemplates.createInTransaction).toHaveBeenCalledWith(prisma, "org-1", "user-1", expect.objectContaining({
+      transactionType: "SALES_INVOICE", name: "Monthly support", partyId: "customer-1", catchUpPolicy: "SKIP_MISSED",
+      lines: [expect.objectContaining({ accountId: "revenue-1", description: "Support retainer" })],
+    }));
+  });
+
+  it("exports recurring templates and run evidence with CSV injection protection", async () => {
+    const { service } = makeService({
+      recurringTemplates: [{ templateCode: "REC-000001", name: "=Unsafe name", transactionType: "SALES_INVOICE", status: "ACTIVE", timezone: "Asia/Dubai", frequency: "MONTHLY", interval: 1, nextRunAt: new Date("2026-08-31T20:00:00.000Z"), currencyCode: "AED", exchangeRatePolicy: "BASE_CURRENCY_ONLY", templateVersion: 2, party: { name: "Beta Customer" } }],
+      recurringRuns: [{ id: "run-1", templateVersion: 2, scheduledFor: new Date("2026-08-31T20:00:00.000Z"), scheduledLocalDate: new Date("2026-09-01T00:00:00.000Z"), trigger: "SCHEDULED", status: "BLOCKED", attemptCount: 1, failureCode: "FISCAL_PERIOD_BLOCKED", failureMessageSafe: "Locked period", template: { templateCode: "REC-000001", name: "Monthly support" } }],
+    });
+    const templates = await service.exportCsv("org-1", ImportEntityType.RECURRING_SALES_INVOICE_TEMPLATES);
+    const runs = await service.exportCsv("org-1", ImportEntityType.RECURRING_TRANSACTION_RUNS);
+    expect(templates.filename).toBe("recurring_sales_invoice_templates-export.csv");
+    expect(templates.content).toContain("templateCode,name,transactionType,status,timezone");
+    expect(templates.content).toContain("'=Unsafe name");
+    expect(runs.content).toContain("templateCode,templateName,runId,templateVersion,scheduledFor,scheduledLocalDate,trigger,status,attemptCount,failureCode,failureMessage");
+    expect(runs.content).toContain("FISCAL_PERIOD_BLOCKED");
   });
 
   it("requires disposable local review commit and blocks jobs with validation errors", async () => {
@@ -692,6 +768,10 @@ function makeService(seed: {
   baseCurrency?: string;
   rates?: Array<Record<string, any>>;
   failItemCreateAt?: number;
+  costCenters?: Array<Record<string, unknown>>;
+  projects?: Array<Record<string, unknown>>;
+  recurringTemplates?: Array<Record<string, unknown>>;
+  recurringRuns?: Array<Record<string, unknown>>;
 } = {}) {
   const store: { job: any; createdItemIds: string[] } = {
     job: makeJob(),
@@ -784,6 +864,12 @@ function makeService(seed: {
       findMany: jest.fn(async (args: any) => (seed.rates ?? []).filter((rate) =>
         rate.organizationId === args.where.organizationId && args.where.id.in.includes(rate.id))),
     },
+    costCenter: { findMany: jest.fn(async () => seed.costCenters ?? []) },
+    project: { findMany: jest.fn(async () => seed.projects ?? []) },
+    taxRate: { findMany: jest.fn(async () => []) },
+    branch: { findMany: jest.fn(async () => []) },
+    recurringTransactionTemplate: { findMany: jest.fn(async () => seed.recurringTemplates ?? []) },
+    recurringTransactionRun: { findMany: jest.fn(async () => seed.recurringRuns ?? []) },
   };
   prisma.__setJob = (job: any) => { store.job = job; };
   prisma.__getJob = () => store.job;
@@ -802,7 +888,8 @@ function makeService(seed: {
   });
   const auditLog = { log: jest.fn(async () => undefined) };
   const observability = { getRequestId: jest.fn(() => "req-import-1") };
-  return { service: new MigrationToolkitService(prisma as never, auditLog as never, observability as never), prisma, auditLog, transactionState };
+  const recurringTemplates = { createInTransaction: jest.fn(async (_tx, _organizationId, _actorUserId, dto) => ({ id: "recurring-created", ...dto })) };
+  return { service: new (MigrationToolkitService as any)(prisma, auditLog, observability, recurringTemplates), prisma, auditLog, transactionState, recurringTemplates };
 }
 
 function makeJob(overrides: Record<string, any> = {}) {

@@ -14,5 +14,6 @@ import { SalesInvoiceService } from "./sales-invoice.service";
   imports: [PrismaModule, AuditLogModule, FiscalPeriodModule, NumberSequenceModule, AccountingModule, OrganizationDocumentSettingsModule, GeneratedDocumentModule, CreditNoteModule],
   controllers: [SalesInvoiceController],
   providers: [SalesInvoiceService],
+  exports: [SalesInvoiceService],
 })
 export class SalesInvoiceModule {}

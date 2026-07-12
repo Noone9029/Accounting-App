@@ -26,7 +26,16 @@ export type FiscalPeriodStatus = "OPEN" | "CLOSED" | "LOCKED";
 export type ItemType = "SERVICE" | "PRODUCT";
 export type ItemStatus = "ACTIVE" | "DISABLED";
 export type ItemTrackingMode = "NONE" | "SERIAL" | "BATCH" | "SERIAL_AND_BATCH";
-export type ImportEntityType = "CUSTOMERS" | "SUPPLIERS" | "PRODUCTS_SERVICES" | "CHART_OF_ACCOUNTS";
+export type ImportEntityType =
+  | "CUSTOMERS"
+  | "SUPPLIERS"
+  | "PRODUCTS_SERVICES"
+  | "CHART_OF_ACCOUNTS"
+  | "RECURRING_SALES_INVOICE_TEMPLATES"
+  | "RECURRING_PURCHASE_BILL_TEMPLATES"
+  | "RECURRING_EXPENSE_TEMPLATES"
+  | "RECURRING_JOURNAL_TEMPLATES"
+  | "RECURRING_TRANSACTION_RUNS";
 export type ImportJobStatus = "UPLOADED" | "VALIDATING" | "READY_FOR_REVIEW" | "COMMITTED_LOCAL" | "FAILED" | "CANCELLED";
 export type ImportJobRowStatus = "VALID" | "INVALID" | "DUPLICATE" | "COMMIT_BLOCKED" | "COMMITTED";
 export interface MigrationToolkitTemplate {

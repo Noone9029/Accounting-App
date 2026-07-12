@@ -21,6 +21,7 @@ import {
   TaxRateScope,
 } from "@prisma/client";
 import { AuditLogService } from "../audit-log/audit-log.service";
+import { lockActiveDocumentLineDimensions, normalizedDocumentLineDimensions } from "../accounting/document-line-dimensions";
 import { documentFxAuditEvidence, isForeignDocumentFxContext } from "../audit-log/audit-events";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
@@ -56,6 +57,8 @@ const cashExpenseInclude = {
       item: { select: { id: true, name: true, sku: true } },
       account: { select: { id: true, code: true, name: true, type: true } },
       taxRate: { select: { id: true, name: true, rate: true } },
+      costCenter: { select: { id: true, code: true, name: true, status: true } },
+      project: { select: { id: true, code: true, name: true, status: true } },
     },
   },
 };
@@ -68,6 +71,8 @@ interface PreparedLine {
   unitPrice: string;
   discountRate: string;
   taxRateId?: string;
+  costCenterId: string | null;
+  projectId: string | null;
   taxRate: string;
   lineGrossAmount: string;
   discountAmount: string;
@@ -137,19 +142,46 @@ export class CashExpenseService {
       dto.paidThroughAccountId,
     );
     this.assertPostableCashExpense(prepared);
+    return this.prisma.$transaction((tx) => this.persistPostedInTransaction(organizationId, actorUserId, dto, prepared, tx));
+  }
 
-    const expense = await this.prisma.$transaction(async (tx) => {
-      const expenseDate = new Date(dto.expenseDate);
-      await this.assertPostingDateAllowed(organizationId, expenseDate, tx);
-      const fx = await this.documentFxContext().resolve(organizationId, {
-        currency: dto.currency, documentDate: dto.expenseDate, exchangeRate: dto.exchangeRate,
-        rateDate: dto.rateDate, rateSource: dto.rateSource, rateSnapshotId: dto.rateSnapshotId,
-      }, tx);
-      const converted = convertTransactionDocumentAmounts(prepared.lines, fx.exchangeRate);
-      const expenseNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.CASH_EXPENSE, tx);
-      const paidThroughAccount = await this.findPaidThroughAccount(organizationId, dto.paidThroughAccountId, tx);
-      const vatReceivableAccount = await this.findPostingAccountByCode(organizationId, "230", tx);
-      const journalLines = buildCashExpenseJournalLines({
+  async createPostedInTransaction(
+    organizationId: string,
+    actorUserId: string,
+    dto: CreateCashExpenseDto,
+    tx: Prisma.TransactionClient,
+  ) {
+    const prepared = await this.prepareCashExpense(organizationId, dto.lines, tx);
+    await this.validateHeaderReferences(
+      organizationId,
+      this.cleanOptional(dto.contactId ?? undefined),
+      this.cleanOptional(dto.branchId ?? undefined),
+      dto.paidThroughAccountId,
+      tx,
+    );
+    this.assertPostableCashExpense(prepared);
+    return this.persistPostedInTransaction(organizationId, actorUserId, dto, prepared, tx);
+  }
+
+  private async persistPostedInTransaction(
+    organizationId: string,
+    actorUserId: string,
+    dto: CreateCashExpenseDto,
+    prepared: PreparedCashExpense,
+    tx: Prisma.TransactionClient,
+  ) {
+    const expenseDate = new Date(dto.expenseDate);
+    await lockActiveDocumentLineDimensions(tx, organizationId, prepared.lines);
+    await this.assertPostingDateAllowed(organizationId, expenseDate, tx);
+    const fx = await this.documentFxContext().resolve(organizationId, {
+      currency: dto.currency, documentDate: dto.expenseDate, exchangeRate: dto.exchangeRate,
+      rateDate: dto.rateDate, rateSource: dto.rateSource, rateSnapshotId: dto.rateSnapshotId,
+    }, tx);
+    const converted = convertTransactionDocumentAmounts(prepared.lines, fx.exchangeRate);
+    const expenseNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.CASH_EXPENSE, tx);
+    const paidThroughAccount = await this.findPaidThroughAccount(organizationId, dto.paidThroughAccountId, tx);
+    const vatReceivableAccount = await this.findPostingAccountByCode(organizationId, "230", tx);
+    const journalLines = buildCashExpenseJournalLines({
         paidThroughAccountId: paidThroughAccount.id,
         vatReceivableAccountId: vatReceivableAccount.id,
         expenseNumber,
@@ -168,8 +200,8 @@ export class CashExpenseService {
           transactionTaxableAmount: line.taxableAmount,
         })),
       });
-      const totals = getJournalTotals(journalLines);
-      const journalEntry = await tx.journalEntry.create({
+    const totals = getJournalTotals(journalLines);
+    const journalEntry = await tx.journalEntry.create({
         data: {
           organizationId,
           entryNumber: await this.numberSequenceService.next(organizationId, NumberSequenceScope.JOURNAL_ENTRY, tx),
@@ -187,7 +219,7 @@ export class CashExpenseService {
         },
       });
 
-      const createdExpense = await tx.cashExpense.create({
+    const createdExpense = await tx.cashExpense.create({
         data: {
           organizationId,
           expenseNumber,
@@ -221,21 +253,18 @@ export class CashExpenseService {
         },
         include: cashExpenseInclude,
       });
-      if (isForeignDocumentFxContext(fx)) {
-        await this.auditLogService.log({
-          organizationId,
-          actorUserId,
-          action: "FREEZE_FX_RATE",
-          entityType: "CashExpense",
-          entityId: createdExpense.id,
-          after: documentFxAuditEvidence(fx),
-        }, tx);
-      }
-      return createdExpense;
-    });
-
-    await this.auditLogService.log({ organizationId, actorUserId, action: "CREATE", entityType: "CashExpense", entityId: expense.id, after: expense });
-    return expense;
+    if (isForeignDocumentFxContext(fx)) {
+      await this.auditLogService.log({
+        organizationId,
+        actorUserId,
+        action: "FREEZE_FX_RATE",
+        entityType: "CashExpense",
+        entityId: createdExpense.id,
+        after: documentFxAuditEvidence(fx),
+      }, tx);
+    }
+    await this.auditLogService.log({ organizationId, actorUserId, action: "CREATE", entityType: "CashExpense", entityId: createdExpense.id, after: createdExpense }, tx);
+    return createdExpense;
   }
 
   async void(organizationId: string, actorUserId: string, id: string) {
@@ -436,10 +465,10 @@ export class CashExpenseService {
     return document;
   }
 
-  private async prepareCashExpense(organizationId: string, lines: CashExpenseLineDto[]): Promise<PreparedCashExpense> {
+  private async prepareCashExpense(organizationId: string, lines: CashExpenseLineDto[], executor: PrismaExecutor = this.prisma): Promise<PreparedCashExpense> {
     const itemIds = lines.map((line) => this.cleanOptional(line.itemId ?? undefined)).filter((itemId): itemId is string => Boolean(itemId));
     const items = itemIds.length
-      ? await this.prisma.item.findMany({
+      ? await executor.item.findMany({
           where: { organizationId, id: { in: [...new Set(itemIds)] }, status: ItemStatus.ACTIVE },
           select: { id: true, name: true, description: true, expenseAccountId: true, purchaseTaxRateId: true },
         })
@@ -467,6 +496,7 @@ export class CashExpenseService {
         unitPrice: line.unitPrice,
         discountRate: line.discountRate ?? "0",
         taxRateId,
+        ...normalizedDocumentLineDimensions(line),
         sortOrder: line.sortOrder ?? index,
       };
     });
@@ -474,10 +504,12 @@ export class CashExpenseService {
     await this.validateLineAccounts(
       organizationId,
       baseLines.map((line) => line.accountId),
+      executor,
     );
     const taxRatesById = await this.getTaxRatesById(
       organizationId,
       baseLines.map((line) => line.taxRateId).filter((taxRateId): taxRateId is string => Boolean(taxRateId)),
+      executor,
     );
 
     const totals = this.calculateTotals(
@@ -522,11 +554,12 @@ export class CashExpenseService {
     contactId: string | undefined,
     branchId: string | undefined,
     paidThroughAccountId: string,
+    executor: PrismaExecutor = this.prisma,
   ): Promise<void> {
-    await this.findPaidThroughAccount(organizationId, paidThroughAccountId);
+    await this.findPaidThroughAccount(organizationId, paidThroughAccountId, executor);
 
     if (contactId) {
-      const contact = await this.prisma.contact.findFirst({
+      const contact = await executor.contact.findFirst({
         where: {
           id: contactId,
           organizationId,
@@ -541,7 +574,7 @@ export class CashExpenseService {
     }
 
     if (branchId) {
-      const branch = await this.prisma.branch.findFirst({ where: { id: branchId, organizationId }, select: { id: true } });
+      const branch = await executor.branch.findFirst({ where: { id: branchId, organizationId }, select: { id: true } });
       if (!branch) {
         throw new BadRequestException("Branch does not exist in this organization.");
       }
@@ -570,9 +603,9 @@ export class CashExpenseService {
     }
   }
 
-  private async validateLineAccounts(organizationId: string, accountIds: string[]): Promise<void> {
+  private async validateLineAccounts(organizationId: string, accountIds: string[], executor: PrismaExecutor = this.prisma): Promise<void> {
     const uniqueAccountIds = [...new Set(accountIds)];
-    const accounts = await this.prisma.account.findMany({
+    const accounts = await executor.account.findMany({
       where: {
         organizationId,
         id: { in: uniqueAccountIds },
@@ -588,13 +621,13 @@ export class CashExpenseService {
     }
   }
 
-  private async getTaxRatesById(organizationId: string, taxRateIds: string[]) {
+  private async getTaxRatesById(organizationId: string, taxRateIds: string[], executor: PrismaExecutor = this.prisma) {
     const uniqueTaxRateIds = [...new Set(taxRateIds)];
     if (uniqueTaxRateIds.length === 0) {
       return new Map<string, { id: string; rate: Prisma.Decimal }>();
     }
 
-    const taxRates = await this.prisma.taxRate.findMany({
+    const taxRates = await executor.taxRate.findMany({
       where: {
         organizationId,
         id: { in: uniqueTaxRateIds },
@@ -728,6 +761,8 @@ export class CashExpenseService {
       item: line.itemId ? { connect: { id: line.itemId } } : undefined,
       account: { connect: { id: line.accountId } },
       taxRate: line.taxRateId ? { connect: { id: line.taxRateId } } : undefined,
+      costCenter: line.costCenterId ? { connect: { organizationId_id: { organizationId, id: line.costCenterId } } } : undefined,
+      project: line.projectId ? { connect: { organizationId_id: { organizationId, id: line.projectId } } } : undefined,
       description: line.description,
       quantity: line.quantity,
       unitPrice: line.unitPrice,

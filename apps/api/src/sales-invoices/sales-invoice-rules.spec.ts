@@ -770,6 +770,7 @@ describe("sales invoice rules", () => {
       taxRate: { findMany: jest.fn() },
       $transaction: jest.fn(),
     };
+    prisma.$transaction.mockImplementation((callback: (client: typeof prisma) => Promise<unknown>) => callback(prisma));
     const service = new SalesInvoiceService(prisma as never, { log: jest.fn() } as never, { next: jest.fn() } as never, { reverse: jest.fn() } as never);
 
     prisma.contact.findFirst.mockResolvedValueOnce(null);
@@ -790,6 +791,105 @@ describe("sales invoice rules", () => {
     prisma.account.findMany.mockResolvedValue([{ id: "account-1" }]);
     prisma.taxRate.findMany.mockResolvedValueOnce([]);
     await expect(service.create("org-1", "user-1", { customerId: "customer-1", issueDate: new Date().toISOString(), lines: [{ ...baseLine, taxRateId: "other-tax" }] })).rejects.toThrow();
+  });
+
+  it("locks and persists active dimensions when creating a sales invoice", async () => {
+    const tx = {
+      $queryRaw: jest.fn()
+        .mockResolvedValueOnce([{ id: "cost-1" }])
+        .mockResolvedValueOnce([{ id: "project-1" }]),
+      organization: { findUnique: jest.fn().mockResolvedValue({ baseCurrency: "SAR" }) },
+      currencyRateSnapshot: { findFirst: jest.fn() },
+      salesInvoice: {
+        create: jest.fn(({ data }: { data: Record<string, unknown> }) => Promise.resolve({ id: "invoice-1", ...data })),
+      },
+    };
+    const prisma = {
+      contact: { findFirst: jest.fn().mockResolvedValue({ id: "customer-1" }) },
+      item: { findMany: jest.fn().mockResolvedValue([]) },
+      account: { findMany: jest.fn().mockResolvedValue([{ id: "revenue-1" }]) },
+      taxRate: { findMany: jest.fn().mockResolvedValue([]) },
+      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => {
+        Object.assign(tx, {
+          contact: prisma.contact,
+          item: prisma.item,
+          account: prisma.account,
+          taxRate: prisma.taxRate,
+        });
+        return callback(tx);
+      }),
+    };
+    const service = new SalesInvoiceService(
+      prisma as never,
+      { log: jest.fn() } as never,
+      { next: jest.fn().mockResolvedValue("INV-000001") } as never,
+      { reverse: jest.fn() } as never,
+    );
+
+    await service.create("org-1", "user-1", {
+      customerId: "customer-1",
+      issueDate: "2026-07-12",
+      currency: "SAR",
+      lines: [{
+        description: "Consulting",
+        accountId: "revenue-1",
+        quantity: "1.0000",
+        unitPrice: "100.0000",
+        costCenterId: "cost-1",
+        projectId: "project-1",
+      }],
+    });
+
+    expect(tx.$queryRaw).toHaveBeenCalledTimes(2);
+    expect(tx.salesInvoice.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        lines: { create: [expect.objectContaining({
+          costCenter: { connect: { organizationId_id: { organizationId: "org-1", id: "cost-1" } } },
+          project: { connect: { organizationId_id: { organizationId: "org-1", id: "project-1" } } },
+        })] },
+      }),
+    }));
+  });
+
+  it("rejects an archived dimension before creating a sales invoice", async () => {
+    const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([]),
+      salesInvoice: { create: jest.fn() },
+    };
+    const prisma = {
+      contact: { findFirst: jest.fn().mockResolvedValue({ id: "customer-1" }) },
+      item: { findMany: jest.fn().mockResolvedValue([]) },
+      account: { findMany: jest.fn().mockResolvedValue([{ id: "revenue-1" }]) },
+      taxRate: { findMany: jest.fn().mockResolvedValue([]) },
+      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => {
+        Object.assign(tx, {
+          contact: prisma.contact,
+          item: prisma.item,
+          account: prisma.account,
+          taxRate: prisma.taxRate,
+        });
+        return callback(tx);
+      }),
+    };
+    const service = new SalesInvoiceService(
+      prisma as never,
+      { log: jest.fn() } as never,
+      { next: jest.fn() } as never,
+      { reverse: jest.fn() } as never,
+    );
+
+    await expect(service.create("org-1", "user-1", {
+      customerId: "customer-1",
+      issueDate: "2026-07-12",
+      lines: [{
+        description: "Consulting",
+        accountId: "revenue-1",
+        quantity: "1.0000",
+        unitPrice: "100.0000",
+        costCenterId: "archived-cost",
+      }],
+    })).rejects.toThrow("cost centers do not exist or are archived");
+    expect(tx.salesInvoice.create).not.toHaveBeenCalled();
   });
 
   it("lists only finalized open invoices for a customer in the active organization", async () => {

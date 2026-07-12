@@ -10,12 +10,17 @@ import {
   ItemStatus,
   ItemType,
   Prisma,
+  RecurringCatchUpPolicy,
+  RecurringExchangeRatePolicy,
+  RecurringFrequency,
+  RecurringTransactionType,
 } from "@prisma/client";
 import { convertTransactionToBaseAmount } from "@ledgerbyte/accounting-core";
 import { normalizeSupportedCurrencyCode } from "@ledgerbyte/shared";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { ObservabilityContextService } from "../observability/observability-context.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { RecurringTemplateService } from "../recurring-transactions/recurring-template.service";
 import { toCsv, type CsvFile } from "../reports/report-csv";
 import { CommitImportJobDto, CreateImportJobDto } from "./dto/migration-toolkit.dto";
 
@@ -84,7 +89,31 @@ const IMPORT_TEMPLATES: ImportTemplateDefinition[] = [
     notes: ["Creates local non-system accounts only after explicit reviewed commit.", "Opening balances, journals, VAT mappings, and official filing data are not imported."],
     sample: { code: "410", name: "Service revenue", type: "REVENUE", description: "Imported local account", allowPosting: "true", isActive: "true", parentCode: "" },
   },
+  recurringTemplateDefinition(ImportEntityType.RECURRING_SALES_INVOICE_TEMPLATES, "Recurring sales invoice templates", {
+    name: "Monthly support", partyName: "Acme Trading", accountCode: "410", description: "Support retainer", unitPrice: "100.0000",
+  }),
+  recurringTemplateDefinition(ImportEntityType.RECURRING_PURCHASE_BILL_TEMPLATES, "Recurring purchase bill templates", {
+    name: "Monthly hosting bill", partyName: "Local Supplier", accountCode: "510", description: "Hosting", unitPrice: "250.0000",
+  }),
+  recurringTemplateDefinition(ImportEntityType.RECURRING_EXPENSE_TEMPLATES, "Recurring expense proposal templates", {
+    name: "Monthly office expense", accountCode: "520", paidThroughAccountCode: "101", description: "Office supplies", unitPrice: "75.0000",
+  }),
+  recurringTemplateDefinition(ImportEntityType.RECURRING_JOURNAL_TEMPLATES, "Recurring manual journal templates", {
+    name: "Monthly accrual", accountCode: "530", description: "Accrual debit", debit: "100.0000", credit: "0.0000",
+  }),
 ];
+
+function recurringTemplateDefinition(entityType: ImportEntityType, label: string, sampleOverrides: Record<string, string>): ImportTemplateDefinition {
+  const headers = ["name", "timezone", "frequency", "interval", "startDate", "endDate", "catchUpPolicy", "currencyCode", "exchangeRatePolicy", "fixedExchangeRate", "rateSnapshotId", "partyName", "branchName", "paidThroughAccountCode", "paymentTermsDays", "reference", "description", "accountCode", "itemSku", "taxRateName", "costCenterCode", "projectCode", "quantity", "unitPrice", "discountRate", "debit", "credit", "counterDescription", "counterAccountCode", "counterCostCenterCode", "counterProjectCode"];
+  return {
+    entityType,
+    label,
+    headers,
+    requiredHeaders: ["name", "timezone", "frequency", "startDate", "currencyCode", "exchangeRatePolicy", "description", "accountCode"],
+    notes: ["Each row creates one inactive draft template with one source line after explicit reviewed commit.", "References are tenant-revalidated during the serializable commit; imported templates are never activated automatically."],
+    sample: { name: "Recurring template", timezone: "Asia/Dubai", frequency: "MONTHLY", interval: "1", startDate: "2026-08-01", endDate: "", catchUpPolicy: "SKIP_MISSED", currencyCode: "AED", exchangeRatePolicy: "BASE_CURRENCY_ONLY", fixedExchangeRate: "", rateSnapshotId: "", partyName: "", branchName: "", paidThroughAccountCode: "", paymentTermsDays: "0", reference: "", description: "Recurring line", accountCode: "410", itemSku: "", taxRateName: "", costCenterCode: "", projectCode: "", quantity: "1.0000", unitPrice: "0.0000", discountRate: "0.0000", debit: "0.0000", credit: "0.0000", counterDescription: "Accrual credit", counterAccountCode: "210", counterCostCenterCode: "", counterProjectCode: "", ...sampleOverrides },
+  };
+}
 
 const templateByEntity = new Map(IMPORT_TEMPLATES.map((template) => [template.entityType, template]));
 
@@ -94,6 +123,7 @@ export class MigrationToolkitService {
     private readonly prisma: PrismaService,
     private readonly auditLogService: AuditLogService,
     private readonly observabilityContext?: ObservabilityContextService,
+    private readonly recurringTemplates?: RecurringTemplateService,
   ) {}
 
   templates() {
@@ -364,7 +394,22 @@ export class MigrationToolkitService {
 
   async exportCsv(organizationId: string, entityType: ImportEntityType): Promise<CsvFile> {
     let rows: unknown[][];
-    if (entityType === ImportEntityType.CUSTOMERS || entityType === ImportEntityType.SUPPLIERS) {
+    if (entityType === ImportEntityType.RECURRING_TRANSACTION_RUNS) {
+      const runs = await this.prisma.recurringTransactionRun.findMany({
+        where: { organizationId }, orderBy: { scheduledFor: "desc" }, take: 10_000,
+        include: { template: { select: { templateCode: true, name: true } } },
+      });
+      rows = [["templateCode", "templateName", "runId", "templateVersion", "scheduledFor", "scheduledLocalDate", "trigger", "status", "attemptCount", "failureCode", "failureMessage"],
+        ...runs.map((run) => [run.template.templateCode, run.template.name, run.id, run.templateVersion, run.scheduledFor.toISOString(), run.scheduledLocalDate.toISOString().slice(0, 10), run.trigger, run.status, run.attemptCount, run.failureCode, run.failureMessageSafe])];
+    } else if (isRecurringTemplateEntity(entityType)) {
+      const transactionType = recurringTransactionType(entityType);
+      const templates = await this.prisma.recurringTransactionTemplate.findMany({
+        where: { organizationId, transactionType }, orderBy: { templateCode: "asc" }, take: 10_000,
+        include: { party: { select: { name: true } } },
+      });
+      rows = [["templateCode", "name", "transactionType", "status", "timezone", "frequency", "interval", "nextRunAt", "currencyCode", "exchangeRatePolicy", "templateVersion", "partyName"],
+        ...templates.map((template) => [template.templateCode, template.name, template.transactionType, template.status, template.timezone, template.frequency, template.interval, template.nextRunAt.toISOString(), template.currencyCode, template.exchangeRatePolicy, template.templateVersion, template.party?.name ?? ""])];
+    } else if (entityType === ImportEntityType.CUSTOMERS || entityType === ImportEntityType.SUPPLIERS) {
       const type = entityType === ImportEntityType.CUSTOMERS ? ContactType.CUSTOMER : ContactType.SUPPLIER;
       const contacts = await this.prisma.contact.findMany({
         where: { organizationId, type: { in: [type, ContactType.BOTH] } },
@@ -399,6 +444,9 @@ export class MigrationToolkitService {
   }
 
   private normalizeRow(entityType: ImportEntityType, row: ParsedImportRow, context: ValidationContext): NormalizedImportRow {
+    if (isRecurringTemplateEntity(entityType)) {
+      return normalizeRecurringTemplateRow(entityType, row, context);
+    }
     if (entityType === ImportEntityType.CUSTOMERS || entityType === ImportEntityType.SUPPLIERS) {
       return normalizeContactRow(entityType, row, context);
     }
@@ -414,28 +462,34 @@ export class MigrationToolkitService {
     rows: ParsedImportRow[],
     executor: ValidationExecutor = this.prisma,
   ): Promise<ValidationContext> {
-    const rateSnapshotIds = entityType === ImportEntityType.PRODUCTS_SERVICES
+    const recurring = isRecurringTemplateEntity(entityType);
+    const rateSnapshotIds = entityType === ImportEntityType.PRODUCTS_SERVICES || recurring
       ? [...new Set(rows.map((row) => normalizeUuid(row.raw.rateSnapshotId)).filter((id): id is string => Boolean(id)))]
       : [];
-    const [contacts, items, accounts, organization, rateSnapshots] = await Promise.all([
-      entityType === ImportEntityType.CUSTOMERS || entityType === ImportEntityType.SUPPLIERS
-        ? executor.contact.findMany({ where: { organizationId }, select: { name: true, type: true } })
+    const [contacts, items, accounts, organization, rateSnapshots, costCenters, projects, taxRates, branches, recurringTemplates] = await Promise.all([
+      entityType === ImportEntityType.CUSTOMERS || entityType === ImportEntityType.SUPPLIERS || recurring
+        ? executor.contact.findMany({ where: { organizationId }, select: { id: true, name: true, type: true, isActive: true } })
         : Promise.resolve([]),
-      entityType === ImportEntityType.PRODUCTS_SERVICES
-        ? executor.item.findMany({ where: { organizationId }, select: { sku: true, name: true } })
+      entityType === ImportEntityType.PRODUCTS_SERVICES || recurring
+        ? executor.item.findMany({ where: { organizationId }, select: { id: true, sku: true, name: true, status: true } })
         : Promise.resolve([]),
       executor.account.findMany({ where: { organizationId }, select: { id: true, code: true, type: true, isActive: true, allowPosting: true } }),
-      entityType === ImportEntityType.PRODUCTS_SERVICES
+      entityType === ImportEntityType.PRODUCTS_SERVICES || recurring
         ? executor.organization.findUnique({ where: { id: organizationId }, select: { baseCurrency: true } })
         : Promise.resolve(null),
       rateSnapshotIds.length > 0
         ? executor.currencyRateSnapshot.findMany({ where: { organizationId, id: { in: rateSnapshotIds } } })
         : Promise.resolve([]),
+      recurring ? executor.costCenter.findMany({ where: { organizationId }, select: { id: true, code: true, status: true } }) : Promise.resolve([]),
+      recurring ? executor.project.findMany({ where: { organizationId }, select: { id: true, code: true, status: true } }) : Promise.resolve([]),
+      recurring ? executor.taxRate.findMany({ where: { organizationId }, select: { id: true, name: true, isActive: true } }) : Promise.resolve([]),
+      recurring ? executor.branch.findMany({ where: { organizationId }, select: { id: true, name: true } }) : Promise.resolve([]),
+      recurring ? executor.recurringTransactionTemplate.findMany({ where: { organizationId }, select: { name: true } }) : Promise.resolve([]),
     ]);
-    const baseCurrency = entityType === ImportEntityType.PRODUCTS_SERVICES
+    const baseCurrency = entityType === ImportEntityType.PRODUCTS_SERVICES || recurring
       ? normalizeSupportedCurrencyCode(organization?.baseCurrency)
       : null;
-    if (entityType === ImportEntityType.PRODUCTS_SERVICES && !baseCurrency) {
+    if ((entityType === ImportEntityType.PRODUCTS_SERVICES || recurring) && !baseCurrency) {
       throw new BadRequestException(organization ? "Organization base currency is unsupported." : "Organization not found.");
     }
     return {
@@ -443,9 +497,16 @@ export class MigrationToolkitService {
       contactFingerprints: new Set(contacts.map((contact) => contactFingerprint(contact.type, contact.name))),
       itemSkus: new Set(items.map((item) => normalizeKey(item.sku)).filter(Boolean)),
       itemNames: new Set(items.map((item) => normalizeKey(item.name))),
+      itemsBySku: new Map(items.filter((item: any) => Boolean(normalizeKey(item.sku))).map((item: any) => [normalizeKey(item.sku), item] as const)),
       accountsByCode: new Map(accounts.map((account) => [normalizeKey(account.code), account])),
       baseCurrency,
       rateSnapshotsById: new Map(rateSnapshots.map((snapshot) => [normalizeUuid(snapshot.id) ?? snapshot.id, snapshot])),
+      contactsByName: new Map(contacts.map((contact: any) => [normalizeKey(contact.name), contact])),
+      costCentersByCode: new Map(costCenters.map((dimension: any) => [normalizeKey(dimension.code), dimension])),
+      projectsByCode: new Map(projects.map((dimension: any) => [normalizeKey(dimension.code), dimension])),
+      taxRatesByName: new Map(taxRates.map((taxRate: any) => [normalizeKey(taxRate.name), taxRate])),
+      branchesByName: new Map(branches.map((branch: any) => [normalizeKey(branch.name), branch])),
+      recurringTemplateNames: new Set(recurringTemplates.map((template: any) => normalizeKey(template.name))),
     };
   }
 
@@ -456,6 +517,28 @@ export class MigrationToolkitService {
     row: Record<string, string | boolean | null>,
     executor: Pick<Prisma.TransactionClient, "contact" | "item" | "account"> = this.prisma,
   ) {
+    if (isRecurringTemplateEntity(entityType)) {
+      if (!this.recurringTemplates) throw new ConflictException("Recurring template import service is unavailable.");
+      const transactionType = requireString(row.transactionType) as RecurringTransactionType;
+      const primaryLine = {
+        accountId: requireString(row.accountId), itemId: optionalString(row.itemId), taxRateId: optionalString(row.taxRateId),
+        costCenterId: optionalString(row.costCenterId), projectId: optionalString(row.projectId), description: requireString(row.description),
+        quantity: optionalString(row.quantity) ?? "1.0000", unitPrice: optionalString(row.unitPrice) ?? "0.0000", discountRate: optionalString(row.discountRate) ?? "0.0000",
+        debit: optionalString(row.debit) ?? "0.0000", credit: optionalString(row.credit) ?? "0.0000", sortOrder: 0,
+      };
+      const lines = transactionType === RecurringTransactionType.MANUAL_JOURNAL ? [primaryLine, {
+        accountId: requireString(row.counterAccountId), itemId: null, taxRateId: null, costCenterId: optionalString(row.counterCostCenterId), projectId: optionalString(row.counterProjectId),
+        description: optionalString(row.counterDescription) ?? `${requireString(row.description)} counter`, quantity: "1.0000", unitPrice: "0.0000", discountRate: "0.0000",
+        debit: new Prisma.Decimal(primaryLine.credit).gt(0) ? primaryLine.credit : "0.0000", credit: new Prisma.Decimal(primaryLine.debit).gt(0) ? primaryLine.debit : "0.0000", sortOrder: 1,
+      }] : [primaryLine];
+      return this.recurringTemplates.createInTransaction(executor as Prisma.TransactionClient, organizationId, actorUserId, {
+        transactionType, name: requireString(row.name), timezone: requireString(row.timezone), frequency: requireString(row.frequency) as RecurringFrequency,
+        interval: Number(requireString(row.interval)), startDate: requireString(row.startDate), endDate: optionalString(row.endDate), catchUpPolicy: requireString(row.catchUpPolicy) as RecurringCatchUpPolicy,
+        currencyCode: requireString(row.currencyCode), exchangeRatePolicy: requireString(row.exchangeRatePolicy) as RecurringExchangeRatePolicy,
+        fixedExchangeRate: optionalString(row.fixedExchangeRate), rateSnapshotId: optionalString(row.rateSnapshotId), partyId: optionalString(row.partyId), branchId: optionalString(row.branchId),
+        paidThroughAccountId: optionalString(row.paidThroughAccountId), paymentTermsDays: Number(optionalString(row.paymentTermsDays) ?? "0"), reference: optionalString(row.reference), lines,
+      });
+    }
     if (entityType === ImportEntityType.CUSTOMERS || entityType === ImportEntityType.SUPPLIERS) {
       return executor.contact.create({
         data: {
@@ -528,6 +611,7 @@ interface ValidationContext {
   contactFingerprints: Set<string>;
   itemSkus: Set<string>;
   itemNames: Set<string>;
+  itemsBySku: Map<string, { id: string; sku: string | null; status: ItemStatus }>;
   accountsByCode: Map<string, { id: string; code: string; type: AccountType; isActive: boolean; allowPosting: boolean }>;
   baseCurrency: string | null;
   rateSnapshotsById: Map<string, {
@@ -538,12 +622,131 @@ interface ValidationContext {
     rateDate: Date;
     source: CurrencyRateSource;
   }>;
+  contactsByName: Map<string, { id: string; name: string; type: ContactType; isActive: boolean }>;
+  costCentersByCode: Map<string, { id: string; code: string; status: string }>;
+  projectsByCode: Map<string, { id: string; code: string; status: string }>;
+  taxRatesByName: Map<string, { id: string; name: string; isActive: boolean }>;
+  branchesByName: Map<string, { id: string; name: string }>;
+  recurringTemplateNames: Set<string>;
 }
 
 type ValidationExecutor = Pick<
   Prisma.TransactionClient,
-  "contact" | "item" | "account" | "organization" | "currencyRateSnapshot"
+  "contact" | "item" | "account" | "organization" | "currencyRateSnapshot" | "costCenter" | "project" | "taxRate" | "branch" | "recurringTransactionTemplate"
 >;
+
+function isRecurringTemplateEntity(entityType: ImportEntityType): boolean {
+  return entityType === ImportEntityType.RECURRING_SALES_INVOICE_TEMPLATES
+    || entityType === ImportEntityType.RECURRING_PURCHASE_BILL_TEMPLATES
+    || entityType === ImportEntityType.RECURRING_EXPENSE_TEMPLATES
+    || entityType === ImportEntityType.RECURRING_JOURNAL_TEMPLATES;
+}
+
+function recurringTransactionType(entityType: ImportEntityType): RecurringTransactionType {
+  if (entityType === ImportEntityType.RECURRING_SALES_INVOICE_TEMPLATES) return RecurringTransactionType.SALES_INVOICE;
+  if (entityType === ImportEntityType.RECURRING_PURCHASE_BILL_TEMPLATES) return RecurringTransactionType.PURCHASE_BILL;
+  if (entityType === ImportEntityType.RECURRING_EXPENSE_TEMPLATES) return RecurringTransactionType.EXPENSE;
+  return RecurringTransactionType.MANUAL_JOURNAL;
+}
+
+function normalizeRecurringTemplateRow(entityType: ImportEntityType, row: ParsedImportRow, context: ValidationContext): NormalizedImportRow {
+  const transactionType = recurringTransactionType(entityType);
+  const name = cleanCell(row.raw.name);
+  const timezone = cleanCell(row.raw.timezone);
+  const frequency = cleanCell(row.raw.frequency).toUpperCase();
+  const interval = cleanCell(row.raw.interval) || "1";
+  const startDate = cleanCell(row.raw.startDate);
+  const endDate = cleanOptionalCell(row.raw.endDate);
+  const catchUpPolicy = cleanCell(row.raw.catchUpPolicy).toUpperCase() || RecurringCatchUpPolicy.SKIP_MISSED;
+  const currencyCode = normalizeSupportedCurrencyCode(row.raw.currencyCode) ?? cleanCell(row.raw.currencyCode).toUpperCase();
+  const exchangeRatePolicy = cleanCell(row.raw.exchangeRatePolicy).toUpperCase();
+  const fixedExchangeRate = cleanOptionalCell(row.raw.fixedExchangeRate);
+  const rateSnapshotId = cleanOptionalCell(row.raw.rateSnapshotId);
+  const partyName = cleanOptionalCell(row.raw.partyName);
+  const branchName = cleanOptionalCell(row.raw.branchName);
+  const paidThroughAccountCode = cleanOptionalCell(row.raw.paidThroughAccountCode);
+  const accountCode = cleanCell(row.raw.accountCode);
+  const counterAccountCode = cleanOptionalCell(row.raw.counterAccountCode);
+  const itemSku = cleanOptionalCell(row.raw.itemSku);
+  const taxRateName = cleanOptionalCell(row.raw.taxRateName);
+  const costCenterCode = cleanOptionalCell(row.raw.costCenterCode);
+  const projectCode = cleanOptionalCell(row.raw.projectCode);
+  const counterCostCenterCode = cleanOptionalCell(row.raw.counterCostCenterCode);
+  const counterProjectCode = cleanOptionalCell(row.raw.counterProjectCode);
+  const issues: ImportValidationIssueInput[] = [];
+  required(row, issues, "name", name); required(row, issues, "timezone", timezone); required(row, issues, "frequency", frequency);
+  required(row, issues, "startDate", startDate); required(row, issues, "currencyCode", currencyCode); required(row, issues, "exchangeRatePolicy", exchangeRatePolicy);
+  required(row, issues, "description", row.raw.description); required(row, issues, "accountCode", accountCode);
+
+  if (!isIanaTimezone(timezone)) issues.push(error(row.rowNumber, "timezone", "INVALID_TIMEZONE", "Timezone must be a valid IANA timezone."));
+  if (!Object.values(RecurringFrequency).includes(frequency as RecurringFrequency)) issues.push(error(row.rowNumber, "frequency", "INVALID_ENUM", "Frequency is not supported."));
+  if (!/^\d+$/.test(interval) || Number(interval) < 1 || Number(interval) > 24) issues.push(error(row.rowNumber, "interval", "INVALID_INTERVAL", "Interval must be between 1 and 24."));
+  if (!isValidDateOnly(startDate)) issues.push(error(row.rowNumber, "startDate", "INVALID_DATE", "Start date must be a valid YYYY-MM-DD date."));
+  if (endDate && (!isValidDateOnly(endDate) || (isValidDateOnly(startDate) && endDate < startDate))) issues.push(error(row.rowNumber, "endDate", "INVALID_DATE", "End date must be valid and not precede the start date."));
+  if (!Object.values(RecurringCatchUpPolicy).includes(catchUpPolicy as RecurringCatchUpPolicy)) issues.push(error(row.rowNumber, "catchUpPolicy", "INVALID_ENUM", "Catch-up policy is not supported."));
+  if (!normalizeSupportedCurrencyCode(currencyCode)) issues.push(error(row.rowNumber, "currencyCode", "UNSUPPORTED_CURRENCY", "Currency is unsupported."));
+  if (!Object.values(RecurringExchangeRatePolicy).includes(exchangeRatePolicy as RecurringExchangeRatePolicy)) issues.push(error(row.rowNumber, "exchangeRatePolicy", "INVALID_ENUM", "Exchange-rate policy is not supported."));
+
+  const party = partyName ? context.contactsByName.get(normalizeKey(partyName)) : undefined;
+  let acceptedParty = party;
+  if (transactionType === RecurringTransactionType.SALES_INVOICE && party?.type !== ContactType.CUSTOMER && party?.type !== ContactType.BOTH) acceptedParty = undefined;
+  if (transactionType === RecurringTransactionType.PURCHASE_BILL && party?.type !== ContactType.SUPPLIER && party?.type !== ContactType.BOTH) acceptedParty = undefined;
+  if ((transactionType === RecurringTransactionType.SALES_INVOICE || transactionType === RecurringTransactionType.PURCHASE_BILL) && (!partyName || !acceptedParty || !party?.isActive)) issues.push(error(row.rowNumber, "partyName", "INVALID_REFERENCE", "Party must resolve to an active tenant customer or supplier for this template type."));
+  if (partyName && (!party || !party.isActive)) issues.push(error(row.rowNumber, "partyName", "INVALID_REFERENCE", "Party must resolve to an active tenant contact."));
+
+  const account = context.accountsByCode.get(normalizeKey(accountCode));
+  if (!account || !account.isActive || !account.allowPosting) issues.push(error(row.rowNumber, "accountCode", "INVALID_REFERENCE", "Account code must resolve to an active tenant posting account."));
+  const paidThrough = paidThroughAccountCode ? context.accountsByCode.get(normalizeKey(paidThroughAccountCode)) : undefined;
+  if (transactionType === RecurringTransactionType.EXPENSE && (!paidThrough || !paidThrough.isActive || !paidThrough.allowPosting)) issues.push(error(row.rowNumber, "paidThroughAccountCode", "INVALID_REFERENCE", "Expense templates require an active tenant paid-through account."));
+  const counterAccount = counterAccountCode ? context.accountsByCode.get(normalizeKey(counterAccountCode)) : undefined;
+  if (transactionType === RecurringTransactionType.MANUAL_JOURNAL && (!counterAccount || !counterAccount.isActive || !counterAccount.allowPosting)) issues.push(error(row.rowNumber, "counterAccountCode", "INVALID_REFERENCE", "Journal imports require an active tenant counter account."));
+
+  const costCenter = resolveActiveDimension(row, issues, "costCenterCode", costCenterCode, context.costCentersByCode);
+  const project = resolveActiveDimension(row, issues, "projectCode", projectCode, context.projectsByCode);
+  const counterCostCenter = resolveActiveDimension(row, issues, "counterCostCenterCode", counterCostCenterCode, context.costCentersByCode);
+  const counterProject = resolveActiveDimension(row, issues, "counterProjectCode", counterProjectCode, context.projectsByCode);
+  const item = itemSku ? context.itemsBySku.get(normalizeKey(itemSku)) : undefined;
+  if (itemSku && (!item || item.status !== ItemStatus.ACTIVE)) issues.push(error(row.rowNumber, "itemSku", "INVALID_REFERENCE", "Item SKU must resolve to an active tenant item."));
+  const taxRate = taxRateName ? context.taxRatesByName.get(normalizeKey(taxRateName)) : undefined;
+  if (taxRateName && (!taxRate || !taxRate.isActive)) issues.push(error(row.rowNumber, "taxRateName", "INVALID_REFERENCE", "Tax rate must resolve to an active tenant tax rate."));
+  const branch = branchName ? context.branchesByName.get(normalizeKey(branchName)) : undefined;
+  if (branchName && !branch) issues.push(error(row.rowNumber, "branchName", "INVALID_REFERENCE", "Branch must resolve inside this tenant."));
+
+  if (exchangeRatePolicy === RecurringExchangeRatePolicy.BASE_CURRENCY_ONLY && (currencyCode !== context.baseCurrency || fixedExchangeRate || rateSnapshotId)) issues.push(error(row.rowNumber, "exchangeRatePolicy", "INVALID_FX_CONTEXT", "Base-currency-only templates must use the organization base currency without foreign-rate evidence."));
+  if (currencyCode === context.baseCurrency && exchangeRatePolicy !== RecurringExchangeRatePolicy.BASE_CURRENCY_ONLY) issues.push(error(row.rowNumber, "exchangeRatePolicy", "INVALID_FX_CONTEXT", "Same-currency templates must use BASE_CURRENCY_ONLY."));
+  if (exchangeRatePolicy === RecurringExchangeRatePolicy.FIXED_TEMPLATE_RATE && (!fixedExchangeRate || !isPositiveExchangeRate(fixedExchangeRate) || rateSnapshotId)) issues.push(error(row.rowNumber, "fixedExchangeRate", "INVALID_FX_CONTEXT", "Fixed-rate templates require one positive fixed rate and no snapshot."));
+  if (exchangeRatePolicy === RecurringExchangeRatePolicy.REQUIRE_RATE_AT_RUN && (fixedExchangeRate || rateSnapshotId)) issues.push(error(row.rowNumber, "exchangeRatePolicy", "INVALID_FX_CONTEXT", "Rate-at-run templates cannot retain fixed or snapshot evidence."));
+  const snapshot = rateSnapshotId && normalizeUuid(rateSnapshotId) ? context.rateSnapshotsById.get(normalizeUuid(rateSnapshotId)!) : undefined;
+  if (exchangeRatePolicy === RecurringExchangeRatePolicy.RATE_SNAPSHOT && (!snapshot || snapshot.transactionCurrency !== currencyCode || snapshot.baseCurrency !== context.baseCurrency || fixedExchangeRate)) issues.push(error(row.rowNumber, "rateSnapshotId", "INVALID_RATE_SNAPSHOT", "Rate snapshot must belong to this tenant and match the currency pair."));
+
+  const debit = cleanCell(row.raw.debit) || "0.0000"; const credit = cleanCell(row.raw.credit) || "0.0000";
+  if (transactionType === RecurringTransactionType.MANUAL_JOURNAL && ((Number(debit) > 0) === (Number(credit) > 0))) issues.push(error(row.rowNumber, "debit", "UNBALANCED_JOURNAL", "Primary journal line must contain either a positive debit or a positive credit."));
+  const fingerprint = `recurring:${transactionType}:${normalizeKey(name)}`;
+  const duplicate = context.seenFingerprints.has(fingerprint) || context.recurringTemplateNames.has(normalizeKey(name));
+  if (duplicate) issues.push(error(row.rowNumber, "name", "DUPLICATE", "Recurring template name already exists or is duplicated in this import."));
+  context.seenFingerprints.add(fingerprint);
+
+  return normalized(row, {
+    transactionType, name, timezone, frequency, interval, startDate, endDate, catchUpPolicy, currencyCode, exchangeRatePolicy,
+    fixedExchangeRate, rateSnapshotId: snapshot?.id ?? rateSnapshotId, partyId: acceptedParty?.id ?? null, branchId: branch?.id ?? null,
+    paidThroughAccountId: paidThrough?.id ?? null, paymentTermsDays: cleanCell(row.raw.paymentTermsDays) || "0", reference: cleanOptionalCell(row.raw.reference),
+    description: cleanCell(row.raw.description), accountId: account?.id ?? null, itemId: item?.id ?? null, taxRateId: taxRate?.id ?? null,
+    costCenterId: costCenter?.id ?? null, projectId: project?.id ?? null, quantity: cleanCell(row.raw.quantity) || "1.0000", unitPrice: cleanCell(row.raw.unitPrice) || "0.0000",
+    discountRate: cleanCell(row.raw.discountRate) || "0.0000", debit, credit, counterDescription: cleanOptionalCell(row.raw.counterDescription),
+    counterAccountId: counterAccount?.id ?? null, counterCostCenterId: counterCostCenter?.id ?? null, counterProjectId: counterProject?.id ?? null, activate: false,
+  }, fingerprint, duplicate, issues);
+}
+
+function resolveActiveDimension<T extends { id: string; status: string }>(row: ParsedImportRow, issues: ImportValidationIssueInput[], field: string, code: string | null, values: Map<string, T>): T | undefined {
+  if (!code) return undefined;
+  const value = values.get(normalizeKey(code));
+  if (!value || value.status !== "ACTIVE") issues.push(error(row.rowNumber, field, "INVALID_REFERENCE", `${field} must resolve to an active tenant dimension.`));
+  return value;
+}
+
+function isIanaTimezone(value: string): boolean {
+  try { new Intl.DateTimeFormat("en", { timeZone: value }).format(new Date(0)); return Boolean(value); } catch { return false; }
+}
 
 function normalizeContactRow(entityType: ImportEntityType, row: ParsedImportRow, context: ValidationContext): NormalizedImportRow {
   const type = entityType === ImportEntityType.CUSTOMERS ? ContactType.CUSTOMER : ContactType.SUPPLIER;

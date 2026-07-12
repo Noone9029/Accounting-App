@@ -180,3 +180,11 @@ Inventory routes are operational by default and clearly warn that opening balanc
 - Settings and document routes are operational but not production-grade administration screens.
 - Permission gating is MVP-grade UI hardening only; backend guards remain the source of truth.
 - Placeholder route should be replaced as inventory, payroll, and other future modules are added.
+# Recurring transactions
+
+- `/recurring-transactions` — tenant-remounted, filterable accountant queue with readiness counts and draft-only language.
+- `/recurring-transactions/new` — generalized schedule, FX, dimensions, and document-line editor.
+- `/recurring-transactions/[id]` — lifecycle, Run Now, line evidence, bounded run history, and generated draft links.
+- `/recurring-transactions/[id]/edit` — optimistic-version edit flow for future runs.
+
+All routes require the dedicated recurring permission family. Dense tables scroll inside their panels; dates and record identifiers use directional containment. The web interface does not post accounting or call providers.

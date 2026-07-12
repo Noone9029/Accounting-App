@@ -58,6 +58,10 @@ describe("permission helpers", () => {
     expect(getRequiredPermissionsForPathname("/sales/quotes/quote-1/edit")).toEqual([PERMISSIONS.salesInvoices.update]);
     expect(getRequiredPermissionsForPathname("/sales/recurring-invoices/new")).toEqual([PERMISSIONS.salesInvoices.create]);
     expect(getRequiredPermissionsForPathname("/sales/recurring-invoices/rec-1/edit")).toEqual([PERMISSIONS.salesInvoices.update]);
+    expect(getRequiredPermissionsForPathname("/recurring-transactions")).toEqual([PERMISSIONS.recurringTransactions.read]);
+    expect(getRequiredPermissionsForPathname("/recurring-transactions/template-1")).toEqual([PERMISSIONS.recurringTransactions.read]);
+    expect(getRequiredPermissionsForPathname("/recurring-transactions/new")).toEqual([PERMISSIONS.recurringTransactions.manage]);
+    expect(getRequiredPermissionsForPathname("/recurring-transactions/template-1/edit")).toEqual([PERMISSIONS.recurringTransactions.manage]);
     expect(getRequiredPermissionsForPathname("/sales/delivery-notes/new")).toEqual([PERMISSIONS.salesInvoices.create]);
     expect(getRequiredPermissionsForPathname("/sales/delivery-notes/dn-1/edit")).toEqual([PERMISSIONS.salesInvoices.update]);
     expect(getRequiredPermissionsForPathname("/sales/inventory-returns")).toEqual([PERMISSIONS.salesInvoices.view]);
