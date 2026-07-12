@@ -28,6 +28,7 @@ import {
 } from "@prisma/client";
 import { AccountingService } from "../accounting/accounting.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
+import { lockActiveDocumentLineDimensions, normalizedDocumentLineDimensions } from "../accounting/document-line-dimensions";
 import { documentFxAuditEvidence, isForeignDocumentFxContext, shouldAuditDocumentFxContextChange } from "../audit-log/audit-events";
 import { GeneratedDocumentService, sanitizeFilename, type ZatcaPdfA3ArchiveMetadataInput } from "../generated-documents/generated-document.service";
 import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
@@ -58,6 +59,8 @@ const salesInvoiceInclude = {
       item: { select: { id: true, name: true, sku: true } },
       account: { select: { id: true, code: true, name: true, type: true } },
       taxRate: { select: { id: true, name: true, rate: true } },
+      costCenter: { select: { id: true, code: true, name: true, status: true } },
+      project: { select: { id: true, code: true, name: true, status: true } },
     },
   },
   paymentAllocations: {
@@ -132,6 +135,8 @@ interface PreparedLine {
   unitPrice: string;
   discountRate: string;
   taxRateId?: string;
+  costCenterId: string | null;
+  projectId: string | null;
   taxRate: string;
   lineGrossAmount: string;
   discountAmount: string;
@@ -451,6 +456,7 @@ export class SalesInvoiceService {
     const taxMode = dto.taxMode ?? SalesInvoiceTaxMode.TAX_EXCLUSIVE;
     const prepared = await this.prepareInvoice(organizationId, dto.lines, taxMode);
     const invoice = await this.prisma.$transaction(async (tx) => {
+      await lockActiveDocumentLineDimensions(tx, organizationId, prepared.lines);
       const fx = await this.documentFxContext().resolve(
         organizationId,
         {
@@ -532,6 +538,8 @@ export class SalesInvoiceService {
       unitPrice: String(line.unitPrice),
       discountRate: String(line.discountRate),
       taxRateId: line.taxRateId,
+      costCenterId: line.costCenterId,
+      projectId: line.projectId,
       sortOrder: line.sortOrder,
     }));
     const prepared = shouldRecalculate ? await this.prepareInvoice(organizationId, recalculationLines ?? [], taxMode) : null;
@@ -562,6 +570,7 @@ export class SalesInvoiceService {
       }
       const converted = prepared ? convertTransactionDocumentAmounts(prepared.lines, fx.exchangeRate) : null;
       if (prepared) {
+        await lockActiveDocumentLineDimensions(tx, organizationId, prepared.lines);
         await tx.salesInvoiceLine.deleteMany({ where: { organizationId, invoiceId: id } });
       }
 
@@ -1058,6 +1067,7 @@ export class SalesInvoiceService {
         unitPrice: line.unitPrice,
         discountRate: line.discountRate ?? "0.0000",
         taxRateId,
+        ...normalizedDocumentLineDimensions(line),
         sortOrder: line.sortOrder ?? index,
       };
     });
@@ -1207,6 +1217,8 @@ export class SalesInvoiceService {
       item: line.itemId ? { connect: { id: line.itemId } } : undefined,
       account: { connect: { id: line.accountId } },
       taxRate: line.taxRateId ? { connect: { id: line.taxRateId } } : undefined,
+      costCenter: line.costCenterId ? { connect: { organizationId_id: { organizationId, id: line.costCenterId } } } : undefined,
+      project: line.projectId ? { connect: { organizationId_id: { organizationId, id: line.projectId } } } : undefined,
       description: line.description,
       quantity: line.quantity,
       unitPrice: line.unitPrice,

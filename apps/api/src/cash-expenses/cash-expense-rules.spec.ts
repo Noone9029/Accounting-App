@@ -55,6 +55,7 @@ describe("cash expense rules", () => {
 
   it("creates posted cash expenses with a balanced journal and PDF archive support", async () => {
     const tx = makeCreateTransactionMock();
+    tx.$queryRaw.mockResolvedValueOnce([{ id: "cost-1" }]).mockResolvedValueOnce([{ id: "project-1" }]);
     const prisma = {
       item: { findMany: jest.fn().mockResolvedValue([]) },
       account: {
@@ -96,6 +97,8 @@ describe("cash expense rules", () => {
           unitPrice: "100.0000",
           discountRate: "0.0000",
           taxRateId: "tax-1",
+          costCenterId: "cost-1",
+          projectId: "project-1",
         },
       ],
     });
@@ -117,6 +120,21 @@ describe("cash expense rules", () => {
         }),
       }),
     );
+    expect(tx.cashExpense.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          lines: {
+            create: [
+              expect.objectContaining({
+                costCenter: { connect: { organizationId_id: { organizationId: "org-1", id: "cost-1" } } },
+                project: { connect: { organizationId_id: { organizationId: "org-1", id: "project-1" } } },
+              }),
+            ],
+          },
+        }),
+      }),
+    );
+    expect(tx.$queryRaw).toHaveBeenCalledTimes(2);
     expect(auditLog.log).not.toHaveBeenCalledWith(expect.objectContaining({ action: "FREEZE_FX_RATE" }), expect.anything());
   });
 
@@ -296,6 +314,7 @@ describe("cash expense rules", () => {
 
 function makeCreateTransactionMock() {
   return {
+    $queryRaw: jest.fn(),
     organization: { findUnique: jest.fn().mockResolvedValue({ baseCurrency: "SAR" }) },
     currencyRateSnapshot: { findFirst: jest.fn() },
     account: {

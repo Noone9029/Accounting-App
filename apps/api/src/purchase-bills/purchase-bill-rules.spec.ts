@@ -94,6 +94,7 @@ describe("purchase bill rules", () => {
 
   it("creates an OCR-ready draft purchase bill with supplier, expense account, and purchase tax validation", async () => {
     const tx = makeCreateTransactionMock();
+    tx.$queryRaw.mockResolvedValueOnce([{ id: "cost-1" }]).mockResolvedValueOnce([{ id: "project-1" }]);
     const prisma = {
       account: { findMany: jest.fn().mockResolvedValue([{ id: "expense" }]) },
       taxRate: { findMany: jest.fn().mockResolvedValue([{ id: "vat-15", rate: "15.0000" }]) },
@@ -121,6 +122,8 @@ describe("purchase bill rules", () => {
             quantity: "1.0000",
             unitPrice: "100.0000",
             taxRateId: "vat-15",
+            costCenterId: "cost-1",
+            projectId: "project-1",
           },
         ],
       }),
@@ -186,6 +189,8 @@ describe("purchase bill rules", () => {
               expect.objectContaining({
                 account: { connect: { id: "expense" } },
                 taxRate: { connect: { id: "vat-15" } },
+                costCenter: { connect: { organizationId_id: { organizationId: "org-1", id: "cost-1" } } },
+                project: { connect: { organizationId_id: { organizationId: "org-1", id: "project-1" } } },
                 description: "OCR parsed consulting fee",
                 taxableAmount: "100.0000",
                 taxAmount: "15.0000",
@@ -199,6 +204,7 @@ describe("purchase bill rules", () => {
     expect(auditLog.log).toHaveBeenCalledWith(
       expect.objectContaining({ action: "CREATE", entityType: "PurchaseBill", entityId: "bill-1" }),
     );
+    expect(tx.$queryRaw).toHaveBeenCalledTimes(2);
     expect((tx as { journalEntry?: unknown }).journalEntry).toBeUndefined();
   });
 
@@ -528,6 +534,7 @@ describe("purchase bill rules", () => {
 
 function makeCreateTransactionMock() {
   return {
+    $queryRaw: jest.fn(),
     organization: { findUnique: jest.fn().mockResolvedValue({ baseCurrency: "SAR" }) },
     currencyRateSnapshot: { findFirst: jest.fn() },
     purchaseBill: {

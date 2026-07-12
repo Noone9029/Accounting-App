@@ -21,6 +21,7 @@ import {
   TaxRateScope,
 } from "@prisma/client";
 import { AuditLogService } from "../audit-log/audit-log.service";
+import { lockActiveDocumentLineDimensions, normalizedDocumentLineDimensions } from "../accounting/document-line-dimensions";
 import { documentFxAuditEvidence, isForeignDocumentFxContext } from "../audit-log/audit-events";
 import { OrganizationDocumentSettingsService } from "../document-settings/organization-document-settings.service";
 import { GeneratedDocumentService, sanitizeFilename } from "../generated-documents/generated-document.service";
@@ -56,6 +57,8 @@ const cashExpenseInclude = {
       item: { select: { id: true, name: true, sku: true } },
       account: { select: { id: true, code: true, name: true, type: true } },
       taxRate: { select: { id: true, name: true, rate: true } },
+      costCenter: { select: { id: true, code: true, name: true, status: true } },
+      project: { select: { id: true, code: true, name: true, status: true } },
     },
   },
 };
@@ -68,6 +71,8 @@ interface PreparedLine {
   unitPrice: string;
   discountRate: string;
   taxRateId?: string;
+  costCenterId: string | null;
+  projectId: string | null;
   taxRate: string;
   lineGrossAmount: string;
   discountAmount: string;
@@ -140,6 +145,7 @@ export class CashExpenseService {
 
     const expense = await this.prisma.$transaction(async (tx) => {
       const expenseDate = new Date(dto.expenseDate);
+      await lockActiveDocumentLineDimensions(tx, organizationId, prepared.lines);
       await this.assertPostingDateAllowed(organizationId, expenseDate, tx);
       const fx = await this.documentFxContext().resolve(organizationId, {
         currency: dto.currency, documentDate: dto.expenseDate, exchangeRate: dto.exchangeRate,
@@ -467,6 +473,7 @@ export class CashExpenseService {
         unitPrice: line.unitPrice,
         discountRate: line.discountRate ?? "0",
         taxRateId,
+        ...normalizedDocumentLineDimensions(line),
         sortOrder: line.sortOrder ?? index,
       };
     });
@@ -728,6 +735,8 @@ export class CashExpenseService {
       item: line.itemId ? { connect: { id: line.itemId } } : undefined,
       account: { connect: { id: line.accountId } },
       taxRate: line.taxRateId ? { connect: { id: line.taxRateId } } : undefined,
+      costCenter: line.costCenterId ? { connect: { organizationId_id: { organizationId, id: line.costCenterId } } } : undefined,
+      project: line.projectId ? { connect: { organizationId_id: { organizationId, id: line.projectId } } } : undefined,
       description: line.description,
       quantity: line.quantity,
       unitPrice: line.unitPrice,

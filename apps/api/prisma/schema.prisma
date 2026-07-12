@@ -2969,6 +2969,9 @@ model CostCenter {
   journalLines                       JournalLine[]
   recurringTransactionTemplateLines RecurringTransactionTemplateLine[] @relation("RecurringTransactionTemplateLineCostCenter")
   recurringExpenseProposalLines     RecurringExpenseProposalLine[]     @relation("RecurringExpenseProposalLineCostCenter")
+  salesInvoiceLines                 SalesInvoiceLine[]                  @relation("SalesInvoiceLineCostCenter")
+  purchaseBillLines                 PurchaseBillLine[]                  @relation("PurchaseBillLineCostCenter")
+  cashExpenseLines                  CashExpenseLine[]                   @relation("CashExpenseLineCostCenter")
 
   @@unique([organizationId, code])
   @@unique([organizationId, id])
@@ -2989,6 +2992,9 @@ model Project {
   journalLines                       JournalLine[]
   recurringTransactionTemplateLines RecurringTransactionTemplateLine[] @relation("RecurringTransactionTemplateLineProject")
   recurringExpenseProposalLines     RecurringExpenseProposalLine[]     @relation("RecurringExpenseProposalLineProject")
+  salesInvoiceLines                 SalesInvoiceLine[]                  @relation("SalesInvoiceLineProject")
+  purchaseBillLines                 PurchaseBillLine[]                  @relation("PurchaseBillLineProject")
+  cashExpenseLines                  CashExpenseLine[]                   @relation("CashExpenseLineProject")
 
   @@unique([organizationId, code])
   @@unique([organizationId, id])
@@ -4247,6 +4253,8 @@ model SalesInvoiceLine {
   unitPrice       Decimal               @db.Decimal(20, 4)
   discountRate    Decimal               @default(0) @db.Decimal(7, 4)
   taxRateId       String?               @db.Uuid
+  costCenterId    String?               @db.Uuid
+  projectId       String?               @db.Uuid
   lineGrossAmount Decimal               @default(0) @db.Decimal(20, 4)
   discountAmount  Decimal               @default(0) @db.Decimal(20, 4)
   taxableAmount   Decimal               @default(0) @db.Decimal(20, 4)
@@ -4266,6 +4274,8 @@ model SalesInvoiceLine {
   item            Item?                 @relation(fields: [itemId], references: [id], onDelete: SetNull)
   account         Account               @relation(fields: [accountId], references: [id])
   taxRate         TaxRate?              @relation(fields: [taxRateId], references: [id], onDelete: SetNull)
+  costCenter      CostCenter?           @relation("SalesInvoiceLineCostCenter", fields: [organizationId, costCenterId], references: [organizationId, id], onDelete: NoAction)
+  project         Project?              @relation("SalesInvoiceLineProject", fields: [organizationId, projectId], references: [organizationId, id], onDelete: NoAction)
   stockIssueLines SalesStockIssueLine[]
   deliveryNoteLines DeliveryNoteLine[]   @relation("DeliveryNoteSourceInvoiceLine")
   salesInventoryReturnLines SalesInventoryReturnLine[] @relation("SalesInventoryReturnSourceInvoiceLine")
@@ -4274,6 +4284,8 @@ model SalesInvoiceLine {
   @@index([invoiceId])
   @@index([itemId])
   @@index([accountId])
+  @@index([organizationId, costCenterId])
+  @@index([organizationId, projectId])
 }
 
 model SalesQuote {
@@ -5248,6 +5260,8 @@ model PurchaseBillLine {
   unitPrice            Decimal               @db.Decimal(20, 4)
   discountRate         Decimal               @default(0) @db.Decimal(7, 4)
   taxRateId            String?               @db.Uuid
+  costCenterId         String?               @db.Uuid
+  projectId            String?               @db.Uuid
   lineGrossAmount      Decimal               @default(0) @db.Decimal(20, 4)
   discountAmount       Decimal               @default(0) @db.Decimal(20, 4)
   taxableAmount        Decimal               @default(0) @db.Decimal(20, 4)
@@ -5266,6 +5280,8 @@ model PurchaseBillLine {
   item                 Item?                 @relation(fields: [itemId], references: [id], onDelete: SetNull)
   account              Account               @relation(fields: [accountId], references: [id])
   taxRate              TaxRate?              @relation(fields: [taxRateId], references: [id], onDelete: SetNull)
+  costCenter           CostCenter?           @relation("PurchaseBillLineCostCenter", fields: [organizationId, costCenterId], references: [organizationId, id], onDelete: NoAction)
+  project              Project?              @relation("PurchaseBillLineProject", fields: [organizationId, projectId], references: [organizationId, id], onDelete: NoAction)
   purchaseReceiptLines PurchaseReceiptLine[]
   purchaseReturnLines  PurchaseReturnLine[]
 
@@ -5273,6 +5289,8 @@ model PurchaseBillLine {
   @@index([billId])
   @@index([itemId])
   @@index([accountId])
+  @@index([organizationId, costCenterId])
+  @@index([organizationId, projectId])
 }
 
 model PurchaseReceipt {
@@ -5791,6 +5809,8 @@ model CashExpenseLine {
   unitPrice       Decimal      @db.Decimal(20, 4)
   discountRate    Decimal      @default(0) @db.Decimal(7, 4)
   taxRateId       String?      @db.Uuid
+  costCenterId    String?      @db.Uuid
+  projectId       String?      @db.Uuid
   lineGrossAmount Decimal      @default(0) @db.Decimal(20, 4)
   discountAmount  Decimal      @default(0) @db.Decimal(20, 4)
   taxableAmount   Decimal      @default(0) @db.Decimal(20, 4)
@@ -5809,11 +5829,15 @@ model CashExpenseLine {
   item            Item?        @relation(fields: [itemId], references: [id], onDelete: SetNull)
   account         Account      @relation(fields: [accountId], references: [id])
   taxRate         TaxRate?     @relation(fields: [taxRateId], references: [id], onDelete: SetNull)
+  costCenter      CostCenter?  @relation("CashExpenseLineCostCenter", fields: [organizationId, costCenterId], references: [organizationId, id], onDelete: NoAction)
+  project         Project?     @relation("CashExpenseLineProject", fields: [organizationId, projectId], references: [organizationId, id], onDelete: NoAction)
 
   @@index([organizationId])
   @@index([cashExpenseId])
   @@index([itemId])
   @@index([accountId])
+  @@index([organizationId, costCenterId])
+  @@index([organizationId, projectId])
 }
 
 model PurchaseDebitNoteAllocation {
