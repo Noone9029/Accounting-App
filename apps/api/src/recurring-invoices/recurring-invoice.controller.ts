@@ -9,12 +9,12 @@ import { OrganizationContextGuard } from "../auth/guards/organization-context.gu
 import { PermissionGuard } from "../auth/guards/permission.guard";
 import { CreateRecurringInvoiceDto } from "./dto/create-recurring-invoice.dto";
 import { UpdateRecurringInvoiceDto } from "./dto/update-recurring-invoice.dto";
-import { RecurringInvoiceService } from "./recurring-invoice.service";
+import { RecurringInvoiceCompatibilityService } from "./recurring-invoice-compatibility.service";
 
 @Controller("recurring-invoices")
 @UseGuards(JwtAuthGuard, OrganizationContextGuard, PermissionGuard)
 export class RecurringInvoiceController {
-  constructor(private readonly recurringInvoiceService: RecurringInvoiceService) {}
+  constructor(private readonly recurringInvoiceService: RecurringInvoiceCompatibilityService) {}
 
   @Get()
   @RequirePermissions(PERMISSIONS.salesInvoices.view)
