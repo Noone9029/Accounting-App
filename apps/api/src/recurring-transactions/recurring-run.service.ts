@@ -123,7 +123,7 @@ export class RecurringRunService {
           },
           include: runInclude,
         });
-        await this.auditLog.log({ organizationId, actorUserId, action: "REQUEST_MANUAL", entityType: AUDIT_ENTITY_TYPES.RECURRING_TRANSACTION_RUN, entityId: created.id, request: { requestId } as any, after: this.runAudit(created) }, tx);
+        await this.auditLog.log({ organizationId, actorUserId, action: "REQUEST_MANUAL", entityType: AUDIT_ENTITY_TYPES.RECURRING_TRANSACTION_RUN, entityId: created.id, after: this.runAudit(created) }, tx);
         return created;
       }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }));
     } catch (error) {
