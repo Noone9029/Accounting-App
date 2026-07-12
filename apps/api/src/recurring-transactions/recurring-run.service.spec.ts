@@ -168,7 +168,9 @@ describe("RecurringRunService", () => {
     expect(tx.recurringTransactionRun.update).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ status: RecurringRunStatus.GENERATED, generatedSalesInvoiceId: "invoice-1", completedAt: expect.any(Date) }),
     }));
-    expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({ action: "REQUEST_MANUAL", request: expect.objectContaining({ requestId: "request-1" }) }), tx);
+    expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({ action: "REQUEST_MANUAL" }), tx);
+    const manualAudit = auditLog.log.mock.calls.find(([input]) => input.action === "REQUEST_MANUAL")?.[0];
+    expect(manualAudit).not.toHaveProperty("request");
     expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({ action: "GENERATE" }), tx);
     expect(result).toEqual(expect.objectContaining({ status: RecurringRunStatus.GENERATED }));
   });
