@@ -166,7 +166,7 @@ export class RecurringTemplateService {
 
       const template = await tx.recurringTransactionTemplate.create({
         data: {
-          organizationId,
+          organization: { connect: { id: organizationId } },
           transactionType: normalized.transactionType,
           templateCode,
           name: normalized.name,
@@ -187,10 +187,18 @@ export class RecurringTemplateService {
           currencyCode: normalized.currencyCode,
           exchangeRatePolicy: normalized.exchangeRatePolicy,
           fixedExchangeRate: normalized.fixedExchangeRate,
-          rateSnapshotId: normalized.rateSnapshotId,
-          partyId: normalized.partyId,
-          branchId: normalized.branchId,
-          paidThroughAccountId: normalized.paidThroughAccountId,
+          rateSnapshot: normalized.rateSnapshotId
+            ? { connect: { organizationId_id: { organizationId, id: normalized.rateSnapshotId } } }
+            : undefined,
+          party: normalized.partyId
+            ? { connect: { organizationId_id: { organizationId, id: normalized.partyId } } }
+            : undefined,
+          branch: normalized.branchId
+            ? { connect: { organizationId_id: { organizationId, id: normalized.branchId } } }
+            : undefined,
+          paidThroughAccount: normalized.paidThroughAccountId
+            ? { connect: { organizationId_id: { organizationId, id: normalized.paidThroughAccountId } } }
+            : undefined,
           paymentTermsDays: normalized.paymentTermsDays,
           reference: normalized.reference,
           notes: normalized.notes,
@@ -202,9 +210,9 @@ export class RecurringTemplateService {
           taxableTotal: prepared.taxableTotal,
           taxTotal: prepared.taxTotal,
           total: prepared.total,
-          createdByUserId: actorUserId,
-          updatedByUserId: actorUserId,
-          lines: { create: prepared.lines.map((line) => ({ organizationId, ...line })) },
+          createdBy: { connect: { id: actorUserId } },
+          updatedBy: { connect: { id: actorUserId } },
+          lines: { create: prepared.lines },
         },
         include: templateInclude,
       });
