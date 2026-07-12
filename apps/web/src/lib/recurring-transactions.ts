@@ -18,6 +18,11 @@ export interface RecurringTemplateLine {
   debit: string;
   credit: string;
   sortOrder: number;
+  item?: { id: string; sku: string; name: string; status: string } | null;
+  account?: { id: string; code: string; name: string; isActive?: boolean; allowPosting?: boolean } | null;
+  taxRate?: { id: string; name: string; rate: string; isActive?: boolean } | null;
+  costCenter?: { id: string; code: string; name: string; status?: string } | null;
+  project?: { id: string; code: string; name: string; status?: string } | null;
 }
 
 export interface RecurringRun {
@@ -71,6 +76,7 @@ export interface RecurringTemplate {
   inventoryPostingMode?: string | null;
   total: string;
   party?: { id: string; name: string; displayName?: string | null } | null;
+  branch?: { id: string; name: string; displayName?: string | null } | null;
   lines: RecurringTemplateLine[];
   runs: RecurringRun[];
 }
@@ -103,4 +109,7 @@ export function getRecurringTemplate(id: string) { return apiRequest<RecurringTe
 export function listRecurringRuns(id: string, page = 1) { return apiRequest<RecurringPage<RecurringRun>>(`/recurring-transactions/${encodeURIComponent(id)}/runs?page=${page}&limit=25`); }
 export function runRecurringTemplate(id: string, idempotencyKey: string) {
   return apiRequest<RecurringRun>(`/recurring-transactions/${encodeURIComponent(id)}/run`, { method: "POST", headers: { "Idempotency-Key": idempotencyKey }, body: {} });
+}
+export function transitionRecurringTemplate(id: string, action: "activate" | "pause" | "resume" | "archive") {
+  return apiRequest<RecurringTemplate>(`/recurring-transactions/${encodeURIComponent(id)}/${action}`, { method: "POST", body: {} });
 }
