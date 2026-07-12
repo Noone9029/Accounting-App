@@ -183,15 +183,24 @@ describe("recurring generation adapters", () => {
     });
     expect(executor.recurringExpenseProposal.create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({
-        organizationId: "org-1",
+        organization: { connect: { id: "org-1" } },
+        contact: { connect: { organizationId_id: { organizationId: "org-1", id: "party-1" } } },
+        branch: { connect: { organizationId_id: { organizationId: "org-1", id: "branch-1" } } },
         proposedDate: scheduledLocalDate,
-        paidThroughAccountId: "bank-1",
+        paidThroughAccount: { connect: { organizationId_id: { organizationId: "org-1", id: "bank-1" } } },
         currency: "USD",
         exchangeRate: "3.67250000",
         rateSource: CurrencyRateSource.MANUAL,
         lines: { create: [expect.objectContaining({ costCenterId: "cost-1", projectId: "project-1" })] },
       }),
     }));
+    const data = executor.recurringExpenseProposal.create.mock.calls[0]?.[0]?.data;
+    expect(data).not.toHaveProperty("organizationId");
+    expect(data).not.toHaveProperty("contactId");
+    expect(data).not.toHaveProperty("branchId");
+    expect(data).not.toHaveProperty("paidThroughAccountId");
+    expect(data).not.toHaveProperty("rateSnapshotId");
+    expect(data.lines.create[0]).not.toHaveProperty("organizationId");
     expect(executor).not.toHaveProperty("cashExpense");
   });
 
