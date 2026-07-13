@@ -11,6 +11,7 @@ import { CompleteAccountingCloseTaskDto } from "./dto/complete-accounting-close-
 import { ReopenAccountingCloseTaskDto } from "./dto/reopen-accounting-close-task.dto";
 import { RefreshAccountingCloseCycleDto } from "./dto/refresh-accounting-close-cycle.dto";
 import { ListAccountingCloseTasksDto } from "./dto/list-accounting-close-tasks.dto";
+import { AssignAccountingCloseTaskDto } from "./dto/assign-accounting-close-task.dto";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import type { AuthenticatedUser } from "../auth/auth.types";
 import { AccountingCloseService } from "./accounting-close.service";
@@ -42,6 +43,18 @@ export class AccountingCloseController {
   @RequirePermissions(PERMISSIONS.accountingClose.read)
   listTasks(@CurrentOrganizationId() organizationId: string, @Param("id") cycleId: string, @Query() query: ListAccountingCloseTasksDto) {
     return this.accountingCloseService.listTasks(organizationId, cycleId, query.page, query.pageSize);
+  }
+
+  @Post("cycles/:id/tasks/:taskId/assign")
+  @RequirePermissions(PERMISSIONS.accountingClose.manage)
+  assignTask(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") cycleId: string,
+    @Param("taskId") taskId: string,
+    @Body() dto: AssignAccountingCloseTaskDto,
+  ) {
+    return this.accountingCloseService.assignTask(organizationId, user.id, cycleId, taskId, dto.expectedVersion, dto.assignedToUserId);
   }
 
   @Post("cycles/:id/tasks/:taskId/complete")
