@@ -93,6 +93,11 @@ export type DraftTreasuryReadiness = {
   settlementUpdatedAt?: string;
 };
 
+export type OpenChequeReadiness = {
+  openCount: number;
+  sourceUpdatedAt?: string;
+};
+
 export type InventoryAdjustmentReadiness = {
   draftCount: number;
   sourceUpdatedAt?: string;
@@ -222,6 +227,13 @@ export function normalizeDraftTreasuryReadiness(readiness: DraftTreasuryReadines
     ? { ...check("banking.draftCardSettlements", "Draft card settlements", "INFORMATION", "READY", "NO_DRAFT_CARD_SETTLEMENTS", "No draft card settlements are dated in this fiscal period.", 0, "/bank-accounts", false), sourceUpdatedAt: readiness.settlementUpdatedAt }
     : { ...check("banking.draftCardSettlements", "Draft card settlements", "WARNING", "OPEN", "DRAFT_CARD_SETTLEMENTS", "Draft card settlements dated in this fiscal period require accountant review.", readiness.draftSettlementCount, "/bank-accounts", false), sourceUpdatedAt: readiness.settlementUpdatedAt };
   return [deposits, settlements];
+}
+
+export function normalizeOpenChequeReadiness(readiness: OpenChequeReadiness): AccountingCloseCheck[] {
+  if (readiness.openCount === 0) {
+    return [{ ...check("banking.openCheques", "Open cheques", "INFORMATION", "READY", "NO_OPEN_CHEQUES", "No currently open cheques were initiated in or before this fiscal period.", 0, "/bank-accounts", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
+  }
+  return [{ ...check("banking.openCheques", "Open cheques", "WARNING", "OPEN", "OPEN_CHEQUES", "Currently open cheques initiated in or before this fiscal period require accountant review.", readiness.openCount, "/bank-accounts", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
 }
 
 export function normalizeInventoryAdjustmentReadiness(readiness: InventoryAdjustmentReadiness): AccountingCloseCheck[] {
