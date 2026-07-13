@@ -4,6 +4,7 @@ import { FxCloseReadinessService } from "../foreign-exchange/fx-close-readiness.
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { RecurringReadinessService } from "../recurring-transactions/recurring-readiness.service";
+import { FiscalPeriodService } from "../fiscal-periods/fiscal-period.service";
 import {
   AccountingCloseCheck,
   canonicalReadinessHash,
@@ -18,6 +19,7 @@ export class AccountingCloseService {
     private readonly fxCloseReadinessService: FxCloseReadinessService,
     private readonly recurringReadinessService: RecurringReadinessService,
     private readonly auditLogService: AuditLogService,
+    private readonly fiscalPeriodService: FiscalPeriodService,
   ) {}
 
   async getCycle(organizationId: string, cycleId: string) {
@@ -420,6 +422,29 @@ export class AccountingCloseService {
       if (prismaErrorCode(error) === "P2034") throw new ConflictException("Close cycle changed. Reload and retry.");
       throw error;
     }
+  }
+
+  async closeCycle(organizationId: string, actorUserId: string, cycleId: string, expectedVersion: number) {
+    if (!Number.isInteger(expectedVersion) || expectedVersion < 1) throw new BadRequestException("expectedVersion must be a positive integer.");
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const cycle = await tx.accountingCloseCycle.findFirst({ where: { id: cycleId, organizationId }, select: { id: true, fiscalPeriodId: true, status: true, readinessHash: true } });
+        if (!cycle) throw new NotFoundException("Close cycle not found.");
+        if (cycle.status !== "REVIEWED" || !cycle.readinessHash) throw new BadRequestException("Only a reviewed close cycle can close its fiscal period.");
+        const fiscalPeriod = await tx.fiscalPeriod.findFirst({ where: { id: cycle.fiscalPeriodId, organizationId }, select: { id: true, name: true, startsOn: true, endsOn: true, status: true } });
+        if (!fiscalPeriod) throw new NotFoundException("Fiscal period not found.");
+        if (fiscalPeriod.status !== FiscalPeriodStatus.OPEN) throw new BadRequestException("Only an open fiscal period can be closed.");
+        const readiness = await this.readinessForFiscalPeriod(organizationId, fiscalPeriod, tx);
+        if (readiness.blockerCount > 0 || readiness.canonicalHash !== cycle.readinessHash) throw new ConflictException("Close readiness changed. Refresh, prepare, and review the cycle again.");
+        await this.fiscalPeriodService.closeInTransaction(organizationId, actorUserId, cycle.fiscalPeriodId, tx);
+        const closedAt = new Date();
+        const claimed = await tx.accountingCloseCycle.updateMany({ where: { id: cycleId, organizationId, version: expectedVersion, status: "REVIEWED", readinessHash: cycle.readinessHash, fiscalPeriod: { is: { organizationId, status: FiscalPeriodStatus.CLOSED } } }, data: { status: "CLOSED", version: { increment: 1 }, closedAt, closedByUserId: actorUserId } });
+        if (claimed.count !== 1) throw new ConflictException("Close cycle changed. Reload and retry.");
+        const snapshot = await tx.accountingCloseReadinessSnapshot.create({ data: { organizationId, closeCycleId: cycle.id, fiscalPeriodId: cycle.fiscalPeriodId, capturedByUserId: actorUserId, status: "CLOSED", blockerCount: readiness.blockerCount, warningCount: readiness.warningCount, informationCount: readiness.informationCount, checkCount: readiness.checkCount, canonicalHash: readiness.canonicalHash, sourceVersion: expectedVersion + 1, items: { create: readiness.checks.map((check) => ({ organizationId, checkKey: check.key, severity: check.severity, status: check.status, code: check.code, safeMessage: check.safeMessage, count: check.count, sourceUpdatedAt: check.sourceUpdatedAt ? new Date(check.sourceUpdatedAt) : undefined, metadataSafe: { title: check.title, detailsHref: check.detailsHref ?? null, canAcknowledge: check.canAcknowledge } })) } } });
+        await this.auditLogService.log({ organizationId, actorUserId, action: "CLOSE", entityType: "AccountingCloseCycle", entityId: cycle.id, after: { status: "CLOSED", closedAt, readinessHash: readiness.canonicalHash, snapshotId: snapshot.id } }, tx);
+        return { id: cycle.id, fiscalPeriodId: cycle.fiscalPeriodId, status: "CLOSED", version: expectedVersion + 1, closedAt, closedByUserId: actorUserId, readinessHash: readiness.canonicalHash };
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    } catch (error) { if (prismaErrorCode(error) === "P2034") throw new ConflictException("Close cycle changed. Reload and retry."); throw error; }
   }
 
   async readiness(organizationId: string, fiscalPeriodId: string) {
