@@ -290,6 +290,46 @@ describe("AccountingCloseService", () => {
     expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({ action: "REOPEN", before: task, after: reopened }), tx);
   });
 
+  it("prepares a close cycle only after current readiness is clear and required manual tasks are complete", async () => {
+    const { service, prisma, fx, recurring, auditLog } = createService();
+    fx.readiness.mockResolvedValue({ status: "READY", asOf: "2026-06-30", counts: { foreignDocuments: 0 }, actions: [], blockers: [] });
+    recurring.get.mockResolvedValue({ status: "READY", templateCount: 0, activeTemplates: 0, dueTemplates: 0, failedRuns: 0, blockedRuns: 0, generatedDraftsAwaitingReview: 0, schedulesMissingReferences: 0, foreignTemplatesMissingRateEvidence: 0, runsScheduledInsideLockedPeriods: 0, blocksFiscalClose: false, asOf: "2026-07-13T00:00:00.000Z" });
+    const snapshot = { id: "snapshot-prepare", organizationId: "org-1", closeCycleId: "cycle-1", fiscalPeriodId: "period-1", capturedAt: new Date(), capturedByUserId: "user-1", status: "DRAFT", blockerCount: 0, warningCount: 0, informationCount: 0, checkCount: 0, canonicalHash: "clear-hash", sourceVersion: 5, items: [] };
+    const tx = {
+      accountingCloseCycle: { findFirst: jest.fn().mockResolvedValue({ id: "cycle-1", fiscalPeriodId: "period-1", status: "IN_PROGRESS" }), updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      fiscalPeriod: { findFirst: jest.fn().mockResolvedValue(period) },
+      accountingCloseTask: { findFirst: jest.fn().mockResolvedValue(null) },
+      accountingCloseReadinessSnapshot: { create: jest.fn().mockResolvedValue(snapshot) },
+    };
+    Object.assign(prisma, { $transaction: jest.fn((callback) => callback(tx)) });
+
+    await expect(service.prepareCycle("org-1", "user-1", "cycle-1", 4)).resolves.toMatchObject({ id: "cycle-1", status: "READY_FOR_REVIEW", version: 5, readinessHash: expect.any(String) });
+
+    expect(fx.readiness).toHaveBeenCalledWith("org-1", period.endsOn, tx);
+    expect(recurring.get).toHaveBeenCalledWith("org-1", { startsOn: period.startsOn, endsOn: period.endsOn }, tx);
+    expect(tx.accountingCloseTask.findFirst).toHaveBeenCalledWith({ where: { organizationId: "org-1", closeCycleId: "cycle-1", source: { not: "SYSTEM" }, isRequired: true, status: { not: "COMPLETED" } }, select: { id: true } });
+    expect(tx.accountingCloseCycle.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ id: "cycle-1", version: 4, status: "IN_PROGRESS" }), data: expect.objectContaining({ status: "READY_FOR_REVIEW", preparedByUserId: "user-1", readinessHash: expect.any(String) }) }));
+    expect(tx.accountingCloseReadinessSnapshot.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ closeCycleId: "cycle-1", status: "DRAFT", blockerCount: 0, canonicalHash: expect.any(String), sourceVersion: 5 }) }));
+    expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({ action: "PREPARE", entityType: "AccountingCloseCycle", entityId: "cycle-1" }), tx);
+  });
+
+  it("rejects preparation before claiming the cycle when current readiness has a blocker", async () => {
+    const { service, prisma } = createService();
+    const tx = {
+      accountingCloseCycle: { findFirst: jest.fn().mockResolvedValue({ id: "cycle-1", fiscalPeriodId: "period-1", status: "IN_PROGRESS" }), updateMany: jest.fn() },
+      fiscalPeriod: { findFirst: jest.fn().mockResolvedValue(period) },
+      accountingCloseTask: { findFirst: jest.fn() },
+      accountingCloseReadinessSnapshot: { create: jest.fn() },
+    };
+    Object.assign(prisma, { $transaction: jest.fn((callback) => callback(tx)) });
+
+    await expect(service.prepareCycle("org-1", "user-1", "cycle-1", 4)).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(tx.accountingCloseTask.findFirst).not.toHaveBeenCalled();
+    expect(tx.accountingCloseCycle.updateMany).not.toHaveBeenCalled();
+    expect(tx.accountingCloseReadinessSnapshot.create).not.toHaveBeenCalled();
+  });
+
   it("captures an immutable tenant-scoped readiness snapshot from current normalized checks", async () => {
     const { service, prisma, fx, recurring, auditLog } = createService();
     const snapshot = {
