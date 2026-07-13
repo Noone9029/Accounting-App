@@ -41,6 +41,11 @@ type RecurringReadiness = {
   sourceUpdatedAt?: string;
 };
 
+export type ManualJournalReadiness = {
+  draftCount: number;
+  sourceUpdatedAt?: string;
+};
+
 export function normalizeFxReadiness(readiness: FxReadiness): AccountingCloseCheck[] {
   if (readiness.status === "NOT_APPLICABLE") {
     return [{ ...check("fx.notApplicable", "Foreign exchange close readiness", "NOT_APPLICABLE", "NOT_APPLICABLE", "FX_NOT_APPLICABLE", "No foreign-currency close activity requires review for this period.", 0, "/fx-close", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
@@ -70,6 +75,13 @@ export function normalizeRecurringReadiness(readiness: RecurringReadiness): Acco
   return result.length
     ? result.map((item) => ({ ...item, sourceUpdatedAt: readiness.sourceUpdatedAt }))
     : [{ ...check("recurring.ready", "Recurring transaction readiness", "INFORMATION", "READY", "RECURRING_READY", "Recurring transaction readiness is currently clear.", 0, "/recurring-transactions", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
+}
+
+export function normalizeManualJournalReadiness(readiness: ManualJournalReadiness): AccountingCloseCheck[] {
+  if (readiness.draftCount === 0) {
+    return [{ ...check("journals.manualDrafts", "Manual draft journals", "INFORMATION", "READY", "NO_MANUAL_DRAFT_JOURNALS", "No manual draft journals are dated in this fiscal period.", 0, "/journal-entries", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
+  }
+  return [{ ...check("journals.manualDrafts", "Manual draft journals", "WARNING", "OPEN", "MANUAL_DRAFT_JOURNALS", "Manual draft journals dated in this fiscal period require accountant review.", readiness.draftCount, "/journal-entries", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
 }
 
 export function canonicalReadinessHash(checks: Array<Omit<AccountingCloseCheck, "canAcknowledge"> & Partial<Pick<AccountingCloseCheck, "canAcknowledge">>>): string {

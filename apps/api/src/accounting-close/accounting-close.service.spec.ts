@@ -1,12 +1,18 @@
 import { BadRequestException, NotFoundException } from "@nestjs/common";
-import { FiscalPeriodStatus } from "@prisma/client";
+import { FiscalPeriodStatus, JournalEntryStatus } from "@prisma/client";
 import { AccountingCloseService } from "./accounting-close.service";
 
 describe("AccountingCloseService", () => {
   const period = { id: "period-1", organizationId: "org-1", name: "June 2026", startsOn: new Date("2026-06-01T00:00:00.000Z"), endsOn: new Date("2026-06-30T23:59:59.999Z"), status: FiscalPeriodStatus.OPEN };
 
   function createService() {
-    const prisma: any = { fiscalPeriod: { findFirst: jest.fn().mockResolvedValue(period) } };
+    const prisma: any = {
+      fiscalPeriod: { findFirst: jest.fn().mockResolvedValue(period) },
+      journalEntry: {
+        count: jest.fn().mockResolvedValue(0),
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+    };
     const fx = {
       readiness: jest.fn().mockResolvedValue({
         status: "BLOCKED", asOf: "2026-06-30", counts: { foreignDocuments: 1 }, actions: [],
@@ -42,6 +48,44 @@ describe("AccountingCloseService", () => {
     expect(prisma.fiscalPeriod.findFirst).toHaveBeenCalledWith({ where: { id: "period-1", organizationId: "org-1" } });
     expect(fx.readiness).toHaveBeenCalledWith("org-1", period.endsOn);
     expect(recurring.get).toHaveBeenCalledWith("org-1", { startsOn: period.startsOn, endsOn: period.endsOn });
+  });
+
+  it("surfaces every tenant-scoped draft journal by its entry date, including re-dated recurring drafts", async () => {
+    const { service, prisma } = createService();
+    prisma.journalEntry.count.mockResolvedValue(2);
+    prisma.journalEntry.findFirst.mockResolvedValue({ updatedAt: new Date("2026-06-21T12:00:00.000Z") });
+
+    await expect(service.readiness("org-1", "period-1")).resolves.toMatchObject({
+      warningCount: 2,
+      checks: expect.arrayContaining([
+        expect.objectContaining({
+          key: "journals.manualDrafts",
+          severity: "WARNING",
+          status: "OPEN",
+          code: "MANUAL_DRAFT_JOURNALS",
+          count: 2,
+          canAcknowledge: false,
+          detailsHref: "/journal-entries",
+          sourceUpdatedAt: "2026-06-21T12:00:00.000Z",
+        }),
+      ]),
+    });
+    expect(prisma.journalEntry.count).toHaveBeenCalledWith({
+      where: {
+        organizationId: "org-1",
+        status: JournalEntryStatus.DRAFT,
+        entryDate: { gte: period.startsOn, lte: period.endsOn },
+      },
+    });
+    expect(prisma.journalEntry.findFirst).toHaveBeenCalledWith({
+      where: {
+        organizationId: "org-1",
+        status: JournalEntryStatus.DRAFT,
+        entryDate: { gte: period.startsOn, lte: period.endsOn },
+      },
+      orderBy: { updatedAt: "desc" },
+      select: { updatedAt: true },
+    });
   });
 
   it("fails closed when the requested fiscal period is outside the active tenant", async () => {
@@ -469,6 +513,7 @@ describe("AccountingCloseService", () => {
     const tx = {
       accountingCloseCycle: { findFirst: jest.fn().mockResolvedValue({ id: "cycle-1", fiscalPeriodId: "period-1", status: "IN_PROGRESS" }), updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
       fiscalPeriod: { findFirst: jest.fn().mockResolvedValue(period) },
+      journalEntry: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
       accountingCloseTask: { findFirst: jest.fn().mockResolvedValue(null) },
       accountingCloseReadinessSnapshot: { create: jest.fn().mockResolvedValue(snapshot) },
     };
@@ -509,6 +554,7 @@ describe("AccountingCloseService", () => {
     const tx = {
       accountingCloseCycle: { findFirst: jest.fn().mockResolvedValue({ id: "cycle-1", fiscalPeriodId: "period-1", status: "READY_FOR_REVIEW", preparedByUserId: "user-1", readinessHash }), updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
       fiscalPeriod: { findFirst: jest.fn().mockResolvedValue(period) },
+      journalEntry: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
       accountingCloseReadinessSnapshot: { findFirst: jest.fn().mockResolvedValue({ id: "snapshot-1", canonicalHash: readinessHash }), updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
     };
     Object.assign(prisma, { $transaction: jest.fn((callback) => callback(tx)) });
@@ -601,6 +647,7 @@ describe("AccountingCloseService", () => {
     const tx = {
       accountingCloseCycle: { findFirst: jest.fn().mockResolvedValue({ id: "cycle-1", fiscalPeriodId: "period-1", status: "REVIEWED", readinessHash }), updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
       fiscalPeriod: { findFirst: jest.fn().mockResolvedValue(period) },
+      journalEntry: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
       accountingCloseReadinessSnapshot: { create: jest.fn().mockResolvedValue({ id: "snapshot-close" }) },
     };
     Object.assign(prisma, { $transaction: jest.fn((callback) => callback(tx)) });
@@ -618,7 +665,7 @@ describe("AccountingCloseService", () => {
     fx.readiness.mockResolvedValue({ status: "READY", asOf: "2026-06-30", counts: { foreignDocuments: 0 }, actions: [], blockers: [] });
     recurring.get.mockResolvedValue({ status: "READY", templateCount: 0, activeTemplates: 0, dueTemplates: 0, failedRuns: 0, blockedRuns: 0, generatedDraftsAwaitingReview: 0, schedulesMissingReferences: 0, foreignTemplatesMissingRateEvidence: 0, runsScheduledInsideLockedPeriods: 0, blocksFiscalClose: false, asOf: "2026-07-13T00:00:00.000Z" });
     const readinessHash = (await service.readiness("org-1", "period-1")).canonicalHash;
-    const tx = { accountingCloseCycle: { findFirst: jest.fn().mockResolvedValue({ id: "cycle-1", fiscalPeriodId: "period-1", status: "CLOSED", readinessHash }), updateMany: jest.fn().mockResolvedValue({ count: 1 }) }, fiscalPeriod: { findFirst: jest.fn().mockResolvedValue({ ...period, status: FiscalPeriodStatus.CLOSED }) }, accountingCloseReadinessSnapshot: { create: jest.fn().mockResolvedValue({ id: "snapshot-lock" }) } };
+    const tx = { accountingCloseCycle: { findFirst: jest.fn().mockResolvedValue({ id: "cycle-1", fiscalPeriodId: "period-1", status: "CLOSED", readinessHash }), updateMany: jest.fn().mockResolvedValue({ count: 1 }) }, fiscalPeriod: { findFirst: jest.fn().mockResolvedValue({ ...period, status: FiscalPeriodStatus.CLOSED }) }, journalEntry: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) }, accountingCloseReadinessSnapshot: { create: jest.fn().mockResolvedValue({ id: "snapshot-lock" }) } };
     Object.assign(prisma, { $transaction: jest.fn((callback) => callback(tx)) });
     fiscalPeriods.lockInTransaction.mockResolvedValue({ id: "period-1", status: FiscalPeriodStatus.LOCKED });
 

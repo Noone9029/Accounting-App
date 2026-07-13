@@ -52,19 +52,31 @@ describe("RecurringReadinessService", () => {
     }
   });
 
-  it("scopes run exceptions to the requested fiscal period instead of current unrelated activity", async () => {
+  it("scopes recurring run readiness to fiscal-period local dates instead of UTC scheduling instants", async () => {
     const { service, prisma } = makeHarness({ failed: 1, blocked: 1, drafts: 1 });
-    const startsOn = new Date("2026-06-01T00:00:00.000Z");
-    const endsOn = new Date("2026-06-30T23:59:59.999Z");
+    const startsOn = new Date("2026-07-01T00:00:00.000Z");
+    const endsOn = new Date("2026-07-31T23:59:59.999Z");
 
     await service.get("org-1", { startsOn, endsOn });
 
+    expect(prisma.recurringTransactionRun.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        organizationId: "org-1",
+        scheduledLocalDate: { gte: startsOn, lte: endsOn },
+      }),
+    }));
     for (const [call] of prisma.recurringTransactionRun.count.mock.calls) {
       expect(call.where).toEqual(expect.objectContaining({
         organizationId: "org-1",
-        scheduledFor: { gte: startsOn, lte: endsOn },
+        scheduledLocalDate: { gte: startsOn, lte: endsOn },
       }));
+      expect(call.where).not.toHaveProperty("scheduledFor");
     }
+    expect(prisma.recurringTransactionRun.count.mock.calls[2][0].where.OR).toEqual([
+      { generatedSalesInvoice: { is: { status: "DRAFT" } } },
+      { generatedPurchaseBill: { is: { status: "DRAFT" } } },
+      { generatedExpenseProposal: { is: { status: "DRAFT" } } },
+    ]);
     expect(prisma.recurringTransactionTemplate.count).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ nextRunAt: { lte: endsOn } }),
     }));
