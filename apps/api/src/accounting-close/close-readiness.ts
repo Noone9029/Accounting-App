@@ -66,6 +66,11 @@ export type PurchaseBillReadiness = {
   sourceUpdatedAt?: string;
 };
 
+export type PurchaseDebitNoteReadiness = {
+  draftCount: number;
+  sourceUpdatedAt?: string;
+};
+
 export function normalizeFxReadiness(readiness: FxReadiness): AccountingCloseCheck[] {
   if (readiness.status === "NOT_APPLICABLE") {
     return [{ ...check("fx.notApplicable", "Foreign exchange close readiness", "NOT_APPLICABLE", "NOT_APPLICABLE", "FX_NOT_APPLICABLE", "No foreign-currency close activity requires review for this period.", 0, "/fx-close", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
@@ -130,6 +135,13 @@ export function normalizePurchaseBillReadiness(readiness: PurchaseBillReadiness)
     return [{ ...check("purchases.draftBills", "Draft purchase bills", "INFORMATION", "READY", "NO_DRAFT_PURCHASE_BILLS", "No draft purchase bills are dated in this fiscal period.", 0, "/purchases/bills", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
   }
   return [{ ...check("purchases.draftBills", "Draft purchase bills", "WARNING", "OPEN", "DRAFT_PURCHASE_BILLS", "Draft purchase bills dated in this fiscal period require accountant review.", readiness.draftCount, "/purchases/bills", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
+}
+
+export function normalizePurchaseDebitNoteReadiness(readiness: PurchaseDebitNoteReadiness): AccountingCloseCheck[] {
+  if (readiness.draftCount === 0) {
+    return [{ ...check("purchases.draftDebitNotes", "Draft purchase debit notes", "INFORMATION", "READY", "NO_DRAFT_PURCHASE_DEBIT_NOTES", "No draft purchase debit notes are dated in this fiscal period.", 0, "/purchases/debit-notes", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
+  }
+  return [{ ...check("purchases.draftDebitNotes", "Draft purchase debit notes", "WARNING", "OPEN", "DRAFT_PURCHASE_DEBIT_NOTES", "Draft purchase debit notes dated in this fiscal period require accountant review.", readiness.draftCount, "/purchases/debit-notes", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
 }
 
 export function canonicalReadinessHash(checks: Array<Omit<AccountingCloseCheck, "canAcknowledge"> & Partial<Pick<AccountingCloseCheck, "canAcknowledge">>>): string {
