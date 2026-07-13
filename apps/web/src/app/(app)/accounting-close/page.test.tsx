@@ -27,7 +27,7 @@ describe("accountant month-end close workspace", () => {
     expect(await screen.findByRole("heading", { name: "Month-end close" })).toBeInTheDocument();
     expect(await screen.findByText("1 blocker")).toBeInTheDocument();
     expect(screen.getByText("FX readiness")).toBeInTheDocument();
-    expect(screen.getByText("Close cycle started · READY FOR REVIEW")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open close cycle · READY FOR REVIEW" })).toHaveAttribute("href", "/accounting-close/cycle-1");
     expect(screen.getByRole("link", { name: "Review blocker" })).toHaveAttribute("href", "/fx-close");
     expect(apiRequestMock).toHaveBeenCalledWith("/accounting-close/cycles?fiscalPeriodId=period-1");
     expect(screen.queryByRole("button", { name: "Start close cycle" })).not.toBeInTheDocument();
@@ -105,5 +105,18 @@ describe("accountant month-end close workspace", () => {
     resolveOldPeriods([{ id: "period-a", name: "Organization A June", startsOn: "2026-06-01", endsOn: "2026-06-30", status: "OPEN" }]);
     await waitFor(() => expect(screen.queryByRole("option", { name: /Organization A June/ })).not.toBeInTheDocument());
     expect(apiRequestMock).not.toHaveBeenCalledWith("/accounting-close/readiness?fiscalPeriodId=period-a");
+  });
+
+  it("keeps a locked-period cycle discoverable for audit detail", async () => {
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/fiscal-periods") return Promise.resolve([{ id: "period-locked", name: "December 2025", startsOn: "2025-12-01", endsOn: "2025-12-31", status: "LOCKED" }]);
+      if (path === "/accounting-close/readiness?fiscalPeriodId=period-locked") return Promise.resolve({ blockerCount: 0, warningCount: 0, informationCount: 0, checks: [] });
+      if (path === "/accounting-close/cycles?fiscalPeriodId=period-locked") return Promise.resolve({ id: "cycle-locked", fiscalPeriodId: "period-locked", status: "LOCKED", version: 8 });
+      return Promise.resolve(null);
+    });
+
+    render(<AccountingClosePage />);
+    expect(await screen.findByRole("link", { name: "Open close cycle · LOCKED" })).toHaveAttribute("href", "/accounting-close/cycle-locked");
+    expect(screen.queryByRole("button", { name: "Start close cycle" })).not.toBeInTheDocument();
   });
 });

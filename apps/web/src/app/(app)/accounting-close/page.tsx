@@ -40,9 +40,8 @@ export default function AccountingClosePage() {
     try {
       const next = await apiRequest<FiscalPeriod[]>("/fiscal-periods");
       if (requestContextVersion !== contextVersion.current) return;
-      const open = next.filter((period) => period.status === "OPEN");
-      setPeriods(open);
-      setPeriodId(open[0]?.id ?? "");
+      setPeriods(next);
+      setPeriodId(next[0]?.id ?? "");
     } catch (cause) { if (requestContextVersion === contextVersion.current) setError(cause instanceof Error ? cause.message : "Unable to load fiscal periods."); }
     finally { if (requestContextVersion === contextVersion.current) setLoading(false); }
   }
@@ -84,13 +83,13 @@ export default function AccountingClosePage() {
       {!organizationId ? <LedgerAlert tone="info">Log in and select an organization to use the close workspace.</LedgerAlert> : null}
       {loading ? <LedgerLoadingState title="Loading close workspace" /> : null}
       {error ? <LedgerErrorState title="Unable to load close workspace" description={error} action={<LedgerButton onClick={() => periodId ? void loadReadiness(periodId) : void loadPeriods()}>Try again</LedgerButton>} /> : null}
-      {!loading && organizationId && periods.length === 0 ? <LedgerEmptyState title="No open fiscal period is available." description="Create or reopen a fiscal period before starting a month-end close cycle." action={<LedgerButton href="/fiscal-periods">Open fiscal periods</LedgerButton>} /> : null}
+      {!loading && organizationId && periods.length === 0 ? <LedgerEmptyState title="No fiscal period is available." description="Create a fiscal period before starting a month-end close cycle." action={<LedgerButton href="/fiscal-periods">Open fiscal periods</LedgerButton>} /> : null}
       {periods.length ? <>
         <LedgerPanel>
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <label className="block min-w-0 md:w-80"><span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-steel">Fiscal period</span><LedgerSelect aria-label="Fiscal period" value={periodId} onChange={(event) => setPeriodId(event.target.value)}>{periods.map((period) => <option key={period.id} value={period.id}>{period.name} · {period.startsOn} to {period.endsOn}</option>)}</LedgerSelect></label>
-            {canManage && !cycle ? <LedgerButton variant="primary" onClick={startCycle} disabled={starting}>{starting ? "Starting..." : "Start close cycle"}</LedgerButton> : null}
-            {cycle ? <LedgerStatusBadge tone="info">Close cycle started · {cycle.status.replaceAll("_", " ")}</LedgerStatusBadge> : null}
+            {canManage && !cycle && selected?.status === "OPEN" ? <LedgerButton variant="primary" onClick={startCycle} disabled={starting}>{starting ? "Starting..." : "Start close cycle"}</LedgerButton> : null}
+            {cycle ? <LedgerButton href={`/accounting-close/${cycle.id}`}>Open close cycle · {cycle.status.replaceAll("_", " ")}</LedgerButton> : null}
           </div>
         </LedgerPanel>
         {readiness ? <>
