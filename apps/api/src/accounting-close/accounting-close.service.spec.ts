@@ -1031,6 +1031,9 @@ describe("AccountingCloseService", () => {
     expect(tx.accountingCloseReadinessSnapshot.create.mock.calls[0][0].data.items.create).toEqual(expect.arrayContaining([
       expect.objectContaining({ checkKey: "fx.MISSING_CLOSING_RATE", severity: "BLOCKER", status: "BLOCKED", code: "MISSING_CLOSING_RATE", count: 1 }),
     ]));
+    expect(tx.accountingCloseReadinessSnapshot.create.mock.calls[0][0].data.items.create).toEqual(expect.arrayContaining([
+      expect.not.objectContaining({ organizationId: expect.anything() }),
+    ]));
     expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({ action: "REFRESH", entityType: "AccountingCloseReadinessSnapshot", entityId: "snapshot-1" }), tx);
   });
 
