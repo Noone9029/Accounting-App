@@ -104,6 +104,27 @@ describe("AccountingCloseService", () => {
     expect(prisma.accountingCloseTask.findMany).not.toHaveBeenCalled();
   });
 
+  it("assigns a manual close task only to an active member of the tenant and audits the change", async () => {
+    const { service, prisma, auditLog } = createService();
+    const task = { id: "task-1", organizationId: "org-1", closeCycleId: "cycle-1", source: "STANDARD_TEMPLATE", status: "OPEN", assignedToUserId: null };
+    const assigned = { ...task, assignedToUserId: "user-2" };
+    const tx = {
+      accountingCloseCycle: { findFirst: jest.fn().mockResolvedValue({ id: "cycle-1", fiscalPeriodId: "period-1", status: "IN_PROGRESS" }), updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      fiscalPeriod: { findFirst: jest.fn().mockResolvedValue({ id: "period-1", status: FiscalPeriodStatus.OPEN }) },
+      accountingCloseTask: { findFirst: jest.fn().mockResolvedValue(task), update: jest.fn().mockResolvedValue(assigned) },
+      organizationMember: { findFirst: jest.fn().mockResolvedValue({ id: "membership-1" }) },
+    };
+    Object.assign(prisma, { $transaction: jest.fn((callback) => callback(tx)) });
+
+    const result = await service.assignTask("org-1", "user-1", "cycle-1", "task-1", 3, "user-2");
+    expect(result).toMatchObject({ assignedToUserId: "user-2" });
+    expect(result).not.toHaveProperty("organizationId");
+    expect(result).not.toHaveProperty("closeCycleId");
+    expect(tx.organizationMember.findFirst).toHaveBeenCalledWith({ where: { organizationId: "org-1", userId: "user-2", status: "ACTIVE" }, select: { id: true } });
+    expect(tx.accountingCloseTask.update).toHaveBeenCalledWith(expect.objectContaining({ data: { assignedToUserId: "user-2" } }));
+    expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({ action: "ASSIGN", before: task, after: assigned }), tx);
+  });
+
   it("creates one tenant-scoped cycle with the standard required manual tasks and an audit event", async () => {
     const { service, prisma, fx, recurring, auditLog } = createService();
     const tx = {
