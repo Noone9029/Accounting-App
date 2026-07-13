@@ -37,12 +37,13 @@ export class RequestLoggingInterceptor implements NestInterceptor {
           });
         },
         error: (error: unknown) => {
+          const path = readRequestPath(request);
           this.logger.emit({
             level: "error",
             message: "api.request.failed",
             requestId: request.requestId,
             method: request.method,
-            path: readRequestPath(request),
+            path,
             statusCode: error instanceof HttpException ? error.getStatus() : 500,
             durationMs: Date.now() - startedAt,
             organizationId: request.organizationId,
@@ -50,11 +51,19 @@ export class RequestLoggingInterceptor implements NestInterceptor {
             module: moduleName,
             action,
             errorName: error instanceof Error ? error.name : "UnknownError",
+            prismaArgument: error instanceof Error && error.name === "PrismaClientValidationError" && path.startsWith("/accounting-close/")
+              ? safePrismaArgument(error.message)
+              : undefined,
           });
         },
       }),
     );
   }
+}
+
+export function safePrismaArgument(message: string): string | undefined {
+  const argument = /\bargument\s+`([A-Za-z][A-Za-z0-9_.]*)`/i.exec(message)?.[1];
+  return argument;
 }
 
 function readRequestPath(request: { path?: string; originalUrl?: string; url?: string }) {
