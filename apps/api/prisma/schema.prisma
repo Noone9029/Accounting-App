@@ -1214,6 +1214,43 @@ enum FiscalPeriodStatus {
   LOCKED
 }
 
+enum AccountingCloseCycleStatus {
+  IN_PROGRESS
+  READY_FOR_REVIEW
+  REVIEWED
+  CLOSED
+  LOCKED
+}
+
+enum AccountingCloseTaskSource {
+  SYSTEM
+  STANDARD_TEMPLATE
+  CUSTOM
+}
+
+enum AccountingCloseTaskStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  BLOCKED
+  ACKNOWLEDGED
+  NOT_APPLICABLE
+}
+
+enum AccountingCloseSeverity {
+  BLOCKER
+  WARNING
+  INFORMATION
+  NOT_APPLICABLE
+}
+
+enum AccountingCloseSnapshotStatus {
+  DRAFT
+  REVIEWED
+  CLOSED
+  LOCKED
+}
+
 enum NumberSequenceScope {
   JOURNAL_ENTRY
   INVOICE
@@ -1393,6 +1430,16 @@ model User {
   completedOnboardingChecklistItems                 OnboardingChecklistItem[]                   @relation("OnboardingChecklistItemCompletedBy")
   skippedOnboardingChecklistItems                   OnboardingChecklistItem[]                   @relation("OnboardingChecklistItemSkippedBy")
   reopenedOnboardingChecklistItems                  OnboardingChecklistItem[]                   @relation("OnboardingChecklistItemReopenedBy")
+  startedAccountingCloseCycles                      AccountingCloseCycle[]                       @relation("AccountingCloseCycleStartedBy")
+  preparedAccountingCloseCycles                     AccountingCloseCycle[]                       @relation("AccountingCloseCyclePreparedBy")
+  reviewedAccountingCloseCycles                     AccountingCloseCycle[]                       @relation("AccountingCloseCycleReviewedBy")
+  closedAccountingCloseCycles                       AccountingCloseCycle[]                       @relation("AccountingCloseCycleClosedBy")
+  lockedAccountingCloseCycles                       AccountingCloseCycle[]                       @relation("AccountingCloseCycleLockedBy")
+  assignedAccountingCloseTasks                      AccountingCloseTask[]                        @relation("AccountingCloseTaskAssignedTo")
+  completedAccountingCloseTasks                     AccountingCloseTask[]                        @relation("AccountingCloseTaskCompletedBy")
+  reopenedAccountingCloseTasks                      AccountingCloseTask[]                        @relation("AccountingCloseTaskReopenedBy")
+  addedAccountingCloseEvidence                      AccountingCloseEvidence[]                    @relation("AccountingCloseEvidenceAddedBy")
+  capturedAccountingCloseReadinessSnapshots         AccountingCloseReadinessSnapshot[]           @relation("AccountingCloseSnapshotCapturedBy")
   onboardingChecklistEvents                         OnboardingChecklistEvent[]                  @relation("OnboardingChecklistEventActor")
   createdOnboardingTemplateVersions                 OnboardingTemplateVersion[]                 @relation("OnboardingTemplateVersionCreatedBy")
   updatedOnboardingTemplateVersions                 OnboardingTemplateVersion[]                 @relation("OnboardingTemplateVersionUpdatedBy")
@@ -1512,6 +1559,11 @@ model Organization {
   journalEntries                            JournalEntry[]
   journalLines                              JournalLine[]
   fiscalPeriods                             FiscalPeriod[]
+  accountingCloseCycles                     AccountingCloseCycle[]
+  accountingCloseTasks                      AccountingCloseTask[]
+  accountingCloseEvidence                   AccountingCloseEvidence[]
+  accountingCloseReadinessSnapshots         AccountingCloseReadinessSnapshot[]
+  accountingCloseReadinessSnapshotItems     AccountingCloseReadinessSnapshotItem[]
   auditLogs                                 AuditLog[]
   auditLogRetentionSettings                 AuditLogRetentionSettings?
   numberSequences                           NumberSequence[]
@@ -6340,9 +6392,162 @@ model FiscalPeriod {
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
   organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  closeCycles AccountingCloseCycle[] @relation("FiscalPeriodAccountingCloseCycles")
+  closeSnapshots AccountingCloseReadinessSnapshot[] @relation("FiscalPeriodAccountingCloseSnapshots")
 
   @@unique([organizationId, name])
+  @@unique([organizationId, id])
   @@index([organizationId])
+}
+
+model AccountingCloseCycle {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  fiscalPeriodId String @db.Uuid
+  status AccountingCloseCycleStatus @default(IN_PROGRESS)
+  version Int @default(1)
+  startedAt DateTime @default(now())
+  startedByUserId String? @db.Uuid
+  preparedAt DateTime?
+  preparedByUserId String? @db.Uuid
+  reviewedAt DateTime?
+  reviewedByUserId String? @db.Uuid
+  closedAt DateTime?
+  closedByUserId String? @db.Uuid
+  lockedAt DateTime?
+  lockedByUserId String? @db.Uuid
+  lastRefreshedAt DateTime?
+  readinessHash String?
+  requestId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction)
+  fiscalPeriod FiscalPeriod @relation("FiscalPeriodAccountingCloseCycles", fields: [organizationId, fiscalPeriodId], references: [organizationId, id], onDelete: NoAction)
+  startedByUser User? @relation("AccountingCloseCycleStartedBy", fields: [startedByUserId], references: [id], onDelete: SetNull)
+  preparedByUser User? @relation("AccountingCloseCyclePreparedBy", fields: [preparedByUserId], references: [id], onDelete: SetNull)
+  reviewedByUser User? @relation("AccountingCloseCycleReviewedBy", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  closedByUser User? @relation("AccountingCloseCycleClosedBy", fields: [closedByUserId], references: [id], onDelete: SetNull)
+  lockedByUser User? @relation("AccountingCloseCycleLockedBy", fields: [lockedByUserId], references: [id], onDelete: SetNull)
+  tasks AccountingCloseTask[]
+  evidence AccountingCloseEvidence[]
+  readinessSnapshots AccountingCloseReadinessSnapshot[]
+
+  @@unique([organizationId, fiscalPeriodId])
+  @@unique([organizationId, fiscalPeriodId, id])
+  @@unique([organizationId, id])
+  @@index([organizationId, status, updatedAt])
+  @@index([organizationId, fiscalPeriodId, updatedAt])
+  @@index([requestId])
+}
+
+model AccountingCloseTask {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  closeCycleId String @db.Uuid
+  taskType String
+  source AccountingCloseTaskSource
+  title String
+  description String?
+  severity AccountingCloseSeverity
+  status AccountingCloseTaskStatus @default(OPEN)
+  assignedToUserId String? @db.Uuid
+  dueDate DateTime?
+  completedAt DateTime?
+  completedByUserId String? @db.Uuid
+  reopenedAt DateTime?
+  reopenedByUserId String? @db.Uuid
+  acknowledgementReason String?
+  sortOrder Int @default(0)
+  systemCheckKey String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction)
+  closeCycle AccountingCloseCycle @relation(fields: [organizationId, closeCycleId], references: [organizationId, id], onDelete: NoAction)
+  assignedToUser User? @relation("AccountingCloseTaskAssignedTo", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  completedByUser User? @relation("AccountingCloseTaskCompletedBy", fields: [completedByUserId], references: [id], onDelete: SetNull)
+  reopenedByUser User? @relation("AccountingCloseTaskReopenedBy", fields: [reopenedByUserId], references: [id], onDelete: SetNull)
+  evidence AccountingCloseEvidence[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, closeCycleId, id])
+  @@unique([closeCycleId, systemCheckKey])
+  @@index([organizationId, closeCycleId, status])
+  @@index([organizationId, assignedToUserId, status])
+}
+
+model AccountingCloseEvidence {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  closeCycleId String @db.Uuid
+  closeTaskId String? @db.Uuid
+  evidenceType String
+  entityType String?
+  entityId String?
+  reportType String?
+  generatedDocumentId String? @db.Uuid
+  safeLabel String
+  safeMetadata Json?
+  addedByUserId String? @db.Uuid
+  addedAt DateTime @default(now())
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction)
+  closeCycle AccountingCloseCycle @relation(fields: [organizationId, closeCycleId], references: [organizationId, id], onDelete: NoAction)
+  closeTask AccountingCloseTask? @relation(fields: [organizationId, closeCycleId, closeTaskId], references: [organizationId, closeCycleId, id], onDelete: NoAction)
+  addedByUser User? @relation("AccountingCloseEvidenceAddedBy", fields: [addedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, closeCycleId, addedAt])
+  @@index([organizationId, closeTaskId, addedAt])
+  @@index([organizationId, entityType, entityId])
+}
+
+model AccountingCloseReadinessSnapshot {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  closeCycleId String @db.Uuid
+  fiscalPeriodId String @db.Uuid
+  capturedAt DateTime @default(now())
+  capturedByUserId String? @db.Uuid
+  status AccountingCloseSnapshotStatus @default(DRAFT)
+  blockerCount Int @default(0)
+  warningCount Int @default(0)
+  informationCount Int @default(0)
+  checkCount Int @default(0)
+  canonicalHash String
+  sourceVersion Int @default(1)
+  requestId String?
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction)
+  closeCycle AccountingCloseCycle @relation(fields: [organizationId, fiscalPeriodId, closeCycleId], references: [organizationId, fiscalPeriodId, id], onDelete: NoAction, map: "AccountingCloseReadinessSnapshot_org_period_cycle_fkey")
+  fiscalPeriod FiscalPeriod @relation("FiscalPeriodAccountingCloseSnapshots", fields: [organizationId, fiscalPeriodId], references: [organizationId, id], onDelete: NoAction, map: "AccountingCloseReadinessSnapshot_org_period_fkey")
+  capturedByUser User? @relation("AccountingCloseSnapshotCapturedBy", fields: [capturedByUserId], references: [id], onDelete: SetNull)
+  items AccountingCloseReadinessSnapshotItem[]
+
+  @@unique([organizationId, id])
+  @@index([organizationId, fiscalPeriodId, capturedAt])
+  @@index([organizationId, closeCycleId, capturedAt])
+  @@index([requestId])
+}
+
+model AccountingCloseReadinessSnapshotItem {
+  id String @id @default(uuid()) @db.Uuid
+  organizationId String @db.Uuid
+  snapshotId String @db.Uuid
+  checkKey String
+  severity AccountingCloseSeverity
+  status String
+  code String
+  safeMessage String
+  sourceEntityType String?
+  sourceEntityId String?
+  count Int?
+  amount Decimal? @db.Decimal(20, 4)
+  currencyCode String?
+  sourceUpdatedAt DateTime?
+  metadataSafe Json?
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction)
+  snapshot AccountingCloseReadinessSnapshot @relation(fields: [organizationId, snapshotId], references: [organizationId, id], onDelete: NoAction)
+
+  @@unique([snapshotId, checkKey])
+  @@index([organizationId, snapshotId])
+  @@index([organizationId, sourceEntityType, sourceEntityId])
 }
 
 model OnboardingProfile {
