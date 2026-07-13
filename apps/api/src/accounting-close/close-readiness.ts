@@ -101,6 +101,11 @@ export type ReportPackReadiness = {
   sourceUpdatedAt?: string;
 };
 
+export type CashExpenseReadiness = {
+  draftCount: number;
+  sourceUpdatedAt?: string;
+};
+
 export function normalizeFxReadiness(readiness: FxReadiness): AccountingCloseCheck[] {
   if (readiness.status === "NOT_APPLICABLE") {
     return [{ ...check("fx.notApplicable", "Foreign exchange close readiness", "NOT_APPLICABLE", "NOT_APPLICABLE", "FX_NOT_APPLICABLE", "No foreign-currency close activity requires review for this period.", 0, "/fx-close", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
@@ -214,6 +219,13 @@ export function normalizeReportPackReadiness(readiness: ReportPackReadiness): Ac
     return [{ ...check("reports.failedPacks", "Failed report packs", "INFORMATION", "READY", "NO_FAILED_REPORT_PACKS", "No failed report packs overlap this fiscal period.", 0, "/reports", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
   }
   return [{ ...check("reports.failedPacks", "Failed report packs", "WARNING", "OPEN", "FAILED_REPORT_PACKS", "Failed report packs overlapping this fiscal period require accountant review.", readiness.failedCount, "/reports", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
+}
+
+export function normalizeCashExpenseReadiness(readiness: CashExpenseReadiness): AccountingCloseCheck[] {
+  if (readiness.draftCount === 0) {
+    return [{ ...check("purchases.draftCashExpenses", "Draft cash expenses", "INFORMATION", "READY", "NO_DRAFT_CASH_EXPENSES", "No draft cash expenses are dated in this fiscal period.", 0, "/purchases/cash-expenses", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
+  }
+  return [{ ...check("purchases.draftCashExpenses", "Draft cash expenses", "WARNING", "OPEN", "DRAFT_CASH_EXPENSES", "Draft cash expenses dated in this fiscal period require accountant review.", readiness.draftCount, "/purchases/cash-expenses", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
 }
 
 export function canonicalReadinessHash(checks: Array<Omit<AccountingCloseCheck, "canAcknowledge"> & Partial<Pick<AccountingCloseCheck, "canAcknowledge">>>): string {
