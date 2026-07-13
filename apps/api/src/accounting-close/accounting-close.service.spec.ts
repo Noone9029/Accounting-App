@@ -21,7 +21,7 @@ describe("AccountingCloseService", () => {
       }),
     };
     const auditLog = { log: jest.fn().mockResolvedValue(undefined) };
-    const fiscalPeriods = { closeInTransaction: jest.fn() };
+    const fiscalPeriods = { closeInTransaction: jest.fn(), lockInTransaction: jest.fn() };
     return { service: new AccountingCloseService(prisma as never, fx as never, recurring as never, auditLog as never, fiscalPeriods as never), prisma, fx, recurring, auditLog, fiscalPeriods };
   }
 
@@ -441,5 +441,32 @@ describe("AccountingCloseService", () => {
     expect(tx.accountingCloseCycle.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ status: "REVIEWED", version: 6, readinessHash }), data: expect.objectContaining({ status: "CLOSED", closedByUserId: "user-2" }) }));
     expect(tx.accountingCloseReadinessSnapshot.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "CLOSED", canonicalHash: readinessHash }) }));
     expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({ action: "CLOSE", entityType: "AccountingCloseCycle", entityId: "cycle-1" }), tx);
+  });
+
+  it("locks only a closed cycle whose current readiness still matches its closed hash", async () => {
+    const { service, prisma, fx, recurring, auditLog, fiscalPeriods } = createService();
+    fx.readiness.mockResolvedValue({ status: "READY", asOf: "2026-06-30", counts: { foreignDocuments: 0 }, actions: [], blockers: [] });
+    recurring.get.mockResolvedValue({ status: "READY", templateCount: 0, activeTemplates: 0, dueTemplates: 0, failedRuns: 0, blockedRuns: 0, generatedDraftsAwaitingReview: 0, schedulesMissingReferences: 0, foreignTemplatesMissingRateEvidence: 0, runsScheduledInsideLockedPeriods: 0, blocksFiscalClose: false, asOf: "2026-07-13T00:00:00.000Z" });
+    const readinessHash = (await service.readiness("org-1", "period-1")).canonicalHash;
+    const tx = { accountingCloseCycle: { findFirst: jest.fn().mockResolvedValue({ id: "cycle-1", fiscalPeriodId: "period-1", status: "CLOSED", readinessHash }), updateMany: jest.fn().mockResolvedValue({ count: 1 }) }, fiscalPeriod: { findFirst: jest.fn().mockResolvedValue({ ...period, status: FiscalPeriodStatus.CLOSED }) }, accountingCloseReadinessSnapshot: { create: jest.fn().mockResolvedValue({ id: "snapshot-lock" }) } };
+    Object.assign(prisma, { $transaction: jest.fn((callback) => callback(tx)) });
+    fiscalPeriods.lockInTransaction.mockResolvedValue({ id: "period-1", status: FiscalPeriodStatus.LOCKED });
+
+    await expect(service.lockCycle("org-1", "user-2", "cycle-1", 7)).resolves.toMatchObject({ id: "cycle-1", status: "LOCKED", version: 8 });
+    expect(fiscalPeriods.lockInTransaction).toHaveBeenCalledWith("org-1", "user-2", "period-1", tx);
+    expect(tx.accountingCloseCycle.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ status: "CLOSED", version: 7, readinessHash }), data: expect.objectContaining({ status: "LOCKED", lockedByUserId: "user-2" }) }));
+    expect(tx.accountingCloseReadinessSnapshot.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "LOCKED", canonicalHash: readinessHash }) }));
+    expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({ action: "LOCK", entityType: "AccountingCloseCycle", entityId: "cycle-1" }), tx);
+  });
+
+  it("replays an already locked tenant-scoped close cycle without another snapshot or audit event", async () => {
+    const { service, prisma, auditLog, fiscalPeriods } = createService();
+    const tx = { accountingCloseCycle: { findFirst: jest.fn().mockResolvedValue({ id: "cycle-1", fiscalPeriodId: "period-1", status: "LOCKED", readinessHash: "locked-hash", lockedAt: new Date("2026-07-13T00:00:00.000Z"), lockedByUserId: "user-2" }) }, fiscalPeriod: { findFirst: jest.fn().mockResolvedValue({ id: "period-1", status: FiscalPeriodStatus.LOCKED }) }, accountingCloseReadinessSnapshot: { create: jest.fn() } };
+    Object.assign(prisma, { $transaction: jest.fn((callback) => callback(tx)) });
+
+    await expect(service.lockCycle("org-1", "user-2", "cycle-1", 8)).resolves.toMatchObject({ id: "cycle-1", status: "LOCKED", readinessHash: "locked-hash" });
+    expect(fiscalPeriods.lockInTransaction).not.toHaveBeenCalled();
+    expect(tx.accountingCloseReadinessSnapshot.create).not.toHaveBeenCalled();
+    expect(auditLog.log).not.toHaveBeenCalled();
   });
 });

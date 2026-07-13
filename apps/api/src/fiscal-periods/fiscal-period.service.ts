@@ -105,16 +105,21 @@ export class FiscalPeriodService {
   }
 
   async lock(organizationId: string, actorUserId: string, id: string) {
-    return this.transitionWithFxReadiness(
-      organizationId,
-      actorUserId,
-      id,
-      [FiscalPeriodStatus.OPEN, FiscalPeriodStatus.CLOSED],
-      FiscalPeriodStatus.LOCKED,
-      "LOCK",
-      "Only open or closed fiscal periods can be locked.",
-      true,
-    );
+    return this.prisma.$transaction((tx) => this.lockInTransaction(organizationId, actorUserId, id, tx), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  }
+
+  async lockInTransaction(organizationId: string, actorUserId: string, id: string, tx: Prisma.TransactionClient) {
+    const existing = await tx.fiscalPeriod.findFirst({ where: { id, organizationId } });
+    if (!existing) throw new NotFoundException("Fiscal period not found.");
+    if (existing.status === FiscalPeriodStatus.LOCKED) return existing;
+    if (![FiscalPeriodStatus.OPEN, FiscalPeriodStatus.CLOSED].includes(existing.status)) throw new BadRequestException("Only open or closed fiscal periods can be locked.");
+    await this.fxCloseReadinessService.assertReadyForPeriodClose(organizationId, existing.endsOn, tx);
+    const claimed = await tx.fiscalPeriod.updateMany({ where: { id, organizationId, status: { in: [FiscalPeriodStatus.OPEN, FiscalPeriodStatus.CLOSED] } }, data: { status: FiscalPeriodStatus.LOCKED } });
+    if (claimed.count !== 1) throw new ConflictException("Fiscal period state changed while applying FX close controls. Reload and retry.");
+    const period = await tx.fiscalPeriod.findFirst({ where: { id, organizationId } });
+    if (!period) throw new ConflictException("Fiscal period disappeared after its state transition.");
+    await this.auditLogService.log({ organizationId, actorUserId, action: "LOCK", entityType: "FiscalPeriod", entityId: id, before: existing, after: period }, tx);
+    return period;
   }
 
   private transitionWithFxReadiness(
