@@ -11,13 +11,21 @@ import {
 } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 
+export interface RecurringReadinessPeriod {
+  startsOn: Date;
+  endsOn: Date;
+}
+
+type RecurringReadinessExecutor = PrismaService | Prisma.TransactionClient;
+
 @Injectable()
 export class RecurringReadinessService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async get(organizationId: string) {
-    const now = new Date();
-    const templateCount = await this.prisma.recurringTransactionTemplate.count({ where: { organizationId } });
+  async get(organizationId: string, period?: RecurringReadinessPeriod, executor: RecurringReadinessExecutor = this.prisma) {
+    const now = period?.endsOn ?? new Date();
+    const scheduledFor = period ? { gte: period.startsOn, lte: period.endsOn } : undefined;
+    const templateCount = await executor.recurringTransactionTemplate.count({ where: { organizationId } });
     if (templateCount === 0) {
       return {
         status: "NOT_APPLICABLE" as const,
@@ -36,6 +44,8 @@ export class RecurringReadinessService {
     }
 
     const [
+      latestTemplate,
+      latestRun,
       activeTemplates,
       dueTemplates,
       foreignTemplatesMissingRateEvidence,
@@ -45,9 +55,11 @@ export class RecurringReadinessService {
       missingReferenceRows,
       lockedPeriodRows,
     ] = await Promise.all([
-      this.prisma.recurringTransactionTemplate.count({ where: { organizationId, status: RecurringTransactionStatus.ACTIVE } }),
-      this.prisma.recurringTransactionTemplate.count({ where: { organizationId, status: RecurringTransactionStatus.ACTIVE, nextRunAt: { lte: now } } }),
-      this.prisma.recurringTransactionTemplate.count({
+      executor.recurringTransactionTemplate.findFirst({ where: { organizationId }, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
+      executor.recurringTransactionRun.findFirst({ where: { organizationId, ...(scheduledFor ? { scheduledFor } : {}) }, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
+      executor.recurringTransactionTemplate.count({ where: { organizationId, status: RecurringTransactionStatus.ACTIVE } }),
+      executor.recurringTransactionTemplate.count({ where: { organizationId, status: RecurringTransactionStatus.ACTIVE, nextRunAt: { lte: now } } }),
+      executor.recurringTransactionTemplate.count({
         where: {
           organizationId,
           status: { in: [RecurringTransactionStatus.DRAFT, RecurringTransactionStatus.ACTIVE, RecurringTransactionStatus.PAUSED] },
@@ -58,12 +70,13 @@ export class RecurringReadinessService {
           ],
         },
       }),
-      this.prisma.recurringTransactionRun.count({ where: { organizationId, status: RecurringRunStatus.FAILED } }),
-      this.prisma.recurringTransactionRun.count({ where: { organizationId, status: RecurringRunStatus.BLOCKED } }),
-      this.prisma.recurringTransactionRun.count({
+      executor.recurringTransactionRun.count({ where: { organizationId, status: RecurringRunStatus.FAILED, ...(scheduledFor ? { scheduledFor } : {}) } }),
+      executor.recurringTransactionRun.count({ where: { organizationId, status: RecurringRunStatus.BLOCKED, ...(scheduledFor ? { scheduledFor } : {}) } }),
+      executor.recurringTransactionRun.count({
         where: {
           organizationId,
           status: RecurringRunStatus.GENERATED,
+          ...(scheduledFor ? { scheduledFor } : {}),
           OR: [
             { generatedSalesInvoice: { is: { status: "DRAFT" } } },
             { generatedPurchaseBill: { is: { status: "DRAFT" } } },
@@ -72,7 +85,7 @@ export class RecurringReadinessService {
           ],
         },
       }),
-      this.prisma.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
+      executor.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
         SELECT COUNT(DISTINCT t."id")::bigint AS "count"
         FROM "RecurringTransactionTemplate" t
         WHERE t."organizationId" = ${organizationId}::uuid
@@ -97,7 +110,7 @@ export class RecurringReadinessService {
             )
           )
       `),
-      this.prisma.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
+      executor.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
         SELECT COUNT(DISTINCT r."id")::bigint AS "count"
         FROM "RecurringTransactionRun" r
         JOIN "FiscalPeriod" f ON f."organizationId" = r."organizationId"
@@ -106,11 +119,13 @@ export class RecurringReadinessService {
         WHERE r."organizationId" = ${organizationId}::uuid
           AND f."status" IN ('CLOSED'::"FiscalPeriodStatus", 'LOCKED'::"FiscalPeriodStatus")
           AND r."status" NOT IN (${RecurringRunStatus.SKIPPED}::"RecurringRunStatus", ${RecurringRunStatus.GENERATED}::"RecurringRunStatus")
+          ${period ? Prisma.sql`AND r."scheduledLocalDate" >= ${period.startsOn}::date AND r."scheduledLocalDate" <= ${period.endsOn}::date` : Prisma.empty}
       `),
     ]);
 
     const schedulesMissingReferences = Number(missingReferenceRows[0]?.count ?? 0);
     const runsScheduledInsideLockedPeriods = Number(lockedPeriodRows[0]?.count ?? 0);
+    const sourceUpdatedAt = latest([latestTemplate?.updatedAt, latestRun?.updatedAt]);
     const needsAttention = [dueTemplates, failedRuns, blockedRuns, generatedDraftsAwaitingReview, schedulesMissingReferences, foreignTemplatesMissingRateEvidence, runsScheduledInsideLockedPeriods].some((value) => value > 0);
     return {
       status: needsAttention ? "NEEDS_ATTENTION" as const : "READY" as const,
@@ -125,6 +140,12 @@ export class RecurringReadinessService {
       runsScheduledInsideLockedPeriods,
       blocksFiscalClose: false,
       asOf: now.toISOString(),
+      sourceUpdatedAt,
     };
   }
+}
+
+function latest(values: Array<Date | null | undefined>): string | undefined {
+  const timestamps = values.filter((value): value is Date => value instanceof Date).map((value) => value.getTime());
+  return timestamps.length ? new Date(Math.max(...timestamps)).toISOString() : undefined;
 }

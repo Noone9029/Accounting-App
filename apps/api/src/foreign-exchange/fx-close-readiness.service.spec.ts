@@ -10,6 +10,17 @@ describe("FxCloseReadinessService", () => {
     expect(prisma.fxAccountConfiguration.findFirst).not.toHaveBeenCalled();
   });
 
+  it("returns the latest FX source update separately from the close date", async () => {
+    const prisma = readinessPrisma();
+    prisma.salesInvoice.findFirst.mockResolvedValue({ updatedAt: new Date("2026-08-01T10:30:00.000Z") });
+    const service = new FxCloseReadinessService(prisma as never);
+
+    await expect(service.readiness("org-1", "2026-07-31")).resolves.toMatchObject({
+      asOf: "2026-07-31",
+      sourceUpdatedAt: "2026-08-01T10:30:00.000Z",
+    });
+  });
+
   it("blocks missing closing rates, configuration, and posted revaluation for open foreign balances", async () => {
     const prisma = readinessPrisma();
     setSalesInvoices(prisma, [foreignInvoice()]);
@@ -21,12 +32,13 @@ describe("FxCloseReadinessService", () => {
     expect(result.blockers.map((blocker) => blocker.code)).toEqual(expect.arrayContaining(["MISSING_FX_ACCOUNT_CONFIGURATION", "MISSING_CLOSING_RATE", "REVALUATION_NOT_POSTED"]));
     expect(prisma.salesInvoice.count).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ organizationId: "org-1", transactionBalanceDue: { gt: 0 } }) }));
     expect(prisma.salesInvoice.groupBy).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ organizationId: "org-1" }) }));
+    expect(prisma.currencyRateSnapshot.groupBy).toHaveBeenCalledWith(expect.objectContaining({ by: ["transactionCurrency"], _max: { createdAt: true } }));
   });
 
   it("blocks when a posted close-date run does not cover every currently open foreign source", async () => {
     const prisma = readinessPrisma();
     setSalesInvoices(prisma, [foreignInvoice({ fxMonetaryBalance: null })]);
-    prisma.currencyRateSnapshot.findMany.mockResolvedValue([{ transactionCurrency: "USD" }]);
+    prisma.currencyRateSnapshot.groupBy.mockResolvedValue([{ transactionCurrency: "USD", _max: { createdAt: null } }]);
     prisma.fxAccountConfiguration.findFirst.mockResolvedValue(readyConfiguration());
     prisma.account.findMany.mockResolvedValue(readyControlAccounts());
     const service = new FxCloseReadinessService(prisma as never);
@@ -41,7 +53,7 @@ describe("FxCloseReadinessService", () => {
     const prisma = readinessPrisma();
     setSalesInvoices(prisma, [coveredForeignInvoice()]);
     setPostedCloseCoverage(prisma, 1);
-    prisma.currencyRateSnapshot.findMany.mockResolvedValue([{ transactionCurrency: "USD" }]);
+    prisma.currencyRateSnapshot.groupBy.mockResolvedValue([{ transactionCurrency: "USD", _max: { createdAt: null } }]);
     prisma.fxAccountConfiguration.findFirst.mockResolvedValue(readyConfiguration({ realizedGainAccount: { type: "EXPENSE", isActive: true, allowPosting: true } }));
     prisma.account.findMany.mockResolvedValue([{ code: "120", type: "ASSET", isActive: true, allowPosting: true }]);
     const service = new FxCloseReadinessService(prisma as never);
@@ -58,7 +70,7 @@ describe("FxCloseReadinessService", () => {
       foreignInvoice({ id: "draft-1", status: "DRAFT", rateSource: "MANUAL", transactionBalanceDue: "0.0000", balanceDue: "0.0000" }),
       foreignInvoice({ id: "open-1" }),
     ]);
-    prisma.currencyRateSnapshot.findMany.mockResolvedValue([{ transactionCurrency: "USD" }]);
+    prisma.currencyRateSnapshot.groupBy.mockResolvedValue([{ transactionCurrency: "USD", _max: { createdAt: null } }]);
     prisma.fxAccountConfiguration.findFirst.mockResolvedValue(readyConfiguration());
     prisma.account.findMany.mockResolvedValue(readyControlAccounts());
     prisma.fxRevaluationRun.count.mockResolvedValue(1);
@@ -74,7 +86,7 @@ describe("FxCloseReadinessService", () => {
     const prisma = readinessPrisma();
     setSalesInvoices(prisma, [coveredForeignInvoice()]);
     setPostedCloseCoverage(prisma, 1);
-    prisma.currencyRateSnapshot.findMany.mockResolvedValue([{ transactionCurrency: "USD" }]);
+    prisma.currencyRateSnapshot.groupBy.mockResolvedValue([{ transactionCurrency: "USD", _max: { createdAt: null } }]);
     prisma.fxAccountConfiguration.findFirst.mockResolvedValue(readyConfiguration());
     prisma.account.findMany.mockResolvedValue(readyControlAccounts());
     const service = new FxCloseReadinessService(prisma as never);
@@ -181,11 +193,11 @@ describe("FxCloseReadinessService", () => {
 function readinessPrisma() {
   return {
     organization: { findFirst: jest.fn().mockResolvedValue({ baseCurrency: "AED" }) },
-    salesInvoice: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0), groupBy: jest.fn().mockResolvedValue([]) },
-    purchaseBill: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0), groupBy: jest.fn().mockResolvedValue([]) },
-    customerPayment: { count: jest.fn().mockResolvedValue(0) },
-    supplierPayment: { count: jest.fn().mockResolvedValue(0) },
-    currencyRateSnapshot: { findMany: jest.fn().mockResolvedValue([]) },
+    salesInvoice: { findMany: jest.fn().mockResolvedValue([]), findFirst: jest.fn().mockResolvedValue(null), count: jest.fn().mockResolvedValue(0), groupBy: jest.fn().mockResolvedValue([]) },
+    purchaseBill: { findMany: jest.fn().mockResolvedValue([]), findFirst: jest.fn().mockResolvedValue(null), count: jest.fn().mockResolvedValue(0), groupBy: jest.fn().mockResolvedValue([]) },
+    customerPayment: { findFirst: jest.fn().mockResolvedValue(null), count: jest.fn().mockResolvedValue(0) },
+    supplierPayment: { findFirst: jest.fn().mockResolvedValue(null), count: jest.fn().mockResolvedValue(0) },
+    currencyRateSnapshot: { groupBy: jest.fn().mockResolvedValue([]) },
     fxAccountConfiguration: { findFirst: jest.fn().mockResolvedValue(null) },
     account: { findMany: jest.fn().mockResolvedValue([]) },
     fxRevaluationRun: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },

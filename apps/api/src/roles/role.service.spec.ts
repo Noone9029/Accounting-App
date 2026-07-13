@@ -85,6 +85,11 @@ describe("RoleService", () => {
         PERMISSIONS.reports.export,
         PERMISSIONS.zatca.generateXml,
         PERMISSIONS.zatca.runChecks,
+        PERMISSIONS.accountingClose.read,
+        PERMISSIONS.accountingClose.manage,
+        PERMISSIONS.accountingClose.prepare,
+        PERMISSIONS.accountingClose.review,
+        PERMISSIONS.accountingClose.close,
       ]),
     );
     expect(DEFAULT_ROLE_PERMISSIONS.Sales).toEqual(
@@ -115,6 +120,7 @@ describe("RoleService", () => {
     expect(DEFAULT_ROLE_PERMISSIONS.Viewer).not.toContain(PERMISSIONS.fxRates.manage);
     expect(DEFAULT_ROLE_PERMISSIONS.Viewer).not.toContain(PERMISSIONS.fxRevaluation.run);
     expect(DEFAULT_ROLE_PERMISSIONS.Viewer).not.toContain(PERMISSIONS.fxRevaluation.reverse);
+    expect(DEFAULT_ROLE_PERMISSIONS.Viewer).not.toContain(PERMISSIONS.accountingClose.manage);
   });
 
   it("rejects unknown permissions on update", async () => {
