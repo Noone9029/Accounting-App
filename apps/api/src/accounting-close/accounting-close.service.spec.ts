@@ -83,6 +83,14 @@ describe("AccountingCloseService", () => {
     expect(prisma.accountingCloseCycle.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "cycle-1", organizationId: "org-1" } }));
   });
 
+  it("finds an existing cycle by tenant-owned fiscal period for read-only workspace reloads", async () => {
+    const { service, prisma } = createService();
+    Object.assign(prisma, { accountingCloseCycle: { findFirst: jest.fn().mockResolvedValue({ id: "cycle-1", organizationId: "org-1", fiscalPeriodId: "period-1", status: "REVIEWED", version: 4, startedAt: new Date(), lastRefreshedAt: null, readinessHash: "hash", requestId: "internal", fiscalPeriod: { id: "period-1", name: "June 2026", startsOn: period.startsOn, endsOn: period.endsOn, status: FiscalPeriodStatus.OPEN }, _count: { tasks: 17, evidence: 1, readinessSnapshots: 2 } }) } });
+
+    await expect(service.findCycleByFiscalPeriod("org-1", "period-1")).resolves.toMatchObject({ id: "cycle-1", status: "REVIEWED", fiscalPeriod: { id: "period-1" } });
+    expect(prisma.accountingCloseCycle.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { organizationId: "org-1", fiscalPeriodId: "period-1" } }));
+  });
+
   it("lists close tasks through a tenant-scoped bounded page and maps only safe fields", async () => {
     const { service, prisma } = createService();
     const tasks = [{ id: "task-1", organizationId: "org-1", closeCycleId: "cycle-1", taskType: "AR_AGING", source: "STANDARD_TEMPLATE", title: "Review AR aging", description: null, severity: "INFORMATION", status: "OPEN", isRequired: true, assignedToUserId: null, dueDate: null, completedAt: null, completedByUserId: null, completionNote: null, reopenedAt: null, reopenedByUserId: null, reopenReason: null, acknowledgementReason: null, sortOrder: 1, systemCheckKey: null }];

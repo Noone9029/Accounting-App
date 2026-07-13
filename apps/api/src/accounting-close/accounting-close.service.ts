@@ -31,6 +31,14 @@ export class AccountingCloseService {
     return cycleSummary(cycle);
   }
 
+  async findCycleByFiscalPeriod(organizationId: string, fiscalPeriodId: string) {
+    const cycle = await this.prisma.accountingCloseCycle.findFirst({
+      where: { organizationId, fiscalPeriodId },
+      include: { fiscalPeriod: { select: { id: true, name: true, startsOn: true, endsOn: true, status: true } }, _count: { select: { tasks: true, evidence: true, readinessSnapshots: true } } },
+    });
+    return cycle ? cycleSummary(cycle) : null;
+  }
+
   async listTasks(organizationId: string, cycleId: string, page = 1, pageSize = 50) {
     if (!Number.isInteger(page) || page < 1 || page > 10000) throw new BadRequestException("page must be an integer between 1 and 10000.");
     if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100) throw new BadRequestException("pageSize must be an integer between 1 and 100.");

@@ -17,6 +17,7 @@ import { PrepareAccountingCloseCycleDto } from "./dto/prepare-accounting-close-c
 import { ReviewAccountingCloseCycleDto } from "./dto/review-accounting-close-cycle.dto";
 import { CloseAccountingCloseCycleDto } from "./dto/close-accounting-close-cycle.dto";
 import { LockAccountingCloseCycleDto } from "./dto/lock-accounting-close-cycle.dto";
+import { FindAccountingCloseCycleDto } from "./dto/find-accounting-close-cycle.dto";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import type { AuthenticatedUser } from "../auth/auth.types";
 import { AccountingCloseService } from "./accounting-close.service";
@@ -36,6 +37,12 @@ export class AccountingCloseController {
   @RequirePermissions(PERMISSIONS.accountingClose.manage)
   createCycle(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Body() dto: CreateAccountingCloseCycleDto) {
     return this.accountingCloseService.createCycle(organizationId, user.id, dto.fiscalPeriodId);
+  }
+
+  @Get("cycles")
+  @RequirePermissions(PERMISSIONS.accountingClose.read)
+  findCycle(@CurrentOrganizationId() organizationId: string, @Query() query: FindAccountingCloseCycleDto) {
+    return this.accountingCloseService.findCycleByFiscalPeriod(organizationId, query.fiscalPeriodId);
   }
 
   @Get("cycles/:id")
