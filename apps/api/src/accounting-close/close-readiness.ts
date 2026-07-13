@@ -71,6 +71,11 @@ export type PurchaseDebitNoteReadiness = {
   sourceUpdatedAt?: string;
 };
 
+export type SupplierPaymentReadiness = {
+  unappliedCount: number;
+  sourceUpdatedAt?: string;
+};
+
 export function normalizeFxReadiness(readiness: FxReadiness): AccountingCloseCheck[] {
   if (readiness.status === "NOT_APPLICABLE") {
     return [{ ...check("fx.notApplicable", "Foreign exchange close readiness", "NOT_APPLICABLE", "NOT_APPLICABLE", "FX_NOT_APPLICABLE", "No foreign-currency close activity requires review for this period.", 0, "/fx-close", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
@@ -142,6 +147,13 @@ export function normalizePurchaseDebitNoteReadiness(readiness: PurchaseDebitNote
     return [{ ...check("purchases.draftDebitNotes", "Draft purchase debit notes", "INFORMATION", "READY", "NO_DRAFT_PURCHASE_DEBIT_NOTES", "No draft purchase debit notes are dated in this fiscal period.", 0, "/purchases/debit-notes", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
   }
   return [{ ...check("purchases.draftDebitNotes", "Draft purchase debit notes", "WARNING", "OPEN", "DRAFT_PURCHASE_DEBIT_NOTES", "Draft purchase debit notes dated in this fiscal period require accountant review.", readiness.draftCount, "/purchases/debit-notes", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
+}
+
+export function normalizeSupplierPaymentReadiness(readiness: SupplierPaymentReadiness): AccountingCloseCheck[] {
+  if (readiness.unappliedCount === 0) {
+    return [{ ...check("purchases.unappliedSupplierPayments", "Unapplied supplier payments", "INFORMATION", "READY", "NO_UNAPPLIED_SUPPLIER_PAYMENTS", "No posted supplier payments with an unapplied balance are dated in this fiscal period.", 0, "/purchases/supplier-payments", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
+  }
+  return [{ ...check("purchases.unappliedSupplierPayments", "Unapplied supplier payments", "WARNING", "OPEN", "UNAPPLIED_SUPPLIER_PAYMENTS", "Posted supplier payments with an unapplied balance in this fiscal period require accountant review.", readiness.unappliedCount, "/purchases/supplier-payments", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
 }
 
 export function canonicalReadinessHash(checks: Array<Omit<AccountingCloseCheck, "canAcknowledge"> & Partial<Pick<AccountingCloseCheck, "canAcknowledge">>>): string {
