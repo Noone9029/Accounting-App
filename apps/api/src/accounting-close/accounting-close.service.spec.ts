@@ -21,7 +21,8 @@ describe("AccountingCloseService", () => {
       }),
     };
     const auditLog = { log: jest.fn().mockResolvedValue(undefined) };
-    return { service: new AccountingCloseService(prisma as never, fx as never, recurring as never, auditLog as never), prisma, fx, recurring, auditLog };
+    const fiscalPeriods = { closeInTransaction: jest.fn() };
+    return { service: new AccountingCloseService(prisma as never, fx as never, recurring as never, auditLog as never, fiscalPeriods as never), prisma, fx, recurring, auditLog, fiscalPeriods };
   }
 
   it("uses tenant-scoped fiscal dates and existing domain readiness without reclassifying policy", async () => {
@@ -420,5 +421,25 @@ describe("AccountingCloseService", () => {
     await service.refreshCycle("org-1", "user-1", "cycle-1", 4);
 
     expect(tx.accountingCloseCycle.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "IN_PROGRESS", preparedAt: null, preparedByUserId: null, reviewedAt: null, reviewedByUserId: null }) }));
+  });
+
+  it("closes only a reviewed cycle whose live readiness still matches the reviewed hash", async () => {
+    const { service, prisma, fx, recurring, auditLog, fiscalPeriods } = createService();
+    fx.readiness.mockResolvedValue({ status: "READY", asOf: "2026-06-30", counts: { foreignDocuments: 0 }, actions: [], blockers: [] });
+    recurring.get.mockResolvedValue({ status: "READY", templateCount: 0, activeTemplates: 0, dueTemplates: 0, failedRuns: 0, blockedRuns: 0, generatedDraftsAwaitingReview: 0, schedulesMissingReferences: 0, foreignTemplatesMissingRateEvidence: 0, runsScheduledInsideLockedPeriods: 0, blocksFiscalClose: false, asOf: "2026-07-13T00:00:00.000Z" });
+    const readinessHash = (await service.readiness("org-1", "period-1")).canonicalHash;
+    const tx = {
+      accountingCloseCycle: { findFirst: jest.fn().mockResolvedValue({ id: "cycle-1", fiscalPeriodId: "period-1", status: "REVIEWED", readinessHash }), updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      fiscalPeriod: { findFirst: jest.fn().mockResolvedValue(period) },
+      accountingCloseReadinessSnapshot: { create: jest.fn().mockResolvedValue({ id: "snapshot-close" }) },
+    };
+    Object.assign(prisma, { $transaction: jest.fn((callback) => callback(tx)) });
+    fiscalPeriods.closeInTransaction.mockResolvedValue({ id: "period-1", status: FiscalPeriodStatus.CLOSED });
+
+    await expect(service.closeCycle("org-1", "user-2", "cycle-1", 6)).resolves.toMatchObject({ id: "cycle-1", status: "CLOSED", version: 7 });
+    expect(fiscalPeriods.closeInTransaction).toHaveBeenCalledWith("org-1", "user-2", "period-1", tx);
+    expect(tx.accountingCloseCycle.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ status: "REVIEWED", version: 6, readinessHash }), data: expect.objectContaining({ status: "CLOSED", closedByUserId: "user-2" }) }));
+    expect(tx.accountingCloseReadinessSnapshot.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "CLOSED", canonicalHash: readinessHash }) }));
+    expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({ action: "CLOSE", entityType: "AccountingCloseCycle", entityId: "cycle-1" }), tx);
   });
 });
