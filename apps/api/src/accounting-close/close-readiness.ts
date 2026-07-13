@@ -81,6 +81,11 @@ export type BankStatementReadiness = {
   sourceUpdatedAt?: string;
 };
 
+export type BankReconciliationReadiness = {
+  incompleteCount: number;
+  sourceUpdatedAt?: string;
+};
+
 export function normalizeFxReadiness(readiness: FxReadiness): AccountingCloseCheck[] {
   if (readiness.status === "NOT_APPLICABLE") {
     return [{ ...check("fx.notApplicable", "Foreign exchange close readiness", "NOT_APPLICABLE", "NOT_APPLICABLE", "FX_NOT_APPLICABLE", "No foreign-currency close activity requires review for this period.", 0, "/fx-close", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
@@ -166,6 +171,13 @@ export function normalizeBankStatementReadiness(readiness: BankStatementReadines
     return [{ ...check("banking.unreconciledStatementTransactions", "Unreconciled bank statement transactions", "INFORMATION", "READY", "NO_UNRECONCILED_BANK_STATEMENT_TRANSACTIONS", "No unmatched bank statement transactions are dated in or before this fiscal period.", 0, "/bank-accounts", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
   }
   return [{ ...check("banking.unreconciledStatementTransactions", "Unreconciled bank statement transactions", "WARNING", "OPEN", "UNRECONCILED_BANK_STATEMENT_TRANSACTIONS", "Unmatched bank statement transactions dated in or before this fiscal period require accountant review.", readiness.unreconciledCount, "/bank-accounts", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
+}
+
+export function normalizeBankReconciliationReadiness(readiness: BankReconciliationReadiness): AccountingCloseCheck[] {
+  if (readiness.incompleteCount === 0) {
+    return [{ ...check("banking.incompleteReconciliations", "Incomplete bank reconciliations", "INFORMATION", "READY", "NO_INCOMPLETE_BANK_RECONCILIATIONS", "No incomplete bank reconciliation sessions overlap this fiscal period.", 0, "/bank-accounts", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
+  }
+  return [{ ...check("banking.incompleteReconciliations", "Incomplete bank reconciliations", "WARNING", "OPEN", "INCOMPLETE_BANK_RECONCILIATIONS", "Incomplete bank reconciliation sessions overlapping this fiscal period require accountant review.", readiness.incompleteCount, "/bank-accounts", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
 }
 
 export function canonicalReadinessHash(checks: Array<Omit<AccountingCloseCheck, "canAcknowledge"> & Partial<Pick<AccountingCloseCheck, "canAcknowledge">>>): string {
