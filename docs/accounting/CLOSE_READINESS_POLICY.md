@@ -11,7 +11,7 @@ System-generated checks are derived from their source services and cannot be man
 
 ## Current policy mapping
 
-FX blockers remain blockers because `FxCloseReadinessService` already enforces them at the existing fiscal-period transition. Recurring readiness remains warning-level because its existing contract sets `blocksFiscalClose` to `false`. New module checks default to warnings until an existing accounting policy proves they must block.
+FX blockers remain blockers because `FxCloseReadinessService` already enforces them at the existing fiscal-period transition. Recurring readiness remains warning-level because its existing contract sets `blocksFiscalClose` to `false`. New module checks default to `WARNING` until an existing accounting policy proves they must block. Banking and inventory signals only assert what their existing manual workflows can establish; they do not assert direct bank-feed coverage, automatic inventory posting, or complete valuation proof.
 
 ## Review and transitions
 

@@ -533,3 +533,20 @@ Inventory endpoints remain operational by default. They do not auto-post journal
 | POST | `/zatca-sdk/validate-xml-dry-run` | SDK validation dry-run plan | Yes | Yes | Groundwork | Does not execute SDK; plans official launcher/JAR fallback and SDK config environment safely. |
 | POST | `/zatca-sdk/validate-xml-local` | Local SDK XML validation | Yes | Yes | Groundwork | Disabled by default; runs local-only SDK when explicitly enabled, preferring the official fatoora launcher when available; SDK hash comparison is included when available. |
 | POST | `/zatca-sdk/validate-reference-fixture` | Local SDK validation for allowlisted fixture XML | Yes | Yes | Groundwork | Only `reference/` and `packages/zatca-core/fixtures`; path traversal blocked; default smoke expects disabled local-only response; official samples pass under Java 11, LedgerByte standard fixture passes global validation, and simplified fixture passes XSD/EN/PIH but still fails signing/QR/certificate production checks. |
+
+## Accountant month-end close
+
+All endpoints require authentication, organization context, and the indicated `accountingClose` permission. They are tenant-scoped and use safe metadata only.
+
+| Method | Path | Purpose | Status | Notes |
+| --- | --- | --- | --- | --- |
+| GET | `/accounting-close/readiness` | Fresh readiness for a fiscal period | Implemented | Uses authoritative FX and recurring readiness; no UI-cached pass is authoritative. |
+| POST / GET | `/accounting-close/cycles` | Create or find a cycle by fiscal period | Implemented | Process record only; fiscal period remains authoritative. |
+| GET | `/accounting-close/cycles/:id` | Cycle summary | Implemented | Returns fiscal-period context and aggregate counts; does not include tasks, evidence, or current readiness. |
+| POST | `/accounting-close/cycles/:id/refresh` | Refresh readiness and snapshot | Implemented | Optimistic version required. |
+| GET | `/accounting-close/cycles/:id/tasks` | Bounded task list | Implemented | Read permission. Evidence is added through the cycle evidence endpoint and is included only in the bounded evidence export. |
+| POST | `/accounting-close/cycles/:id/tasks/:taskId/assign`, `/complete`, `/reopen` | Maintain manual tasks | Implemented | Manage permission; system checks are not manually completed. |
+| POST | `/accounting-close/cycles/:id/evidence` | Add safe evidence reference | Implemented | No attachment body or provider payload accepted. |
+| POST | `/accounting-close/cycles/:id/prepare`, `/review`, `/close`, `/lock` | Advance close workflow | Implemented | Close/lock revalidate through the existing fiscal-period authority. |
+| GET | `/accounting-close/cycles/:id/snapshots` and `/:snapshotId/compare` | Inspect frozen history and drift | Implemented | Bounded historical access; fails closed where history is unproven. |
+| GET | `/accounting-close/cycles/:id/export?format=json|csv` | Download safe close evidence | Implemented | Bounded safe manifest; CSV formula-safe; not a report-pack archive. |
