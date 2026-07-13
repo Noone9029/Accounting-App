@@ -61,6 +61,11 @@ export type CustomerPaymentReadiness = {
   sourceUpdatedAt?: string;
 };
 
+export type PurchaseBillReadiness = {
+  draftCount: number;
+  sourceUpdatedAt?: string;
+};
+
 export function normalizeFxReadiness(readiness: FxReadiness): AccountingCloseCheck[] {
   if (readiness.status === "NOT_APPLICABLE") {
     return [{ ...check("fx.notApplicable", "Foreign exchange close readiness", "NOT_APPLICABLE", "NOT_APPLICABLE", "FX_NOT_APPLICABLE", "No foreign-currency close activity requires review for this period.", 0, "/fx-close", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
@@ -118,6 +123,13 @@ export function normalizeCustomerPaymentReadiness(readiness: CustomerPaymentRead
     return [{ ...check("sales.unappliedCustomerPayments", "Unapplied customer payments", "INFORMATION", "READY", "NO_UNAPPLIED_CUSTOMER_PAYMENTS", "No posted customer payments with an unapplied balance are dated in this fiscal period.", 0, "/sales/customer-payments", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
   }
   return [{ ...check("sales.unappliedCustomerPayments", "Unapplied customer payments", "WARNING", "OPEN", "UNAPPLIED_CUSTOMER_PAYMENTS", "Posted customer payments with an unapplied balance in this fiscal period require accountant review.", readiness.unappliedCount, "/sales/customer-payments", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
+}
+
+export function normalizePurchaseBillReadiness(readiness: PurchaseBillReadiness): AccountingCloseCheck[] {
+  if (readiness.draftCount === 0) {
+    return [{ ...check("purchases.draftBills", "Draft purchase bills", "INFORMATION", "READY", "NO_DRAFT_PURCHASE_BILLS", "No draft purchase bills are dated in this fiscal period.", 0, "/purchases/bills", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
+  }
+  return [{ ...check("purchases.draftBills", "Draft purchase bills", "WARNING", "OPEN", "DRAFT_PURCHASE_BILLS", "Draft purchase bills dated in this fiscal period require accountant review.", readiness.draftCount, "/purchases/bills", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
 }
 
 export function canonicalReadinessHash(checks: Array<Omit<AccountingCloseCheck, "canAcknowledge"> & Partial<Pick<AccountingCloseCheck, "canAcknowledge">>>): string {
