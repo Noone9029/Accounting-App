@@ -2420,3 +2420,11 @@ Recommended next step:
 Implemented locally: additive generalized schema and sales-only legacy compatibility, deterministic IANA scheduling, bounded Vercel cron processing with durable run recovery, idempotent/concurrency-safe runs, draft adapters for invoices/bills/journals, expense review proposals, dedicated permissions/audits/API/readiness, accountant web workspace, reviewed CSV imports, and authenticated tenant-scoped template/run exports.
 
 This status adds no provider, compliance, or money-movement behavior. Hosted burner migration, deployment, authenticated smoke, merged rollout evidence, and cleanup remain required before the arc is complete. The next recommended arc after that evidence is the accountant month-end close workspace; it is not part of this implementation.
+
+# Accountant month-end close workspace — 2026-07-13
+
+Implemented: tenant-scoped close cycles, normalized readiness, manual task/evidence controls, preparer/reviewer sign-off, immutable readiness snapshots, post-review drift comparison, safe JSON/CSV evidence export, fiscal-period close/lock integration, permissions, audit events, and accountant web routes.
+
+The workspace reuses FX and recurring readiness; it does not duplicate them. Close and lock call the existing fiscal-period authority after fresh transactional revalidation. Banking and inventory signals remain limited to what existing manual workflows can prove. No provider submission, direct bank feed, automatic correction/posting, report-pack archive execution, or backup/PITR restoration is claimed by this feature.
+
+Remaining before this arc is complete: approved burner migration/deployment, authenticated hosted smoke, merged rollout evidence, and safe cleanup of every merged close-workspace branch and worktree.

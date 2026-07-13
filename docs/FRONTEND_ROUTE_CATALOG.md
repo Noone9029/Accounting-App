@@ -188,3 +188,12 @@ Inventory routes are operational by default and clearly warn that opening balanc
 - `/recurring-transactions/[id]/edit` — optimistic-version edit flow for future runs.
 
 All routes require the dedicated recurring permission family. Dense tables scroll inside their panels; dates and record identifiers use directional containment. The web interface does not post accounting or call providers.
+
+## Accountant month-end close
+
+| Route | Purpose | Data fetched | Actions | Status | Limits |
+| --- | --- | --- | --- | --- | --- |
+| `/accounting-close` | Accountant close-cycle workspace | Fiscal periods, close cycles, bounded readiness | Select a period, create/open cycle | Implemented | Backend permission remains authoritative. |
+| `/accounting-close/[cycleId]` | Close-cycle control center | Current readiness, tasks, safe evidence, snapshots | Refresh, task assignment/completion/reopen, evidence, prepare/review/close/lock, compare snapshots, safe JSON/CSV download | Implemented | Close/lock are server-revalidated; no stale UI success is authoritative. |
+
+The interface supports responsive and RTL-aware Ledger components. Evidence downloads are authenticated and tenant-contextual. The workspace does not imply report-pack archival, provider submission, bank-feed coverage, or automatic accounting correction.

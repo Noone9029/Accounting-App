@@ -4,7 +4,7 @@
 
 `FiscalPeriodService.close` and `FiscalPeriodService.lock` remain the only fiscal-period mutation paths. Both use serializable transactions, an optimistic status claim, and `FxCloseReadinessService.assertReadyForPeriodClose`. The close workspace must call these methods; it must not update `FiscalPeriod.status` directly.
 
-`AccountingCloseCycle` is a process and evidence record, not a second fiscal-period authority. Its process states are `OPEN`, `IN_PROGRESS`, `READY_FOR_REVIEW`, and `REVIEWED`; fiscal state remains `OPEN`, `CLOSED`, and `LOCKED`.
+`AccountingCloseCycle` is a process and evidence record, not a second fiscal-period authority. The operating sequence is `OPEN → IN_PROGRESS → READY_FOR_REVIEW → REVIEWED → CLOSED → LOCKED`; the cycle records the first four process stages while the fiscal period records the authoritative `CLOSED` and `LOCKED` states.
 
 ## Current reusable readiness sources
 
@@ -23,4 +23,4 @@ The final close and lock operations must recalculate readiness inside the same s
 
 ## Current limitations
 
-The existing fiscal-period service permits locking an open or closed period and permits reopening a closed period. The close workspace does not broaden those behaviors. It does not claim report-pack archive execution, provider submission, automatic posting, or historical proof that the underlying services cannot supply.
+The existing fiscal-period service permits locking an open or closed period and permits reopening a closed period. The close workspace does not broaden those behaviors. It does not claim report-pack archive execution, provider submission, automatic posting, or historical proof that the underlying services cannot supply. Evidence export is a safe, tenant-scoped reference export, not an attachment-body or report-pack archive.
