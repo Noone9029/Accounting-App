@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { FiscalPeriodStatus, GeneratedDocumentStatus, JournalEntryStatus, Prisma } from "@prisma/client";
+import { FiscalPeriodStatus, GeneratedDocumentStatus, JournalEntryStatus, Prisma, SalesInvoiceStatus } from "@prisma/client";
 import { FxCloseReadinessService } from "../foreign-exchange/fx-close-readiness.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -12,6 +12,7 @@ import {
   normalizeFxReadiness,
   normalizeManualJournalReadiness,
   normalizeRecurringReadiness,
+  normalizeSalesInvoiceReadiness,
 } from "./close-readiness";
 
 @Injectable()
@@ -678,6 +679,11 @@ export class AccountingCloseService {
     } catch {
       checks.push(unavailableCheck("journals.error", "Manual draft journals", "MANUAL_JOURNAL_READINESS_UNAVAILABLE"));
     }
+    try {
+      checks.push(...await this.salesInvoiceReadiness(organizationId, fiscalPeriod, executor));
+    } catch {
+      checks.push(unavailableCheck("sales.error", "Draft sales invoices", "SALES_INVOICE_READINESS_UNAVAILABLE"));
+    }
     checks.sort((left, right) => left.key.localeCompare(right.key));
     const blockerCount = count(checks, "BLOCKER");
     const warningCount = count(checks, "WARNING");
@@ -716,6 +722,24 @@ export class AccountingCloseService {
       client.journalEntry.findFirst({ where, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
     ]);
     return normalizeManualJournalReadiness({ draftCount, sourceUpdatedAt: latestDraft?.updatedAt.toISOString() });
+  }
+
+  private async salesInvoiceReadiness(
+    organizationId: string,
+    fiscalPeriod: { startsOn: Date; endsOn: Date },
+    executor?: Prisma.TransactionClient,
+  ) {
+    const client = executor ?? this.prisma;
+    const where = {
+      organizationId,
+      status: SalesInvoiceStatus.DRAFT,
+      issueDate: { gte: fiscalPeriod.startsOn, lte: fiscalPeriod.endsOn },
+    };
+    const [draftCount, latestDraft] = await Promise.all([
+      client.salesInvoice.count({ where }),
+      client.salesInvoice.findFirst({ where, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
+    ]);
+    return normalizeSalesInvoiceReadiness({ draftCount, sourceUpdatedAt: latestDraft?.updatedAt.toISOString() });
   }
 }
 
