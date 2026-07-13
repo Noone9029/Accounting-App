@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { BankDepositBatchStatus, BankReconciliationStatus, BankStatementTransactionStatus, CardSettlementStatus, CashExpenseStatus, CreditNoteStatus, CustomerPaymentStatus, DocumentInboxStatus, FiscalPeriodStatus, GeneratedDocumentStatus, InventoryAdjustmentStatus, InventoryVarianceProposalStatus, JournalEntryStatus, Prisma, PurchaseBillStatus, PurchaseDebitNoteStatus, ReportPackStatus, SalesInvoiceStatus, SupplierPaymentStatus } from "@prisma/client";
+import { BankDepositBatchStatus, BankReconciliationStatus, BankStatementTransactionStatus, CardSettlementStatus, CashExpenseStatus, ChequeInstrumentStatus, CreditNoteStatus, CustomerPaymentStatus, DocumentInboxStatus, FiscalPeriodStatus, GeneratedDocumentStatus, InventoryAdjustmentStatus, InventoryVarianceProposalStatus, JournalEntryStatus, Prisma, PurchaseBillStatus, PurchaseDebitNoteStatus, ReportPackStatus, SalesInvoiceStatus, SupplierPaymentStatus } from "@prisma/client";
 import { FxCloseReadinessService } from "../foreign-exchange/fx-close-readiness.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -12,6 +12,7 @@ import {
   canonicalReadinessHash,
   normalizeBankStatementReadiness,
   normalizeDraftTreasuryReadiness,
+  normalizeOpenChequeReadiness,
   normalizeCashExpenseReadiness,
   normalizeDocumentInboxReadiness,
   normalizeInventoryAdjustmentReadiness,
@@ -689,6 +690,11 @@ export class AccountingCloseService {
       checks.push(unavailableCheck("banking.treasuryDrafts.error", "Draft treasury workflows", "TREASURY_DRAFT_READINESS_UNAVAILABLE"));
     }
     try {
+      checks.push(...await this.openChequeReadiness(organizationId, fiscalPeriod, executor));
+    } catch {
+      checks.push(unavailableCheck("banking.openCheques.error", "Open cheques", "OPEN_CHEQUE_READINESS_UNAVAILABLE"));
+    }
+    try {
       checks.push(...await this.inventoryAdjustmentReadiness(organizationId, fiscalPeriod, executor));
     } catch {
       checks.push(unavailableCheck("inventory.adjustments.error", "Draft inventory adjustments", "INVENTORY_ADJUSTMENT_READINESS_UNAVAILABLE"));
@@ -976,6 +982,28 @@ export class AccountingCloseService {
       client.cardSettlement.findFirst({ where: settlementWhere, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
     ]);
     return normalizeDraftTreasuryReadiness({ draftDepositCount, depositUpdatedAt: latestDeposit?.updatedAt.toISOString(), draftSettlementCount, settlementUpdatedAt: latestSettlement?.updatedAt.toISOString() });
+  }
+
+  private async openChequeReadiness(
+    organizationId: string,
+    fiscalPeriod: { endsOn: Date },
+    executor?: Prisma.TransactionClient,
+  ) {
+    const client = executor ?? this.prisma;
+    const where = {
+      organizationId,
+      status: { in: [ChequeInstrumentStatus.RECEIVED, ChequeInstrumentStatus.ISSUED, ChequeInstrumentStatus.DEPOSITED] },
+      OR: [
+        { issueDate: { lte: fiscalPeriod.endsOn } },
+        { receivedDate: { lte: fiscalPeriod.endsOn } },
+        { depositDate: { lte: fiscalPeriod.endsOn } },
+      ],
+    };
+    const [openCount, latestCheque] = await Promise.all([
+      client.chequeInstrument.count({ where }),
+      client.chequeInstrument.findFirst({ where, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
+    ]);
+    return normalizeOpenChequeReadiness({ openCount, sourceUpdatedAt: latestCheque?.updatedAt.toISOString() });
   }
 
   private async bankReconciliationReadiness(
