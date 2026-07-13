@@ -24,7 +24,7 @@ export class RecurringReadinessService {
 
   async get(organizationId: string, period?: RecurringReadinessPeriod, executor: RecurringReadinessExecutor = this.prisma) {
     const now = period?.endsOn ?? new Date();
-    const scheduledFor = period ? { gte: period.startsOn, lte: period.endsOn } : undefined;
+    const scheduledLocalDate = period ? { gte: period.startsOn, lte: period.endsOn } : undefined;
     const templateCount = await executor.recurringTransactionTemplate.count({ where: { organizationId } });
     if (templateCount === 0) {
       return {
@@ -56,7 +56,7 @@ export class RecurringReadinessService {
       lockedPeriodRows,
     ] = await Promise.all([
       executor.recurringTransactionTemplate.findFirst({ where: { organizationId }, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
-      executor.recurringTransactionRun.findFirst({ where: { organizationId, ...(scheduledFor ? { scheduledFor } : {}) }, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
+      executor.recurringTransactionRun.findFirst({ where: { organizationId, ...(scheduledLocalDate ? { scheduledLocalDate } : {}) }, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
       executor.recurringTransactionTemplate.count({ where: { organizationId, status: RecurringTransactionStatus.ACTIVE } }),
       executor.recurringTransactionTemplate.count({ where: { organizationId, status: RecurringTransactionStatus.ACTIVE, nextRunAt: { lte: now } } }),
       executor.recurringTransactionTemplate.count({
@@ -70,17 +70,16 @@ export class RecurringReadinessService {
           ],
         },
       }),
-      executor.recurringTransactionRun.count({ where: { organizationId, status: RecurringRunStatus.FAILED, ...(scheduledFor ? { scheduledFor } : {}) } }),
-      executor.recurringTransactionRun.count({ where: { organizationId, status: RecurringRunStatus.BLOCKED, ...(scheduledFor ? { scheduledFor } : {}) } }),
+      executor.recurringTransactionRun.count({ where: { organizationId, status: RecurringRunStatus.FAILED, ...(scheduledLocalDate ? { scheduledLocalDate } : {}) } }),
+      executor.recurringTransactionRun.count({ where: { organizationId, status: RecurringRunStatus.BLOCKED, ...(scheduledLocalDate ? { scheduledLocalDate } : {}) } }),
       executor.recurringTransactionRun.count({
         where: {
           organizationId,
           status: RecurringRunStatus.GENERATED,
-          ...(scheduledFor ? { scheduledFor } : {}),
+          ...(scheduledLocalDate ? { scheduledLocalDate } : {}),
           OR: [
             { generatedSalesInvoice: { is: { status: "DRAFT" } } },
             { generatedPurchaseBill: { is: { status: "DRAFT" } } },
-            { generatedJournalEntry: { is: { status: "DRAFT" } } },
             { generatedExpenseProposal: { is: { status: RecurringExpenseProposalStatus.DRAFT } } },
           ],
         },

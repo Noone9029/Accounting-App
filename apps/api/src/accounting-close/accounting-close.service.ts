@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { FiscalPeriodStatus, GeneratedDocumentStatus, Prisma } from "@prisma/client";
+import { FiscalPeriodStatus, GeneratedDocumentStatus, JournalEntryStatus, Prisma } from "@prisma/client";
 import { FxCloseReadinessService } from "../foreign-exchange/fx-close-readiness.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -10,6 +10,7 @@ import {
   AccountingCloseCheck,
   canonicalReadinessHash,
   normalizeFxReadiness,
+  normalizeManualJournalReadiness,
   normalizeRecurringReadiness,
 } from "./close-readiness";
 
@@ -657,22 +658,27 @@ export class AccountingCloseService {
     fiscalPeriod: { id: string; name: string; startsOn: Date; endsOn: Date; status: FiscalPeriodStatus },
     executor?: Prisma.TransactionClient,
   ) {
-    const [fx, recurring] = await Promise.allSettled([
-      executor
-        ? this.fxCloseReadinessService.readiness(organizationId, fiscalPeriod.endsOn, executor)
-        : this.fxCloseReadinessService.readiness(organizationId, fiscalPeriod.endsOn),
-      executor
-        ? this.recurringReadinessService.get(organizationId, { startsOn: fiscalPeriod.startsOn, endsOn: fiscalPeriod.endsOn }, executor)
-        : this.recurringReadinessService.get(organizationId, { startsOn: fiscalPeriod.startsOn, endsOn: fiscalPeriod.endsOn }),
-    ]);
-    const checks = [
-      ...(fx.status === "fulfilled"
-        ? normalizeFxReadiness(fx.value)
-        : [unavailableCheck("fx.error", "Foreign exchange close readiness", "FX_READINESS_UNAVAILABLE")]),
-      ...(recurring.status === "fulfilled"
-        ? normalizeRecurringReadiness(recurring.value)
-        : [unavailableCheck("recurring.error", "Recurring transaction readiness", "RECURRING_READINESS_UNAVAILABLE")]),
-    ].sort((left, right) => left.key.localeCompare(right.key));
+    const checks: AccountingCloseCheck[] = [];
+    try {
+      checks.push(...normalizeFxReadiness(executor
+        ? await this.fxCloseReadinessService.readiness(organizationId, fiscalPeriod.endsOn, executor)
+        : await this.fxCloseReadinessService.readiness(organizationId, fiscalPeriod.endsOn)));
+    } catch {
+      checks.push(unavailableCheck("fx.error", "Foreign exchange close readiness", "FX_READINESS_UNAVAILABLE"));
+    }
+    try {
+      checks.push(...normalizeRecurringReadiness(executor
+        ? await this.recurringReadinessService.get(organizationId, { startsOn: fiscalPeriod.startsOn, endsOn: fiscalPeriod.endsOn }, executor)
+        : await this.recurringReadinessService.get(organizationId, { startsOn: fiscalPeriod.startsOn, endsOn: fiscalPeriod.endsOn })));
+    } catch {
+      checks.push(unavailableCheck("recurring.error", "Recurring transaction readiness", "RECURRING_READINESS_UNAVAILABLE"));
+    }
+    try {
+      checks.push(...await this.manualJournalReadiness(organizationId, fiscalPeriod, executor));
+    } catch {
+      checks.push(unavailableCheck("journals.error", "Manual draft journals", "MANUAL_JOURNAL_READINESS_UNAVAILABLE"));
+    }
+    checks.sort((left, right) => left.key.localeCompare(right.key));
     const blockerCount = count(checks, "BLOCKER");
     const warningCount = count(checks, "WARNING");
     const informationCount = count(checks, "INFORMATION");
@@ -692,6 +698,24 @@ export class AccountingCloseService {
       checkCount: checks.filter((check) => check.severity !== "NOT_APPLICABLE").length,
       canonicalHash: canonicalReadinessHash(checks),
     };
+  }
+
+  private async manualJournalReadiness(
+    organizationId: string,
+    fiscalPeriod: { startsOn: Date; endsOn: Date },
+    executor?: Prisma.TransactionClient,
+  ) {
+    const client = executor ?? this.prisma;
+    const where = {
+      organizationId,
+      status: JournalEntryStatus.DRAFT,
+      entryDate: { gte: fiscalPeriod.startsOn, lte: fiscalPeriod.endsOn },
+    };
+    const [draftCount, latestDraft] = await Promise.all([
+      client.journalEntry.count({ where }),
+      client.journalEntry.findFirst({ where, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
+    ]);
+    return normalizeManualJournalReadiness({ draftCount, sourceUpdatedAt: latestDraft?.updatedAt.toISOString() });
   }
 }
 
