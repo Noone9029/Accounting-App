@@ -16,6 +16,7 @@ export interface StructuredLogEntry {
   module?: string;
   action?: string;
   errorName?: string;
+  prismaArgument?: string;
 }
 
 @Injectable()
