@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { CreditNoteStatus, CustomerPaymentStatus, FiscalPeriodStatus, GeneratedDocumentStatus, JournalEntryStatus, Prisma, PurchaseBillStatus, SalesInvoiceStatus } from "@prisma/client";
+import { CreditNoteStatus, CustomerPaymentStatus, FiscalPeriodStatus, GeneratedDocumentStatus, JournalEntryStatus, Prisma, PurchaseBillStatus, PurchaseDebitNoteStatus, SalesInvoiceStatus } from "@prisma/client";
 import { FxCloseReadinessService } from "../foreign-exchange/fx-close-readiness.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -15,6 +15,7 @@ import {
   normalizeManualJournalReadiness,
   normalizeRecurringReadiness,
   normalizePurchaseBillReadiness,
+  normalizePurchaseDebitNoteReadiness,
   normalizeSalesInvoiceReadiness,
 } from "./close-readiness";
 
@@ -702,6 +703,11 @@ export class AccountingCloseService {
     } catch {
       checks.push(unavailableCheck("purchases.bills.error", "Draft purchase bills", "PURCHASE_BILL_READINESS_UNAVAILABLE"));
     }
+    try {
+      checks.push(...await this.purchaseDebitNoteReadiness(organizationId, fiscalPeriod, executor));
+    } catch {
+      checks.push(unavailableCheck("purchases.debitNotes.error", "Draft purchase debit notes", "PURCHASE_DEBIT_NOTE_READINESS_UNAVAILABLE"));
+    }
     checks.sort((left, right) => left.key.localeCompare(right.key));
     const blockerCount = count(checks, "BLOCKER");
     const warningCount = count(checks, "WARNING");
@@ -810,6 +816,20 @@ export class AccountingCloseService {
       client.purchaseBill.findFirst({ where, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
     ]);
     return normalizePurchaseBillReadiness({ draftCount, sourceUpdatedAt: latestDraft?.updatedAt.toISOString() });
+  }
+
+  private async purchaseDebitNoteReadiness(
+    organizationId: string,
+    fiscalPeriod: { startsOn: Date; endsOn: Date },
+    executor?: Prisma.TransactionClient,
+  ) {
+    const client = executor ?? this.prisma;
+    const where = { organizationId, status: PurchaseDebitNoteStatus.DRAFT, issueDate: { gte: fiscalPeriod.startsOn, lte: fiscalPeriod.endsOn } };
+    const [draftCount, latestDraft] = await Promise.all([
+      client.purchaseDebitNote.count({ where }),
+      client.purchaseDebitNote.findFirst({ where, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
+    ]);
+    return normalizePurchaseDebitNoteReadiness({ draftCount, sourceUpdatedAt: latestDraft?.updatedAt.toISOString() });
   }
 }
 
