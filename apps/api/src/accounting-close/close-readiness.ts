@@ -86,6 +86,13 @@ export type BankReconciliationReadiness = {
   sourceUpdatedAt?: string;
 };
 
+export type DraftTreasuryReadiness = {
+  draftDepositCount: number;
+  depositUpdatedAt?: string;
+  draftSettlementCount: number;
+  settlementUpdatedAt?: string;
+};
+
 export type InventoryAdjustmentReadiness = {
   draftCount: number;
   sourceUpdatedAt?: string;
@@ -205,6 +212,16 @@ export function normalizeBankReconciliationReadiness(readiness: BankReconciliati
     return [{ ...check("banking.incompleteReconciliations", "Incomplete bank reconciliations", "INFORMATION", "READY", "NO_INCOMPLETE_BANK_RECONCILIATIONS", "No incomplete bank reconciliation sessions overlap this fiscal period.", 0, "/bank-accounts", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
   }
   return [{ ...check("banking.incompleteReconciliations", "Incomplete bank reconciliations", "WARNING", "OPEN", "INCOMPLETE_BANK_RECONCILIATIONS", "Incomplete bank reconciliation sessions overlapping this fiscal period require accountant review.", readiness.incompleteCount, "/bank-accounts", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
+}
+
+export function normalizeDraftTreasuryReadiness(readiness: DraftTreasuryReadiness): AccountingCloseCheck[] {
+  const deposits = readiness.draftDepositCount === 0
+    ? { ...check("banking.draftDepositBatches", "Draft bank deposit batches", "INFORMATION", "READY", "NO_DRAFT_BANK_DEPOSIT_BATCHES", "No draft bank deposit batches are dated in this fiscal period.", 0, "/bank-accounts", false), sourceUpdatedAt: readiness.depositUpdatedAt }
+    : { ...check("banking.draftDepositBatches", "Draft bank deposit batches", "WARNING", "OPEN", "DRAFT_BANK_DEPOSIT_BATCHES", "Draft bank deposit batches dated in this fiscal period require accountant review.", readiness.draftDepositCount, "/bank-accounts", false), sourceUpdatedAt: readiness.depositUpdatedAt };
+  const settlements = readiness.draftSettlementCount === 0
+    ? { ...check("banking.draftCardSettlements", "Draft card settlements", "INFORMATION", "READY", "NO_DRAFT_CARD_SETTLEMENTS", "No draft card settlements are dated in this fiscal period.", 0, "/bank-accounts", false), sourceUpdatedAt: readiness.settlementUpdatedAt }
+    : { ...check("banking.draftCardSettlements", "Draft card settlements", "WARNING", "OPEN", "DRAFT_CARD_SETTLEMENTS", "Draft card settlements dated in this fiscal period require accountant review.", readiness.draftSettlementCount, "/bank-accounts", false), sourceUpdatedAt: readiness.settlementUpdatedAt };
+  return [deposits, settlements];
 }
 
 export function normalizeInventoryAdjustmentReadiness(readiness: InventoryAdjustmentReadiness): AccountingCloseCheck[] {

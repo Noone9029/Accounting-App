@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { BankReconciliationStatus, BankStatementTransactionStatus, CashExpenseStatus, CreditNoteStatus, CustomerPaymentStatus, DocumentInboxStatus, FiscalPeriodStatus, GeneratedDocumentStatus, InventoryAdjustmentStatus, InventoryVarianceProposalStatus, JournalEntryStatus, Prisma, PurchaseBillStatus, PurchaseDebitNoteStatus, ReportPackStatus, SalesInvoiceStatus, SupplierPaymentStatus } from "@prisma/client";
+import { BankDepositBatchStatus, BankReconciliationStatus, BankStatementTransactionStatus, CardSettlementStatus, CashExpenseStatus, CreditNoteStatus, CustomerPaymentStatus, DocumentInboxStatus, FiscalPeriodStatus, GeneratedDocumentStatus, InventoryAdjustmentStatus, InventoryVarianceProposalStatus, JournalEntryStatus, Prisma, PurchaseBillStatus, PurchaseDebitNoteStatus, ReportPackStatus, SalesInvoiceStatus, SupplierPaymentStatus } from "@prisma/client";
 import { FxCloseReadinessService } from "../foreign-exchange/fx-close-readiness.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -11,6 +11,7 @@ import {
   normalizeBankReconciliationReadiness,
   canonicalReadinessHash,
   normalizeBankStatementReadiness,
+  normalizeDraftTreasuryReadiness,
   normalizeCashExpenseReadiness,
   normalizeDocumentInboxReadiness,
   normalizeInventoryAdjustmentReadiness,
@@ -683,6 +684,11 @@ export class AccountingCloseService {
       checks.push(unavailableCheck("banking.reconciliations.error", "Incomplete bank reconciliations", "BANK_RECONCILIATION_READINESS_UNAVAILABLE"));
     }
     try {
+      checks.push(...await this.draftTreasuryReadiness(organizationId, fiscalPeriod, executor));
+    } catch {
+      checks.push(unavailableCheck("banking.treasuryDrafts.error", "Draft treasury workflows", "TREASURY_DRAFT_READINESS_UNAVAILABLE"));
+    }
+    try {
       checks.push(...await this.inventoryAdjustmentReadiness(organizationId, fiscalPeriod, executor));
     } catch {
       checks.push(unavailableCheck("inventory.adjustments.error", "Draft inventory adjustments", "INVENTORY_ADJUSTMENT_READINESS_UNAVAILABLE"));
@@ -953,6 +959,23 @@ export class AccountingCloseService {
       client.bankStatementTransaction.findFirst({ where, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
     ]);
     return normalizeBankStatementReadiness({ unreconciledCount, sourceUpdatedAt: latestTransaction?.updatedAt.toISOString() });
+  }
+
+  private async draftTreasuryReadiness(
+    organizationId: string,
+    fiscalPeriod: { startsOn: Date; endsOn: Date },
+    executor?: Prisma.TransactionClient,
+  ) {
+    const client = executor ?? this.prisma;
+    const depositWhere = { organizationId, status: BankDepositBatchStatus.DRAFT, depositDate: { gte: fiscalPeriod.startsOn, lte: fiscalPeriod.endsOn } };
+    const settlementWhere = { organizationId, status: CardSettlementStatus.DRAFT, settlementDate: { gte: fiscalPeriod.startsOn, lte: fiscalPeriod.endsOn } };
+    const [draftDepositCount, latestDeposit, draftSettlementCount, latestSettlement] = await Promise.all([
+      client.bankDepositBatch.count({ where: depositWhere }),
+      client.bankDepositBatch.findFirst({ where: depositWhere, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
+      client.cardSettlement.count({ where: settlementWhere }),
+      client.cardSettlement.findFirst({ where: settlementWhere, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
+    ]);
+    return normalizeDraftTreasuryReadiness({ draftDepositCount, depositUpdatedAt: latestDeposit?.updatedAt.toISOString(), draftSettlementCount, settlementUpdatedAt: latestSettlement?.updatedAt.toISOString() });
   }
 
   private async bankReconciliationReadiness(
