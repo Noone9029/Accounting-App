@@ -10,6 +10,7 @@ import { CreateAccountingCloseCycleDto } from "./dto/create-accounting-close-cyc
 import { CompleteAccountingCloseTaskDto } from "./dto/complete-accounting-close-task.dto";
 import { ReopenAccountingCloseTaskDto } from "./dto/reopen-accounting-close-task.dto";
 import { RefreshAccountingCloseCycleDto } from "./dto/refresh-accounting-close-cycle.dto";
+import { ListAccountingCloseTasksDto } from "./dto/list-accounting-close-tasks.dto";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import type { AuthenticatedUser } from "../auth/auth.types";
 import { AccountingCloseService } from "./accounting-close.service";
@@ -29,6 +30,18 @@ export class AccountingCloseController {
   @RequirePermissions(PERMISSIONS.accountingClose.manage)
   createCycle(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Body() dto: CreateAccountingCloseCycleDto) {
     return this.accountingCloseService.createCycle(organizationId, user.id, dto.fiscalPeriodId);
+  }
+
+  @Get("cycles/:id")
+  @RequirePermissions(PERMISSIONS.accountingClose.read)
+  getCycle(@CurrentOrganizationId() organizationId: string, @Param("id") cycleId: string) {
+    return this.accountingCloseService.getCycle(organizationId, cycleId);
+  }
+
+  @Get("cycles/:id/tasks")
+  @RequirePermissions(PERMISSIONS.accountingClose.read)
+  listTasks(@CurrentOrganizationId() organizationId: string, @Param("id") cycleId: string, @Query() query: ListAccountingCloseTasksDto) {
+    return this.accountingCloseService.listTasks(organizationId, cycleId, query.page, query.pageSize);
   }
 
   @Post("cycles/:id/tasks/:taskId/complete")

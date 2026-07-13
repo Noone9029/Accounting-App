@@ -6,7 +6,7 @@ describe("AccountingCloseService", () => {
   const period = { id: "period-1", organizationId: "org-1", name: "June 2026", startsOn: new Date("2026-06-01T00:00:00.000Z"), endsOn: new Date("2026-06-30T23:59:59.999Z"), status: FiscalPeriodStatus.OPEN };
 
   function createService() {
-    const prisma = { fiscalPeriod: { findFirst: jest.fn().mockResolvedValue(period) } };
+    const prisma: any = { fiscalPeriod: { findFirst: jest.fn().mockResolvedValue(period) } };
     const fx = {
       readiness: jest.fn().mockResolvedValue({
         status: "BLOCKED", asOf: "2026-06-30", counts: { foreignDocuments: 1 }, actions: [],
@@ -60,6 +60,48 @@ describe("AccountingCloseService", () => {
         expect.objectContaining({ key: "fx.error", severity: "BLOCKER", status: "ERROR", code: "FX_READINESS_UNAVAILABLE", canAcknowledge: false }),
       ]),
     });
+  });
+
+  it("returns a tenant-scoped close-cycle summary without raw organization or request fields", async () => {
+    const { service, prisma } = createService();
+    Object.assign(prisma, {
+      accountingCloseCycle: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "cycle-1", organizationId: "org-1", fiscalPeriodId: "period-1", status: "IN_PROGRESS", version: 3,
+          startedAt: new Date("2026-07-01T00:00:00.000Z"), lastRefreshedAt: null, readinessHash: "hash", requestId: "internal-request-id",
+          fiscalPeriod: { id: "period-1", name: "June 2026", startsOn: period.startsOn, endsOn: period.endsOn, status: FiscalPeriodStatus.OPEN },
+          _count: { tasks: 17, evidence: 0, readinessSnapshots: 1 },
+        }),
+      },
+    });
+
+    const result = await service.getCycle("org-1", "cycle-1");
+    expect(result).toMatchObject({ id: "cycle-1", fiscalPeriod: { id: "period-1", status: FiscalPeriodStatus.OPEN }, taskCount: 17, snapshotCount: 1 });
+    expect(result).not.toHaveProperty("organizationId");
+    expect(result).not.toHaveProperty("requestId");
+    expect(prisma.accountingCloseCycle.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "cycle-1", organizationId: "org-1" } }));
+  });
+
+  it("lists close tasks through a tenant-scoped bounded page and maps only safe fields", async () => {
+    const { service, prisma } = createService();
+    const tasks = [{ id: "task-1", organizationId: "org-1", closeCycleId: "cycle-1", taskType: "AR_AGING", source: "STANDARD_TEMPLATE", title: "Review AR aging", description: null, severity: "INFORMATION", status: "OPEN", isRequired: true, assignedToUserId: null, dueDate: null, completedAt: null, completedByUserId: null, completionNote: null, reopenedAt: null, reopenedByUserId: null, reopenReason: null, acknowledgementReason: null, sortOrder: 1, systemCheckKey: null }];
+    Object.assign(prisma, {
+      accountingCloseCycle: { findFirst: jest.fn().mockResolvedValue({ id: "cycle-1" }) },
+      accountingCloseTask: { findMany: jest.fn().mockResolvedValue(tasks), count: jest.fn().mockResolvedValue(17) },
+    });
+
+    const result = await service.listTasks("org-1", "cycle-1", 2, 10);
+    expect(result).toMatchObject({ items: [expect.objectContaining({ id: "task-1", title: "Review AR aging" })], meta: { page: 2, pageSize: 10, totalItems: 17, totalPages: 2 } });
+    expect(result.items[0]).not.toHaveProperty("organizationId");
+    expect(prisma.accountingCloseTask.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { organizationId: "org-1", closeCycleId: "cycle-1" }, skip: 10, take: 10 }));
+  });
+
+  it("rejects a pathological close-task page before issuing an offset query", async () => {
+    const { service, prisma } = createService();
+    Object.assign(prisma, { accountingCloseCycle: { findFirst: jest.fn() }, accountingCloseTask: { findMany: jest.fn() } });
+    await expect(service.listTasks("org-1", "cycle-1", 10001, 100)).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.accountingCloseCycle.findFirst).not.toHaveBeenCalled();
+    expect(prisma.accountingCloseTask.findMany).not.toHaveBeenCalled();
   });
 
   it("creates one tenant-scoped cycle with the standard required manual tasks and an audit event", async () => {

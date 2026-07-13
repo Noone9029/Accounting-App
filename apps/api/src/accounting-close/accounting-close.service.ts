@@ -20,6 +20,30 @@ export class AccountingCloseService {
     private readonly auditLogService: AuditLogService,
   ) {}
 
+  async getCycle(organizationId: string, cycleId: string) {
+    const cycle = await this.prisma.accountingCloseCycle.findFirst({
+      where: { id: cycleId, organizationId },
+      include: { fiscalPeriod: { select: { id: true, name: true, startsOn: true, endsOn: true, status: true } }, _count: { select: { tasks: true, evidence: true, readinessSnapshots: true } } },
+    });
+    if (!cycle) throw new NotFoundException("Close cycle not found.");
+    return cycleSummary(cycle);
+  }
+
+  async listTasks(organizationId: string, cycleId: string, page = 1, pageSize = 50) {
+    if (!Number.isInteger(page) || page < 1 || page > 10000) throw new BadRequestException("page must be an integer between 1 and 10000.");
+    if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100) throw new BadRequestException("pageSize must be an integer between 1 and 100.");
+    const cycle = await this.prisma.accountingCloseCycle.findFirst({ where: { id: cycleId, organizationId }, select: { id: true } });
+    if (!cycle) throw new NotFoundException("Close cycle not found.");
+    const safePage = page;
+    const safePageSize = pageSize;
+    const where = { organizationId, closeCycleId: cycleId };
+    const [tasks, totalItems] = await Promise.all([
+      this.prisma.accountingCloseTask.findMany({ where, orderBy: [{ sortOrder: "asc" }, { id: "asc" }], skip: (safePage - 1) * safePageSize, take: safePageSize }),
+      this.prisma.accountingCloseTask.count({ where }),
+    ]);
+    return { items: tasks.map(taskResponse), meta: { page: safePage, pageSize: safePageSize, totalItems, totalPages: Math.max(1, Math.ceil(totalItems / safePageSize)) } };
+  }
+
   async createCycle(organizationId: string, actorUserId: string, fiscalPeriodId: string) {
     try {
       return await this.prisma.$transaction(async (tx) => {
@@ -291,6 +315,26 @@ export class AccountingCloseService {
 
 function prismaErrorCode(error: unknown): string | undefined {
   return typeof error === "object" && error !== null && "code" in error && typeof error.code === "string" ? error.code : undefined;
+}
+
+function cycleSummary(cycle: any) {
+  return {
+    id: cycle.id, fiscalPeriodId: cycle.fiscalPeriodId, status: cycle.status, version: cycle.version, startedAt: cycle.startedAt,
+    preparedAt: cycle.preparedAt, reviewedAt: cycle.reviewedAt, closedAt: cycle.closedAt, lockedAt: cycle.lockedAt,
+    lastRefreshedAt: cycle.lastRefreshedAt, readinessHash: cycle.readinessHash,
+    fiscalPeriod: cycle.fiscalPeriod,
+    taskCount: cycle._count.tasks, evidenceCount: cycle._count.evidence, snapshotCount: cycle._count.readinessSnapshots,
+  };
+}
+
+function taskResponse(task: any) {
+  return {
+    id: task.id, taskType: task.taskType, source: task.source, title: task.title, description: task.description,
+    severity: task.severity, status: task.status, isRequired: task.isRequired, assignedToUserId: task.assignedToUserId,
+    dueDate: task.dueDate, completedAt: task.completedAt, completedByUserId: task.completedByUserId, completionNote: task.completionNote,
+    reopenedAt: task.reopenedAt, reopenedByUserId: task.reopenedByUserId, reopenReason: task.reopenReason,
+    acknowledgementReason: task.acknowledgementReason, sortOrder: task.sortOrder, systemCheckKey: task.systemCheckKey,
+  };
 }
 
 function snapshotResponse(snapshot: {
