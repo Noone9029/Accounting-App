@@ -56,6 +56,11 @@ export type CreditNoteReadiness = {
   sourceUpdatedAt?: string;
 };
 
+export type CustomerPaymentReadiness = {
+  unappliedCount: number;
+  sourceUpdatedAt?: string;
+};
+
 export function normalizeFxReadiness(readiness: FxReadiness): AccountingCloseCheck[] {
   if (readiness.status === "NOT_APPLICABLE") {
     return [{ ...check("fx.notApplicable", "Foreign exchange close readiness", "NOT_APPLICABLE", "NOT_APPLICABLE", "FX_NOT_APPLICABLE", "No foreign-currency close activity requires review for this period.", 0, "/fx-close", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
@@ -106,6 +111,13 @@ export function normalizeCreditNoteReadiness(readiness: CreditNoteReadiness): Ac
     return [{ ...check("sales.draftCreditNotes", "Draft credit notes", "INFORMATION", "READY", "NO_DRAFT_CREDIT_NOTES", "No draft credit notes are dated in this fiscal period.", 0, "/sales/credit-notes", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
   }
   return [{ ...check("sales.draftCreditNotes", "Draft credit notes", "WARNING", "OPEN", "DRAFT_CREDIT_NOTES", "Draft credit notes dated in this fiscal period require accountant review.", readiness.draftCount, "/sales/credit-notes", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
+}
+
+export function normalizeCustomerPaymentReadiness(readiness: CustomerPaymentReadiness): AccountingCloseCheck[] {
+  if (readiness.unappliedCount === 0) {
+    return [{ ...check("sales.unappliedCustomerPayments", "Unapplied customer payments", "INFORMATION", "READY", "NO_UNAPPLIED_CUSTOMER_PAYMENTS", "No posted customer payments with an unapplied balance are dated in this fiscal period.", 0, "/sales/customer-payments", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
+  }
+  return [{ ...check("sales.unappliedCustomerPayments", "Unapplied customer payments", "WARNING", "OPEN", "UNAPPLIED_CUSTOMER_PAYMENTS", "Posted customer payments with an unapplied balance in this fiscal period require accountant review.", readiness.unappliedCount, "/sales/customer-payments", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
 }
 
 export function canonicalReadinessHash(checks: Array<Omit<AccountingCloseCheck, "canAcknowledge"> & Partial<Pick<AccountingCloseCheck, "canAcknowledge">>>): string {

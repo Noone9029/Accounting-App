@@ -18,7 +18,7 @@ const contracts = [
     path: "accounting/CLOSE_READINESS_POLICY.md",
     phrases: [
       "`BLOCKER`", "`WARNING`", "`INFORMATION`", "`NOT_APPLICABLE`",
-      "cannot be manually completed", "default to `WARNING`", "Manual draft journals", "Draft sales invoices", "Draft credit notes", "scheduled local date", "fail closed",
+      "cannot be manually completed", "default to `WARNING`", "Manual draft journals", "Draft sales invoices", "Draft credit notes", "Unapplied customer payments", "scheduled local date", "fail closed",
     ],
   },
   {
