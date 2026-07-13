@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { CreditNoteStatus, CustomerPaymentStatus, FiscalPeriodStatus, GeneratedDocumentStatus, JournalEntryStatus, Prisma, PurchaseBillStatus, PurchaseDebitNoteStatus, SalesInvoiceStatus } from "@prisma/client";
+import { CreditNoteStatus, CustomerPaymentStatus, FiscalPeriodStatus, GeneratedDocumentStatus, JournalEntryStatus, Prisma, PurchaseBillStatus, PurchaseDebitNoteStatus, SalesInvoiceStatus, SupplierPaymentStatus } from "@prisma/client";
 import { FxCloseReadinessService } from "../foreign-exchange/fx-close-readiness.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -17,6 +17,7 @@ import {
   normalizePurchaseBillReadiness,
   normalizePurchaseDebitNoteReadiness,
   normalizeSalesInvoiceReadiness,
+  normalizeSupplierPaymentReadiness,
 } from "./close-readiness";
 
 @Injectable()
@@ -708,6 +709,11 @@ export class AccountingCloseService {
     } catch {
       checks.push(unavailableCheck("purchases.debitNotes.error", "Draft purchase debit notes", "PURCHASE_DEBIT_NOTE_READINESS_UNAVAILABLE"));
     }
+    try {
+      checks.push(...await this.supplierPaymentReadiness(organizationId, fiscalPeriod, executor));
+    } catch {
+      checks.push(unavailableCheck("purchases.supplierPayments.error", "Unapplied supplier payments", "SUPPLIER_PAYMENT_READINESS_UNAVAILABLE"));
+    }
     checks.sort((left, right) => left.key.localeCompare(right.key));
     const blockerCount = count(checks, "BLOCKER");
     const warningCount = count(checks, "WARNING");
@@ -830,6 +836,26 @@ export class AccountingCloseService {
       client.purchaseDebitNote.findFirst({ where, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
     ]);
     return normalizePurchaseDebitNoteReadiness({ draftCount, sourceUpdatedAt: latestDraft?.updatedAt.toISOString() });
+  }
+
+  private async supplierPaymentReadiness(
+    organizationId: string,
+    fiscalPeriod: { startsOn: Date; endsOn: Date },
+    executor?: Prisma.TransactionClient,
+  ) {
+    const client = executor ?? this.prisma;
+    const where = {
+      organizationId,
+      status: SupplierPaymentStatus.POSTED,
+      voidReversalJournalEntryId: null,
+      paymentDate: { gte: fiscalPeriod.startsOn, lte: fiscalPeriod.endsOn },
+      unappliedAmount: { gt: 0 },
+    };
+    const [unappliedCount, latestPayment] = await Promise.all([
+      client.supplierPayment.count({ where }),
+      client.supplierPayment.findFirst({ where, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
+    ]);
+    return normalizeSupplierPaymentReadiness({ unappliedCount, sourceUpdatedAt: latestPayment?.updatedAt.toISOString() });
   }
 }
 
