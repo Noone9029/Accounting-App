@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { BankReconciliationStatus, BankStatementTransactionStatus, CreditNoteStatus, CustomerPaymentStatus, FiscalPeriodStatus, GeneratedDocumentStatus, InventoryAdjustmentStatus, InventoryVarianceProposalStatus, JournalEntryStatus, Prisma, PurchaseBillStatus, PurchaseDebitNoteStatus, ReportPackStatus, SalesInvoiceStatus, SupplierPaymentStatus } from "@prisma/client";
+import { BankReconciliationStatus, BankStatementTransactionStatus, CashExpenseStatus, CreditNoteStatus, CustomerPaymentStatus, FiscalPeriodStatus, GeneratedDocumentStatus, InventoryAdjustmentStatus, InventoryVarianceProposalStatus, JournalEntryStatus, Prisma, PurchaseBillStatus, PurchaseDebitNoteStatus, ReportPackStatus, SalesInvoiceStatus, SupplierPaymentStatus } from "@prisma/client";
 import { FxCloseReadinessService } from "../foreign-exchange/fx-close-readiness.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -11,6 +11,7 @@ import {
   normalizeBankReconciliationReadiness,
   canonicalReadinessHash,
   normalizeBankStatementReadiness,
+  normalizeCashExpenseReadiness,
   normalizeInventoryAdjustmentReadiness,
   normalizeInventoryVarianceProposalReadiness,
   normalizeReportPackReadiness,
@@ -744,6 +745,11 @@ export class AccountingCloseService {
     } catch {
       checks.push(unavailableCheck("purchases.supplierPayments.error", "Unapplied supplier payments", "SUPPLIER_PAYMENT_READINESS_UNAVAILABLE"));
     }
+    try {
+      checks.push(...await this.cashExpenseReadiness(organizationId, fiscalPeriod, executor));
+    } catch {
+      checks.push(unavailableCheck("purchases.cashExpenses.error", "Draft cash expenses", "CASH_EXPENSE_READINESS_UNAVAILABLE"));
+    }
     checks.sort((left, right) => left.key.localeCompare(right.key));
     const blockerCount = count(checks, "BLOCKER");
     const warningCount = count(checks, "WARNING");
@@ -886,6 +892,20 @@ export class AccountingCloseService {
       client.supplierPayment.findFirst({ where, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
     ]);
     return normalizeSupplierPaymentReadiness({ unappliedCount, sourceUpdatedAt: latestPayment?.updatedAt.toISOString() });
+  }
+
+  private async cashExpenseReadiness(
+    organizationId: string,
+    fiscalPeriod: { startsOn: Date; endsOn: Date },
+    executor?: Prisma.TransactionClient,
+  ) {
+    const client = executor ?? this.prisma;
+    const where = { organizationId, status: CashExpenseStatus.DRAFT, expenseDate: { gte: fiscalPeriod.startsOn, lte: fiscalPeriod.endsOn } };
+    const [draftCount, latestDraft] = await Promise.all([
+      client.cashExpense.count({ where }),
+      client.cashExpense.findFirst({ where, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
+    ]);
+    return normalizeCashExpenseReadiness({ draftCount, sourceUpdatedAt: latestDraft?.updatedAt.toISOString() });
   }
 
   private async bankStatementReadiness(
