@@ -18,3 +18,5 @@ FX blockers remain blockers because `FxCloseReadinessService` already enforces t
 A cycle may be prepared only with no current blockers and all required manual tasks completed. A reviewer records the exact readiness hash. Any later authoritative hash change invalidates review. Close and lock rerun the checks inside the authoritative transaction and fail closed on stale, unproven, or errored readiness.
 
 Preparer and reviewer are distinct when at least two eligible users exist. A single-user demonstration organization may use a clearly labelled single-user mode only when its explicit organization policy allows it.
+
+Document inbox review is date-scoped only when an existing inbox item has a known document date inside the selected fiscal period. Existing `REVIEW_REQUIRED` and `EXTRACTION_FAILED` items are authoritative `WARNING` signals; LedgerByte does not extract, review, create a target, or otherwise alter them. Existing extraction-disabled items are informational: they require manual review but are not an OCR-provider or close-blocker claim. Undated inbox items are excluded because LedgerByte cannot reconstruct their fiscal-period association honestly.

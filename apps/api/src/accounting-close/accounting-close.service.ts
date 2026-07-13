@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { BankReconciliationStatus, BankStatementTransactionStatus, CashExpenseStatus, CreditNoteStatus, CustomerPaymentStatus, FiscalPeriodStatus, GeneratedDocumentStatus, InventoryAdjustmentStatus, InventoryVarianceProposalStatus, JournalEntryStatus, Prisma, PurchaseBillStatus, PurchaseDebitNoteStatus, ReportPackStatus, SalesInvoiceStatus, SupplierPaymentStatus } from "@prisma/client";
+import { BankReconciliationStatus, BankStatementTransactionStatus, CashExpenseStatus, CreditNoteStatus, CustomerPaymentStatus, DocumentInboxStatus, FiscalPeriodStatus, GeneratedDocumentStatus, InventoryAdjustmentStatus, InventoryVarianceProposalStatus, JournalEntryStatus, Prisma, PurchaseBillStatus, PurchaseDebitNoteStatus, ReportPackStatus, SalesInvoiceStatus, SupplierPaymentStatus } from "@prisma/client";
 import { FxCloseReadinessService } from "../foreign-exchange/fx-close-readiness.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -12,6 +12,7 @@ import {
   canonicalReadinessHash,
   normalizeBankStatementReadiness,
   normalizeCashExpenseReadiness,
+  normalizeDocumentInboxReadiness,
   normalizeInventoryAdjustmentReadiness,
   normalizeInventoryVarianceProposalReadiness,
   normalizeReportPackReadiness,
@@ -750,6 +751,11 @@ export class AccountingCloseService {
     } catch {
       checks.push(unavailableCheck("purchases.cashExpenses.error", "Draft cash expenses", "CASH_EXPENSE_READINESS_UNAVAILABLE"));
     }
+    try {
+      checks.push(...await this.documentInboxReadiness(organizationId, fiscalPeriod, executor));
+    } catch {
+      checks.push(unavailableCheck("documents.inbox.error", "Document inbox review", "DOCUMENT_INBOX_READINESS_UNAVAILABLE"));
+    }
     checks.sort((left, right) => left.key.localeCompare(right.key));
     const blockerCount = count(checks, "BLOCKER");
     const warningCount = count(checks, "WARNING");
@@ -906,6 +912,29 @@ export class AccountingCloseService {
       client.cashExpense.findFirst({ where, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
     ]);
     return normalizeCashExpenseReadiness({ draftCount, sourceUpdatedAt: latestDraft?.updatedAt.toISOString() });
+  }
+
+  private async documentInboxReadiness(
+    organizationId: string,
+    fiscalPeriod: { startsOn: Date; endsOn: Date },
+    executor?: Prisma.TransactionClient,
+  ) {
+    const client = executor ?? this.prisma;
+    const documentDate = { gte: fiscalPeriod.startsOn, lte: fiscalPeriod.endsOn };
+    const reviewWhere = { organizationId, status: { in: [DocumentInboxStatus.REVIEW_REQUIRED, DocumentInboxStatus.EXTRACTION_FAILED] }, documentDate };
+    const disabledWhere = { organizationId, status: DocumentInboxStatus.EXTRACTION_DISABLED, documentDate };
+    const [reviewRequiredCount, latestReviewRequired, extractionDisabledCount, latestExtractionDisabled] = await Promise.all([
+      client.documentInboxItem.count({ where: reviewWhere }),
+      client.documentInboxItem.findFirst({ where: reviewWhere, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
+      client.documentInboxItem.count({ where: disabledWhere }),
+      client.documentInboxItem.findFirst({ where: disabledWhere, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
+    ]);
+    return normalizeDocumentInboxReadiness({
+      reviewRequiredCount,
+      reviewRequiredUpdatedAt: latestReviewRequired?.updatedAt.toISOString(),
+      extractionDisabledCount,
+      extractionDisabledUpdatedAt: latestExtractionDisabled?.updatedAt.toISOString(),
+    });
   }
 
   private async bankStatementReadiness(

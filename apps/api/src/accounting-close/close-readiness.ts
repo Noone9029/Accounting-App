@@ -106,6 +106,13 @@ export type CashExpenseReadiness = {
   sourceUpdatedAt?: string;
 };
 
+export type DocumentInboxReadiness = {
+  reviewRequiredCount: number;
+  reviewRequiredUpdatedAt?: string;
+  extractionDisabledCount: number;
+  extractionDisabledUpdatedAt?: string;
+};
+
 export function normalizeFxReadiness(readiness: FxReadiness): AccountingCloseCheck[] {
   if (readiness.status === "NOT_APPLICABLE") {
     return [{ ...check("fx.notApplicable", "Foreign exchange close readiness", "NOT_APPLICABLE", "NOT_APPLICABLE", "FX_NOT_APPLICABLE", "No foreign-currency close activity requires review for this period.", 0, "/fx-close", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
@@ -226,6 +233,14 @@ export function normalizeCashExpenseReadiness(readiness: CashExpenseReadiness): 
     return [{ ...check("purchases.draftCashExpenses", "Draft cash expenses", "INFORMATION", "READY", "NO_DRAFT_CASH_EXPENSES", "No draft cash expenses are dated in this fiscal period.", 0, "/purchases/cash-expenses", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
   }
   return [{ ...check("purchases.draftCashExpenses", "Draft cash expenses", "WARNING", "OPEN", "DRAFT_CASH_EXPENSES", "Draft cash expenses dated in this fiscal period require accountant review.", readiness.draftCount, "/purchases/cash-expenses", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
+}
+
+export function normalizeDocumentInboxReadiness(readiness: DocumentInboxReadiness): AccountingCloseCheck[] {
+  const reviewCheck = readiness.reviewRequiredCount === 0
+    ? { ...check("documents.reviewRequired", "Document inbox review", "INFORMATION", "READY", "NO_DOCUMENT_INBOX_REVIEW_REQUIRED", "No dated document inbox items require review in this fiscal period.", 0, "/document-inbox", false), sourceUpdatedAt: readiness.reviewRequiredUpdatedAt }
+    : { ...check("documents.reviewRequired", "Document inbox review", "WARNING", "OPEN", "DOCUMENT_INBOX_REVIEW_REQUIRED", "Dated document inbox items requiring review in this fiscal period require accountant review.", readiness.reviewRequiredCount, "/document-inbox", false), sourceUpdatedAt: readiness.reviewRequiredUpdatedAt };
+  const disabledCheck = { ...check("documents.extractionDisabled", "Document extraction availability", "INFORMATION", "READY", "DOCUMENT_EXTRACTION_DISABLED", readiness.extractionDisabledCount === 0 ? "No dated document inbox items have extraction disabled in this fiscal period." : "Dated document inbox items have extraction disabled; manual review remains required.", readiness.extractionDisabledCount, "/document-inbox", false), sourceUpdatedAt: readiness.extractionDisabledUpdatedAt };
+  return [reviewCheck, disabledCheck];
 }
 
 export function canonicalReadinessHash(checks: Array<Omit<AccountingCloseCheck, "canAcknowledge"> & Partial<Pick<AccountingCloseCheck, "canAcknowledge">>>): string {
