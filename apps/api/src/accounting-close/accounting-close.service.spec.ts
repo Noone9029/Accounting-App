@@ -194,6 +194,87 @@ describe("AccountingCloseService", () => {
     await expect(service.compareSnapshots("org-1", "cycle-1", "baseline", "other-tenant")).rejects.toBeInstanceOf(NotFoundException);
   });
 
+  it("exports a tenant-scoped close evidence manifest with safe, bounded task, evidence, and frozen check records", async () => {
+    const { service, prisma } = createService();
+    Object.assign(prisma, {
+      accountingCloseCycle: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "cycle-1", organizationId: "org-1", fiscalPeriodId: "period-1", status: "REVIEWED", version: 7,
+          startedAt: new Date("2026-07-01T00:00:00.000Z"), preparedAt: new Date("2026-07-02T00:00:00.000Z"), preparedByUserId: "user-preparer",
+          reviewedAt: new Date("2026-07-03T00:00:00.000Z"), reviewedByUserId: "user-reviewer", closedAt: null, lockedAt: null,
+          readinessHash: "current-hash", requestId: "internal-request-id",
+          organization: { id: "org-1", name: "LedgerByte Demo", baseCurrency: "AED", taxNumber: "private-tax-number" },
+          fiscalPeriod: { id: "period-1", name: "June 2026", startsOn: period.startsOn, endsOn: period.endsOn, status: FiscalPeriodStatus.OPEN },
+        }),
+      },
+      accountingCloseTask: {
+        findMany: jest.fn().mockResolvedValue([{
+          id: "task-1", organizationId: "org-1", closeCycleId: "cycle-1", taskType: "AR_AGING", source: "STANDARD_TEMPLATE", title: "Review AR aging",
+          severity: "WARNING", status: "COMPLETED", isRequired: true, assignedToUserId: "user-preparer", dueDate: null,
+          completedAt: new Date("2026-07-02T00:00:00.000Z"), completedByUserId: "user-preparer", completionNote: "private working note",
+          acknowledgementReason: "Reviewed with controller", safeMetadata: { private: "no" },
+        }]),
+      },
+      accountingCloseEvidence: {
+        findMany: jest.fn().mockResolvedValue([{
+          id: "evidence-1", organizationId: "org-1", closeCycleId: "cycle-1", closeTaskId: "task-1", evidenceType: "REPORT",
+          entityType: "GeneratedDocument", entityId: "document-1", reportType: "TRIAL_BALANCE", generatedDocumentId: "document-1",
+          safeLabel: "=June trial balance", safeMetadata: { privatePayload: "must not export" }, addedByUserId: "user-preparer", addedAt: new Date("2026-07-02T00:00:00.000Z"),
+        }]),
+      },
+      accountingCloseReadinessSnapshot: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "snapshot-1", organizationId: "org-1", closeCycleId: "cycle-1", fiscalPeriodId: "period-1", capturedAt: new Date("2026-07-03T00:00:00.000Z"),
+          capturedByUserId: "user-reviewer", status: "REVIEWED", blockerCount: 0, warningCount: 1, informationCount: 2, checkCount: 3,
+          canonicalHash: "frozen-hash", sourceVersion: 7, requestId: "internal-request-id",
+          items: [{ checkKey: "ar.aging", severity: "WARNING", status: "OPEN", code: "AR_OLD", safeMessage: "Review overdue receivables.", count: 2, currencyCode: "AED", sourceUpdatedAt: null, metadataSafe: { title: "AR aging" }, sourceEntityId: "private-source-id" }],
+        }),
+      },
+    });
+
+    const manifest = await service.exportCycleEvidence("org-1", "cycle-1");
+
+    expect(manifest).toMatchObject({
+      organization: { id: "org-1", name: "LedgerByte Demo", baseCurrency: "AED" },
+      fiscalPeriod: { id: "period-1", name: "June 2026" },
+      cycle: { id: "cycle-1", status: "REVIEWED", preparerUserId: "user-preparer", reviewerUserId: "user-reviewer", readinessHash: "current-hash" },
+      tasks: [expect.objectContaining({ id: "task-1", acknowledgementReason: "Reviewed with controller" })],
+      evidence: [expect.objectContaining({ id: "evidence-1", reportType: "TRIAL_BALANCE", generatedDocumentId: "document-1" })],
+      latestReadinessSnapshot: expect.objectContaining({ id: "snapshot-1", canonicalHash: "frozen-hash", items: [expect.objectContaining({ checkKey: "ar.aging" })] }),
+    });
+    expect(manifest).not.toHaveProperty("requestId");
+    expect(manifest.organization).not.toHaveProperty("taxNumber");
+    expect(manifest.tasks[0]).not.toHaveProperty("organizationId");
+    expect(manifest.tasks[0]).not.toHaveProperty("completionNote");
+    expect(manifest.evidence[0]).not.toHaveProperty("safeMetadata");
+    expect(manifest.evidence[0]).not.toHaveProperty("entityType");
+    expect(manifest.evidence[0]).not.toHaveProperty("entityId");
+    expect(manifest.evidence[0]).not.toHaveProperty("addedByUserId");
+    expect(manifest.latestReadinessSnapshot!.items[0]).not.toHaveProperty("sourceEntityId");
+    expect(prisma.accountingCloseCycle.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "cycle-1", organizationId: "org-1" } }));
+    expect(prisma.accountingCloseTask.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { organizationId: "org-1", closeCycleId: "cycle-1" }, take: 10001 }));
+    expect(prisma.accountingCloseEvidence.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { organizationId: "org-1", closeCycleId: "cycle-1" }, take: 10001 }));
+    const csv = service.exportCycleEvidenceCsv(manifest);
+    expect(csv).toMatchObject({ filename: "accounting-close-evidence-cycle-1.csv" });
+    expect(csv.content).toContain("'=June trial balance");
+    expect(csv.content).not.toContain("private-source-id");
+    expect(csv.content).not.toContain("user-preparer");
+  });
+
+  it("fails rather than silently truncating a close evidence export", async () => {
+    const { service, prisma } = createService();
+    Object.assign(prisma, {
+      accountingCloseCycle: { findFirst: jest.fn().mockResolvedValue({ id: "cycle-1", organization: { id: "org-1", name: "LedgerByte Demo", baseCurrency: "AED" }, fiscalPeriod: { id: "period-1", name: "June 2026", startsOn: period.startsOn, endsOn: period.endsOn, status: FiscalPeriodStatus.OPEN } }) },
+      accountingCloseTask: { findMany: jest.fn().mockResolvedValue(Array.from({ length: 10001 }, (_, index) => ({ id: `task-${index}` })) ) },
+      accountingCloseEvidence: { findMany: jest.fn() },
+      accountingCloseReadinessSnapshot: { findFirst: jest.fn() },
+    });
+
+    await expect(service.exportCycleEvidence("org-1", "cycle-1")).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.accountingCloseEvidence.findMany).not.toHaveBeenCalled();
+    expect(prisma.accountingCloseReadinessSnapshot.findFirst).not.toHaveBeenCalled();
+  });
+
   it("attaches tenant-owned generated-document evidence to a mutable close task with safe fields only", async () => {
     const { service, prisma, auditLog } = createService();
     const evidence = { id: "evidence-1", organizationId: "org-1", closeCycleId: "cycle-1", closeTaskId: "task-1", evidenceType: "REPORT", reportType: "TRIAL_BALANCE", generatedDocumentId: "document-1", safeLabel: "June trial balance" };
