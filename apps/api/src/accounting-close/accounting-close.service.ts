@@ -263,7 +263,12 @@ export class AccountingCloseService {
             status: { in: ["IN_PROGRESS", "READY_FOR_REVIEW"] },
             fiscalPeriod: { is: { organizationId, status: FiscalPeriodStatus.OPEN } },
           },
-          data: { version: { increment: 1 }, lastRefreshedAt: new Date(), readinessHash: readiness.canonicalHash },
+          data: {
+            version: { increment: 1 },
+            lastRefreshedAt: new Date(),
+            readinessHash: readiness.canonicalHash,
+            ...(cycle.status === "READY_FOR_REVIEW" ? { status: "IN_PROGRESS", preparedAt: null, preparedByUserId: null, reviewedAt: null, reviewedByUserId: null } : {}),
+          },
         });
         if (claimed.count !== 1) throw new ConflictException("Close cycle changed. Reload and retry.");
         const snapshot = await tx.accountingCloseReadinessSnapshot.create({
@@ -367,6 +372,49 @@ export class AccountingCloseService {
           after: { status: "READY_FOR_REVIEW", preparedAt, readinessHash: readiness.canonicalHash, snapshotId: snapshot.id },
         }, tx);
         return { id: cycle.id, fiscalPeriodId: cycle.fiscalPeriodId, status: "READY_FOR_REVIEW", version: expectedVersion + 1, preparedAt, readinessHash: readiness.canonicalHash };
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    } catch (error) {
+      if (prismaErrorCode(error) === "P2034") throw new ConflictException("Close cycle changed. Reload and retry.");
+      throw error;
+    }
+  }
+
+  async reviewCycle(organizationId: string, actorUserId: string, cycleId: string, expectedVersion: number) {
+    if (!Number.isInteger(expectedVersion) || expectedVersion < 1) throw new BadRequestException("expectedVersion must be a positive integer.");
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const cycle = await tx.accountingCloseCycle.findFirst({
+          where: { id: cycleId, organizationId },
+          select: { id: true, fiscalPeriodId: true, status: true, preparedByUserId: true, readinessHash: true },
+        });
+        if (!cycle) throw new NotFoundException("Close cycle not found.");
+        if (cycle.status !== "READY_FOR_REVIEW") throw new BadRequestException("Only a prepared close cycle can be reviewed.");
+        if (!cycle.preparedByUserId || !cycle.readinessHash) throw new BadRequestException("Close cycle preparation is incomplete.");
+        if (cycle.preparedByUserId === actorUserId) throw new BadRequestException("A preparer cannot review the same close cycle without an explicit organization policy.");
+        const fiscalPeriod = await tx.fiscalPeriod.findFirst({
+          where: { id: cycle.fiscalPeriodId, organizationId },
+          select: { id: true, name: true, startsOn: true, endsOn: true, status: true },
+        });
+        if (!fiscalPeriod) throw new NotFoundException("Fiscal period not found.");
+        if (fiscalPeriod.status !== FiscalPeriodStatus.OPEN) throw new BadRequestException("A closed or locked fiscal period cannot be reviewed.");
+        const readiness = await this.readinessForFiscalPeriod(organizationId, fiscalPeriod, tx);
+        if (readiness.blockerCount > 0 || readiness.canonicalHash !== cycle.readinessHash) throw new ConflictException("Close readiness changed. Refresh and prepare the cycle again.");
+        const snapshot = await tx.accountingCloseReadinessSnapshot.findFirst({
+          where: { organizationId, closeCycleId: cycleId, status: "DRAFT", canonicalHash: cycle.readinessHash },
+          orderBy: { capturedAt: "desc" },
+          select: { id: true, canonicalHash: true },
+        });
+        if (!snapshot) throw new ConflictException("A matching draft readiness snapshot is required for review.");
+        const reviewedAt = new Date();
+        const claimed = await tx.accountingCloseCycle.updateMany({
+          where: { id: cycleId, organizationId, version: expectedVersion, status: "READY_FOR_REVIEW", readinessHash: cycle.readinessHash, fiscalPeriod: { is: { organizationId, status: FiscalPeriodStatus.OPEN } } },
+          data: { status: "REVIEWED", version: { increment: 1 }, reviewedAt, reviewedByUserId: actorUserId, readinessHash: readiness.canonicalHash },
+        });
+        if (claimed.count !== 1) throw new ConflictException("Close cycle changed. Reload and retry.");
+        const frozen = await tx.accountingCloseReadinessSnapshot.updateMany({ where: { id: snapshot.id, organizationId, status: "DRAFT" }, data: { status: "REVIEWED" } });
+        if (frozen.count !== 1) throw new ConflictException("Close readiness snapshot changed. Reload and retry.");
+        await this.auditLogService.log({ organizationId, actorUserId, action: "REVIEW", entityType: "AccountingCloseCycle", entityId: cycle.id, after: { status: "REVIEWED", reviewedAt, readinessHash: readiness.canonicalHash, snapshotId: snapshot.id } }, tx);
+        return { id: cycle.id, fiscalPeriodId: cycle.fiscalPeriodId, status: "REVIEWED", version: expectedVersion + 1, reviewedAt, reviewedByUserId: actorUserId, readinessHash: readiness.canonicalHash };
       }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     } catch (error) {
       if (prismaErrorCode(error) === "P2034") throw new ConflictException("Close cycle changed. Reload and retry.");
