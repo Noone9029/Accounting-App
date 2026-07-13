@@ -9,6 +9,7 @@ import { AccountingCloseReadinessQueryDto } from "./dto/accounting-close-readine
 import { CreateAccountingCloseCycleDto } from "./dto/create-accounting-close-cycle.dto";
 import { CompleteAccountingCloseTaskDto } from "./dto/complete-accounting-close-task.dto";
 import { ReopenAccountingCloseTaskDto } from "./dto/reopen-accounting-close-task.dto";
+import { RefreshAccountingCloseCycleDto } from "./dto/refresh-accounting-close-cycle.dto";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import type { AuthenticatedUser } from "../auth/auth.types";
 import { AccountingCloseService } from "./accounting-close.service";
@@ -52,5 +53,16 @@ export class AccountingCloseController {
     @Body() dto: ReopenAccountingCloseTaskDto,
   ) {
     return this.accountingCloseService.reopenTask(organizationId, user.id, cycleId, taskId, dto.expectedVersion, dto.reopenReason);
+  }
+
+  @Post("cycles/:id/refresh")
+  @RequirePermissions(PERMISSIONS.accountingClose.manage)
+  refreshCycle(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") cycleId: string,
+    @Body() dto: RefreshAccountingCloseCycleDto,
+  ) {
+    return this.accountingCloseService.refreshCycle(organizationId, user.id, cycleId, dto.expectedVersion);
   }
 }

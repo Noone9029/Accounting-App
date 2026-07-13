@@ -161,13 +161,103 @@ export class AccountingCloseService {
     }
   }
 
+  async refreshCycle(organizationId: string, actorUserId: string, cycleId: string, expectedVersion: number) {
+    if (!Number.isInteger(expectedVersion) || expectedVersion < 1) throw new BadRequestException("expectedVersion must be a positive integer.");
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const cycle = await tx.accountingCloseCycle.findFirst({
+          where: { id: cycleId, organizationId },
+          select: { id: true, fiscalPeriodId: true, status: true },
+        });
+        if (!cycle) throw new NotFoundException("Close cycle not found.");
+        if (!["IN_PROGRESS", "READY_FOR_REVIEW"].includes(cycle.status)) {
+          throw new BadRequestException("Close readiness cannot be refreshed after review, close, or lock.");
+        }
+        const fiscalPeriod = await tx.fiscalPeriod.findFirst({
+          where: { id: cycle.fiscalPeriodId, organizationId },
+          select: { id: true, name: true, startsOn: true, endsOn: true, status: true },
+        });
+        if (!fiscalPeriod) throw new NotFoundException("Fiscal period not found.");
+        if (fiscalPeriod.status !== FiscalPeriodStatus.OPEN) {
+          throw new BadRequestException("Close readiness cannot be refreshed after the fiscal period is closed or locked.");
+        }
+        const readiness = await this.readinessForFiscalPeriod(organizationId, fiscalPeriod, tx);
+
+        const claimed = await tx.accountingCloseCycle.updateMany({
+          where: {
+            id: cycleId,
+            organizationId,
+            version: expectedVersion,
+            status: { in: ["IN_PROGRESS", "READY_FOR_REVIEW"] },
+            fiscalPeriod: { is: { organizationId, status: FiscalPeriodStatus.OPEN } },
+          },
+          data: { version: { increment: 1 }, lastRefreshedAt: new Date(), readinessHash: readiness.canonicalHash },
+        });
+        if (claimed.count !== 1) throw new ConflictException("Close cycle changed. Reload and retry.");
+        const snapshot = await tx.accountingCloseReadinessSnapshot.create({
+          data: {
+            organizationId,
+            closeCycleId: cycle.id,
+            fiscalPeriodId: cycle.fiscalPeriodId,
+            capturedByUserId: actorUserId,
+            status: "DRAFT",
+            blockerCount: readiness.blockerCount,
+            warningCount: readiness.warningCount,
+            informationCount: readiness.informationCount,
+            checkCount: readiness.checkCount,
+            canonicalHash: readiness.canonicalHash,
+            sourceVersion: expectedVersion + 1,
+            items: {
+              create: readiness.checks.map((check) => ({
+                organizationId,
+                checkKey: check.key,
+                severity: check.severity,
+                status: check.status,
+                code: check.code,
+                safeMessage: check.safeMessage,
+                count: check.count,
+                sourceUpdatedAt: check.sourceUpdatedAt ? new Date(check.sourceUpdatedAt) : undefined,
+                metadataSafe: { title: check.title, detailsHref: check.detailsHref ?? null, canAcknowledge: check.canAcknowledge },
+              })),
+            },
+          },
+          include: { items: { orderBy: { checkKey: "asc" } } },
+        });
+        await this.auditLogService.log({
+          organizationId,
+          actorUserId,
+          action: "REFRESH",
+          entityType: "AccountingCloseReadinessSnapshot",
+          entityId: snapshot.id,
+          after: { closeCycleId: cycle.id, canonicalHash: snapshot.canonicalHash, blockerCount: snapshot.blockerCount, warningCount: snapshot.warningCount },
+        }, tx);
+        return snapshotResponse(snapshot);
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    } catch (error) {
+      if (prismaErrorCode(error) === "P2034") throw new ConflictException("Close cycle changed. Reload and retry.");
+      throw error;
+    }
+  }
+
   async readiness(organizationId: string, fiscalPeriodId: string) {
     const fiscalPeriod = await this.prisma.fiscalPeriod.findFirst({ where: { id: fiscalPeriodId, organizationId } });
     if (!fiscalPeriod) throw new NotFoundException("Fiscal period not found.");
 
+    return this.readinessForFiscalPeriod(organizationId, fiscalPeriod);
+  }
+
+  private async readinessForFiscalPeriod(
+    organizationId: string,
+    fiscalPeriod: { id: string; name: string; startsOn: Date; endsOn: Date; status: FiscalPeriodStatus },
+    executor?: Prisma.TransactionClient,
+  ) {
     const [fx, recurring] = await Promise.allSettled([
-      this.fxCloseReadinessService.readiness(organizationId, fiscalPeriod.endsOn),
-      this.recurringReadinessService.get(organizationId, { startsOn: fiscalPeriod.startsOn, endsOn: fiscalPeriod.endsOn }),
+      executor
+        ? this.fxCloseReadinessService.readiness(organizationId, fiscalPeriod.endsOn, executor)
+        : this.fxCloseReadinessService.readiness(organizationId, fiscalPeriod.endsOn),
+      executor
+        ? this.recurringReadinessService.get(organizationId, { startsOn: fiscalPeriod.startsOn, endsOn: fiscalPeriod.endsOn }, executor)
+        : this.recurringReadinessService.get(organizationId, { startsOn: fiscalPeriod.startsOn, endsOn: fiscalPeriod.endsOn }),
     ]);
     const checks = [
       ...(fx.status === "fulfilled"
@@ -201,6 +291,58 @@ export class AccountingCloseService {
 
 function prismaErrorCode(error: unknown): string | undefined {
   return typeof error === "object" && error !== null && "code" in error && typeof error.code === "string" ? error.code : undefined;
+}
+
+function snapshotResponse(snapshot: {
+  id: string;
+  closeCycleId: string;
+  fiscalPeriodId: string;
+  capturedAt: Date;
+  capturedByUserId: string | null;
+  status: string;
+  blockerCount: number;
+  warningCount: number;
+  informationCount: number;
+  checkCount: number;
+  canonicalHash: string;
+  sourceVersion: number;
+  items: Array<{
+    checkKey: string;
+    severity: string;
+    status: string;
+    code: string;
+    safeMessage: string;
+    count: number | null;
+    currencyCode: string | null;
+    sourceUpdatedAt: Date | null;
+    metadataSafe: Prisma.JsonValue | null;
+  }>;
+}) {
+  return {
+    id: snapshot.id,
+    closeCycleId: snapshot.closeCycleId,
+    fiscalPeriodId: snapshot.fiscalPeriodId,
+    capturedAt: snapshot.capturedAt,
+    capturedByUserId: snapshot.capturedByUserId,
+    status: snapshot.status,
+    blockerCount: snapshot.blockerCount,
+    warningCount: snapshot.warningCount,
+    informationCount: snapshot.informationCount,
+    checkCount: snapshot.checkCount,
+    canonicalHash: snapshot.canonicalHash,
+    sourceVersion: snapshot.sourceVersion,
+    items: snapshot.items.map((item) => ({
+      checkKey: item.checkKey,
+      severity: item.severity,
+      status: item.status,
+      code: item.code,
+      safeMessage: item.safeMessage,
+      count: item.count,
+      currencyCode: item.currencyCode,
+      sourceUpdatedAt: item.sourceUpdatedAt,
+      metadataSafe: item.metadataSafe,
+    })),
+  };
 }
 
 const STANDARD_MANUAL_TASKS = [
