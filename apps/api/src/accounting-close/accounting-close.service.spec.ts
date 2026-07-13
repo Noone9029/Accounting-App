@@ -104,6 +104,41 @@ describe("AccountingCloseService", () => {
     expect(prisma.accountingCloseTask.findMany).not.toHaveBeenCalled();
   });
 
+  it("attaches tenant-owned generated-document evidence to a mutable close task with safe fields only", async () => {
+    const { service, prisma, auditLog } = createService();
+    const evidence = { id: "evidence-1", organizationId: "org-1", closeCycleId: "cycle-1", closeTaskId: "task-1", evidenceType: "REPORT", reportType: "TRIAL_BALANCE", generatedDocumentId: "document-1", safeLabel: "June trial balance" };
+    const tx = {
+      accountingCloseCycle: { findFirst: jest.fn().mockResolvedValue({ id: "cycle-1", fiscalPeriodId: "period-1", status: "IN_PROGRESS" }), updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      fiscalPeriod: { findFirst: jest.fn().mockResolvedValue({ id: "period-1", status: FiscalPeriodStatus.OPEN }) },
+      accountingCloseTask: { findFirst: jest.fn().mockResolvedValue({ id: "task-1", organizationId: "org-1", closeCycleId: "cycle-1" }) },
+      generatedDocument: { findFirst: jest.fn().mockResolvedValue({ id: "document-1" }) },
+      accountingCloseEvidence: { create: jest.fn().mockResolvedValue(evidence) },
+    };
+    Object.assign(prisma, { $transaction: jest.fn((callback) => callback(tx)) });
+
+    const result = await service.addEvidence("org-1", "user-1", "cycle-1", 4, { closeTaskId: "task-1", evidenceType: "REPORT", reportType: "TRIAL_BALANCE", generatedDocumentId: "document-1", safeLabel: "June trial balance" });
+    expect(result).toMatchObject({ id: "evidence-1", safeLabel: "June trial balance" });
+    expect(result).not.toHaveProperty("organizationId");
+    expect(tx.generatedDocument.findFirst).toHaveBeenCalledWith({ where: { id: "document-1", organizationId: "org-1", status: "GENERATED" }, select: { id: true } });
+    expect(tx.accountingCloseEvidence.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ organizationId: "org-1", closeTaskId: "task-1", generatedDocumentId: "document-1", safeLabel: "June trial balance" }) }));
+    expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({ action: "ATTACH_EVIDENCE", entityType: "AccountingCloseEvidence" }), tx);
+  });
+
+  it("rejects failed generated documents before claiming the close cycle", async () => {
+    const { service, prisma } = createService();
+    const tx = {
+      accountingCloseCycle: { findFirst: jest.fn().mockResolvedValue({ id: "cycle-1", fiscalPeriodId: "period-1", status: "IN_PROGRESS" }), updateMany: jest.fn() },
+      fiscalPeriod: { findFirst: jest.fn().mockResolvedValue({ id: "period-1", status: FiscalPeriodStatus.OPEN }) },
+      generatedDocument: { findFirst: jest.fn().mockResolvedValue(null) },
+      accountingCloseEvidence: { create: jest.fn() },
+    };
+    Object.assign(prisma, { $transaction: jest.fn((callback) => callback(tx)) });
+    await expect(service.addEvidence("org-1", "user-1", "cycle-1", 4, { evidenceType: "REPORT", reportType: "TRIAL_BALANCE", generatedDocumentId: "failed-document", safeLabel: "Failed report" })).rejects.toBeInstanceOf(NotFoundException);
+    expect(tx.generatedDocument.findFirst).toHaveBeenCalledWith({ where: { id: "failed-document", organizationId: "org-1", status: "GENERATED" }, select: { id: true } });
+    expect(tx.accountingCloseCycle.updateMany).not.toHaveBeenCalled();
+    expect(tx.accountingCloseEvidence.create).not.toHaveBeenCalled();
+  });
+
   it("assigns a manual close task only to an active member of the tenant and audits the change", async () => {
     const { service, prisma, auditLog } = createService();
     const task = { id: "task-1", organizationId: "org-1", closeCycleId: "cycle-1", source: "STANDARD_TEMPLATE", status: "OPEN", assignedToUserId: null };
