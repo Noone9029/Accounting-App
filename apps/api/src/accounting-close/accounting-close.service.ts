@@ -447,6 +447,32 @@ export class AccountingCloseService {
     } catch (error) { if (prismaErrorCode(error) === "P2034") throw new ConflictException("Close cycle changed. Reload and retry."); throw error; }
   }
 
+  async lockCycle(organizationId: string, actorUserId: string, cycleId: string, expectedVersion: number) {
+    if (!Number.isInteger(expectedVersion) || expectedVersion < 1) throw new BadRequestException("expectedVersion must be a positive integer.");
+    try { return await this.prisma.$transaction(async (tx) => {
+      const cycle = await tx.accountingCloseCycle.findFirst({ where: { id: cycleId, organizationId }, select: { id: true, fiscalPeriodId: true, status: true, readinessHash: true, lockedAt: true, lockedByUserId: true } });
+      if (!cycle) throw new NotFoundException("Close cycle not found.");
+      if (cycle.status === "LOCKED") {
+        const fiscalPeriod = await tx.fiscalPeriod.findFirst({ where: { id: cycle.fiscalPeriodId, organizationId }, select: { status: true } });
+        if (!fiscalPeriod || fiscalPeriod.status !== FiscalPeriodStatus.LOCKED) throw new ConflictException("Close cycle and fiscal period lock state differ. Reload and retry.");
+        return { id: cycle.id, fiscalPeriodId: cycle.fiscalPeriodId, status: "LOCKED", lockedAt: cycle.lockedAt, lockedByUserId: cycle.lockedByUserId, readinessHash: cycle.readinessHash };
+      }
+      if (cycle.status !== "CLOSED" || !cycle.readinessHash) throw new BadRequestException("Only a closed close cycle can lock its fiscal period.");
+      const fiscalPeriod = await tx.fiscalPeriod.findFirst({ where: { id: cycle.fiscalPeriodId, organizationId }, select: { id: true, name: true, startsOn: true, endsOn: true, status: true } });
+      if (!fiscalPeriod) throw new NotFoundException("Fiscal period not found.");
+      if (fiscalPeriod.status !== FiscalPeriodStatus.CLOSED) throw new BadRequestException("Only a closed fiscal period can be locked through the close workspace.");
+      const readiness = await this.readinessForFiscalPeriod(organizationId, fiscalPeriod, tx);
+      if (readiness.blockerCount > 0 || readiness.canonicalHash !== cycle.readinessHash) throw new ConflictException("Close readiness changed. Re-open and re-review the cycle before locking.");
+      await this.fiscalPeriodService.lockInTransaction(organizationId, actorUserId, cycle.fiscalPeriodId, tx);
+      const lockedAt = new Date();
+      const claimed = await tx.accountingCloseCycle.updateMany({ where: { id: cycleId, organizationId, version: expectedVersion, status: "CLOSED", readinessHash: cycle.readinessHash, fiscalPeriod: { is: { organizationId, status: FiscalPeriodStatus.LOCKED } } }, data: { status: "LOCKED", version: { increment: 1 }, lockedAt, lockedByUserId: actorUserId } });
+      if (claimed.count !== 1) throw new ConflictException("Close cycle changed. Reload and retry.");
+      const snapshot = await tx.accountingCloseReadinessSnapshot.create({ data: { organizationId, closeCycleId: cycle.id, fiscalPeriodId: cycle.fiscalPeriodId, capturedByUserId: actorUserId, status: "LOCKED", blockerCount: readiness.blockerCount, warningCount: readiness.warningCount, informationCount: readiness.informationCount, checkCount: readiness.checkCount, canonicalHash: readiness.canonicalHash, sourceVersion: expectedVersion + 1, items: { create: readiness.checks.map((check) => ({ organizationId, checkKey: check.key, severity: check.severity, status: check.status, code: check.code, safeMessage: check.safeMessage, count: check.count, sourceUpdatedAt: check.sourceUpdatedAt ? new Date(check.sourceUpdatedAt) : undefined, metadataSafe: { title: check.title, detailsHref: check.detailsHref ?? null, canAcknowledge: check.canAcknowledge } })) } } });
+      await this.auditLogService.log({ organizationId, actorUserId, action: "LOCK", entityType: "AccountingCloseCycle", entityId: cycle.id, after: { status: "LOCKED", lockedAt, readinessHash: readiness.canonicalHash, snapshotId: snapshot.id } }, tx);
+      return { id: cycle.id, fiscalPeriodId: cycle.fiscalPeriodId, status: "LOCKED", version: expectedVersion + 1, lockedAt, lockedByUserId: actorUserId, readinessHash: readiness.canonicalHash };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }); } catch (error) { if (prismaErrorCode(error) === "P2034") throw new ConflictException("Close cycle changed. Reload and retry."); throw error; }
+  }
+
   async readiness(organizationId: string, fiscalPeriodId: string) {
     const fiscalPeriod = await this.prisma.fiscalPeriod.findFirst({ where: { id: fiscalPeriodId, organizationId } });
     if (!fiscalPeriod) throw new NotFoundException("Fiscal period not found.");
