@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, UseGuards } from "@nestjs/common";
 import { PERMISSIONS } from "@ledgerbyte/shared";
 import { CurrentOrganizationId } from "../auth/decorators/current-organization.decorator";
 import { RequirePermissions } from "../auth/decorators/require-permissions.decorator";
@@ -12,6 +12,7 @@ import { ReopenAccountingCloseTaskDto } from "./dto/reopen-accounting-close-task
 import { RefreshAccountingCloseCycleDto } from "./dto/refresh-accounting-close-cycle.dto";
 import { ListAccountingCloseTasksDto } from "./dto/list-accounting-close-tasks.dto";
 import { ListAccountingCloseSnapshotsDto } from "./dto/list-accounting-close-snapshots.dto";
+import { CompareAccountingCloseSnapshotsDto } from "./dto/compare-accounting-close-snapshots.dto";
 import { AssignAccountingCloseTaskDto } from "./dto/assign-accounting-close-task.dto";
 import { AddAccountingCloseEvidenceDto } from "./dto/add-accounting-close-evidence.dto";
 import { PrepareAccountingCloseCycleDto } from "./dto/prepare-accounting-close-cycle.dto";
@@ -68,6 +69,12 @@ export class AccountingCloseController {
   @RequirePermissions(PERMISSIONS.accountingClose.read)
   getSnapshot(@CurrentOrganizationId() organizationId: string, @Param("id") cycleId: string, @Param("snapshotId") snapshotId: string) {
     return this.accountingCloseService.getSnapshot(organizationId, cycleId, snapshotId);
+  }
+
+  @Get("cycles/:id/snapshots/:snapshotId/compare")
+  @RequirePermissions(PERMISSIONS.accountingClose.read)
+  compareSnapshots(@CurrentOrganizationId() organizationId: string, @Param("id") cycleId: string, @Param("snapshotId", new ParseUUIDPipe()) comparisonSnapshotId: string, @Query() query: CompareAccountingCloseSnapshotsDto) {
+    return this.accountingCloseService.compareSnapshots(organizationId, cycleId, query.baselineSnapshotId, comparisonSnapshotId);
   }
 
   @Post("cycles/:id/tasks/:taskId/assign")
