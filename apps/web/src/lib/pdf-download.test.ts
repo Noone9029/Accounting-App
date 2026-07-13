@@ -1,4 +1,5 @@
 import {
+  accountingCloseEvidenceExportPath,
   bankReconciliationReportCsvPath,
   bankReconciliationReportPdfPath,
   cashExpensePdfPath,
@@ -72,6 +73,11 @@ describe("PDF download helpers", () => {
   it("builds bank reconciliation report download paths", () => {
     expect(bankReconciliationReportPdfPath("rec 1")).toBe("/bank-reconciliations/rec%201/report.pdf");
     expect(bankReconciliationReportCsvPath("rec 1")).toBe("/bank-reconciliations/rec%201/report.csv");
+  });
+
+  it("builds encoded close evidence JSON and CSV download paths", () => {
+    expect(accountingCloseEvidenceExportPath("cycle / 1", "json")).toBe("/accounting-close/cycles/cycle%20%2F%201/export?format=json");
+    expect(accountingCloseEvidenceExportPath("cycle / 1", "csv")).toBe("/accounting-close/cycles/cycle%20%2F%201/export?format=csv");
   });
 
   it("downloads authenticated files with cookie credentials and no bearer authorization", async () => {

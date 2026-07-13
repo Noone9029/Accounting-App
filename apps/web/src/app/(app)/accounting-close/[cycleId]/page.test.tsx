@@ -3,15 +3,22 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import AccountingCloseCyclePage from "./page";
 
 const apiRequestMock = jest.fn();
+const downloadAuthenticatedFileMock = jest.fn();
 
 jest.mock("next/navigation", () => ({ useParams: () => ({ cycleId: "cycle-1" }) }));
 jest.mock("@/hooks/use-active-organization", () => ({ useActiveOrganizationId: () => "org-1" }));
 jest.mock("@/components/permissions/permission-provider", () => ({ usePermissions: () => ({ canAny: () => true }) }));
 jest.mock("@/lib/api", () => ({ apiRequest: (...args: unknown[]) => apiRequestMock(...args) }));
+jest.mock("@/lib/pdf-download", () => ({
+  accountingCloseEvidenceExportPath: (cycleId: string, format: string) => `/accounting-close/cycles/${cycleId}/export?format=${format}`,
+  downloadAuthenticatedFile: (...args: unknown[]) => downloadAuthenticatedFileMock(...args),
+}));
 
 describe("accountant close cycle detail", () => {
   beforeEach(() => {
     apiRequestMock.mockReset();
+    downloadAuthenticatedFileMock.mockReset();
+    downloadAuthenticatedFileMock.mockResolvedValue(undefined);
     apiRequestMock.mockImplementation((path: string) => {
       if (path === "/accounting-close/cycles/cycle-1") return Promise.resolve({ id: "cycle-1", fiscalPeriodId: "period-1", status: "IN_PROGRESS", version: 4, readinessHash: "abc123", fiscalPeriod: { name: "June 2026", status: "OPEN" }, taskCount: 2, evidenceCount: 1, snapshotCount: 1 });
       if (path === "/accounting-close/cycles/cycle-1/tasks?page=1&pageSize=100") return Promise.resolve({ items: [{ id: "task-1", title: "Review bank reconciliation", source: "STANDARD_TEMPLATE", severity: "INFORMATION", status: "OPEN", isRequired: true, assignedToUserId: null }], meta: { totalItems: 1 } });
@@ -76,6 +83,16 @@ describe("accountant close cycle detail", () => {
     fireEvent.change(await screen.findByRole("textbox", { name: "Safe label" }), { target: { value: "June trial balance reviewed" } });
     fireEvent.click(screen.getByRole("button", { name: "Link evidence" }));
     await waitFor(() => expect(apiRequestMock).toHaveBeenCalledWith("/accounting-close/cycles/cycle-1/evidence", { method: "POST", body: { expectedVersion: 4, evidenceType: "REPORT", reportType: "TRIAL_BALANCE", safeLabel: "June trial balance reviewed" } }));
+  });
+
+  it("downloads the safe close evidence manifest as JSON or CSV without mutating the cycle", async () => {
+    render(<AccountingCloseCyclePage />);
+    expect(await screen.findByRole("button", { name: "Download evidence JSON" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Download evidence JSON" }));
+    await waitFor(() => expect(downloadAuthenticatedFileMock).toHaveBeenCalledWith("/accounting-close/cycles/cycle-1/export?format=json", "accounting-close-cycle-1-evidence.json"));
+    fireEvent.click(screen.getByRole("button", { name: "Download evidence CSV" }));
+    await waitFor(() => expect(downloadAuthenticatedFileMock).toHaveBeenCalledWith("/accounting-close/cycles/cycle-1/export?format=csv", "accounting-close-cycle-1-evidence.csv"));
+    expect(apiRequestMock).not.toHaveBeenCalledWith(expect.stringContaining("/export"), expect.anything());
   });
 
   it("only offers Complete for server-supported manual task statuses", async () => {
