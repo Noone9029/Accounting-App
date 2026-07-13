@@ -6450,10 +6450,12 @@ model AccountingCloseTask {
   description String?
   severity AccountingCloseSeverity
   status AccountingCloseTaskStatus @default(OPEN)
+  isRequired Boolean @default(true)
   assignedToUserId String? @db.Uuid
   dueDate DateTime?
   completedAt DateTime?
   completedByUserId String? @db.Uuid
+  completionNote String?
   reopenedAt DateTime?
   reopenedByUserId String? @db.Uuid
   acknowledgementReason String?

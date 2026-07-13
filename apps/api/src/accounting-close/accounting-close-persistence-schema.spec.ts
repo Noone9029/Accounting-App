@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 
 const schemaPath = resolve(__dirname, "../../prisma/schema.prisma");
 const migrationPath = resolve(__dirname, "../../prisma/migrations/20260713073000_add_accounting_close_workspace_foundation/migration.sql");
+const taskPolicyMigrationPath = resolve(__dirname, "../../prisma/migrations/20260713080000_add_accounting_close_task_policy_fields/migration.sql");
 
 function modelBlock(name: string) {
   const schema = readFileSync(schemaPath, "utf8");
@@ -53,6 +54,10 @@ describe("accounting close persistence schema", () => {
     expect(evidence).toContain("safeMetadata Json?");
     expect(evidence).not.toContain("onDelete: Cascade");
 
+    const task = modelBlock("AccountingCloseTask");
+    expect(task).toContain("isRequired Boolean @default(true)");
+    expect(task).toContain("completionNote String?");
+
     const snapshot = modelBlock("AccountingCloseReadinessSnapshot");
     expect(snapshot).toContain("closeCycle AccountingCloseCycle @relation(fields: [organizationId, fiscalPeriodId, closeCycleId], references: [organizationId, fiscalPeriodId, id], onDelete: NoAction, map: \"AccountingCloseReadinessSnapshot_org_period_cycle_fkey\")");
     expect(snapshot).toContain("fiscalPeriod FiscalPeriod @relation(\"FiscalPeriodAccountingCloseSnapshots\", fields: [organizationId, fiscalPeriodId], references: [organizationId, id], onDelete: NoAction, map: \"AccountingCloseReadinessSnapshot_org_period_fkey\")");
@@ -85,5 +90,16 @@ describe("accounting close persistence schema", () => {
     expect(migration).toContain('CONSTRAINT "AccountingCloseReadinessSnapshot_org_period_cycle_fkey" FOREIGN KEY ("organizationId", "fiscalPeriodId", "closeCycleId") REFERENCES "AccountingCloseCycle"("organizationId", "fiscalPeriodId", "id")');
     expect(migration).not.toMatch(/UPDATE\s+"FiscalPeriod"/i);
     expect(migration).not.toMatch(/DELETE\s+FROM\s+"(?:FiscalPeriod|JournalEntry|SalesInvoice|PurchaseBill)"/i);
+  });
+
+  it("adds required-task policy fields without rewriting existing close data", () => {
+    expect(existsSync(taskPolicyMigrationPath)).toBe(true);
+    const migration = readFileSync(taskPolicyMigrationPath, "utf8");
+
+    expect(migration.trimStart().startsWith("BEGIN;")).toBe(true);
+    expect(migration.trimEnd().endsWith("COMMIT;")).toBe(true);
+    expect(migration).toContain('ADD COLUMN "isRequired" BOOLEAN NOT NULL DEFAULT true');
+    expect(migration).toContain('ADD COLUMN "completionNote" TEXT');
+    expect(migration).not.toMatch(/UPDATE\s+"AccountingCloseTask"/i);
   });
 });
