@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { CreditNoteStatus, CustomerPaymentStatus, FiscalPeriodStatus, GeneratedDocumentStatus, JournalEntryStatus, Prisma, PurchaseBillStatus, PurchaseDebitNoteStatus, SalesInvoiceStatus, SupplierPaymentStatus } from "@prisma/client";
+import { BankStatementTransactionStatus, CreditNoteStatus, CustomerPaymentStatus, FiscalPeriodStatus, GeneratedDocumentStatus, JournalEntryStatus, Prisma, PurchaseBillStatus, PurchaseDebitNoteStatus, SalesInvoiceStatus, SupplierPaymentStatus } from "@prisma/client";
 import { FxCloseReadinessService } from "../foreign-exchange/fx-close-readiness.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -9,6 +9,7 @@ import { toCsv } from "../reports/report-csv";
 import {
   AccountingCloseCheck,
   canonicalReadinessHash,
+  normalizeBankStatementReadiness,
   normalizeCreditNoteReadiness,
   normalizeCustomerPaymentReadiness,
   normalizeFxReadiness,
@@ -666,6 +667,11 @@ export class AccountingCloseService {
   ) {
     const checks: AccountingCloseCheck[] = [];
     try {
+      checks.push(...await this.bankStatementReadiness(organizationId, fiscalPeriod, executor));
+    } catch {
+      checks.push(unavailableCheck("banking.statementTransactions.error", "Unreconciled bank statement transactions", "BANK_STATEMENT_READINESS_UNAVAILABLE"));
+    }
+    try {
       checks.push(...normalizeFxReadiness(executor
         ? await this.fxCloseReadinessService.readiness(organizationId, fiscalPeriod.endsOn, executor)
         : await this.fxCloseReadinessService.readiness(organizationId, fiscalPeriod.endsOn)));
@@ -856,6 +862,24 @@ export class AccountingCloseService {
       client.supplierPayment.findFirst({ where, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
     ]);
     return normalizeSupplierPaymentReadiness({ unappliedCount, sourceUpdatedAt: latestPayment?.updatedAt.toISOString() });
+  }
+
+  private async bankStatementReadiness(
+    organizationId: string,
+    fiscalPeriod: { endsOn: Date },
+    executor?: Prisma.TransactionClient,
+  ) {
+    const client = executor ?? this.prisma;
+    const where = {
+      organizationId,
+      status: BankStatementTransactionStatus.UNMATCHED,
+      transactionDate: { lte: fiscalPeriod.endsOn },
+    };
+    const [unreconciledCount, latestTransaction] = await Promise.all([
+      client.bankStatementTransaction.count({ where }),
+      client.bankStatementTransaction.findFirst({ where, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
+    ]);
+    return normalizeBankStatementReadiness({ unreconciledCount, sourceUpdatedAt: latestTransaction?.updatedAt.toISOString() });
   }
 }
 

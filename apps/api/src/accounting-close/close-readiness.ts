@@ -76,6 +76,11 @@ export type SupplierPaymentReadiness = {
   sourceUpdatedAt?: string;
 };
 
+export type BankStatementReadiness = {
+  unreconciledCount: number;
+  sourceUpdatedAt?: string;
+};
+
 export function normalizeFxReadiness(readiness: FxReadiness): AccountingCloseCheck[] {
   if (readiness.status === "NOT_APPLICABLE") {
     return [{ ...check("fx.notApplicable", "Foreign exchange close readiness", "NOT_APPLICABLE", "NOT_APPLICABLE", "FX_NOT_APPLICABLE", "No foreign-currency close activity requires review for this period.", 0, "/fx-close", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
@@ -154,6 +159,13 @@ export function normalizeSupplierPaymentReadiness(readiness: SupplierPaymentRead
     return [{ ...check("purchases.unappliedSupplierPayments", "Unapplied supplier payments", "INFORMATION", "READY", "NO_UNAPPLIED_SUPPLIER_PAYMENTS", "No posted supplier payments with an unapplied balance are dated in this fiscal period.", 0, "/purchases/supplier-payments", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
   }
   return [{ ...check("purchases.unappliedSupplierPayments", "Unapplied supplier payments", "WARNING", "OPEN", "UNAPPLIED_SUPPLIER_PAYMENTS", "Posted supplier payments with an unapplied balance in this fiscal period require accountant review.", readiness.unappliedCount, "/purchases/supplier-payments", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
+}
+
+export function normalizeBankStatementReadiness(readiness: BankStatementReadiness): AccountingCloseCheck[] {
+  if (readiness.unreconciledCount === 0) {
+    return [{ ...check("banking.unreconciledStatementTransactions", "Unreconciled bank statement transactions", "INFORMATION", "READY", "NO_UNRECONCILED_BANK_STATEMENT_TRANSACTIONS", "No unmatched bank statement transactions are dated in or before this fiscal period.", 0, "/bank-accounts", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
+  }
+  return [{ ...check("banking.unreconciledStatementTransactions", "Unreconciled bank statement transactions", "WARNING", "OPEN", "UNRECONCILED_BANK_STATEMENT_TRANSACTIONS", "Unmatched bank statement transactions dated in or before this fiscal period require accountant review.", readiness.unreconciledCount, "/bank-accounts", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
 }
 
 export function canonicalReadinessHash(checks: Array<Omit<AccountingCloseCheck, "canAcknowledge"> & Partial<Pick<AccountingCloseCheck, "canAcknowledge">>>): string {
