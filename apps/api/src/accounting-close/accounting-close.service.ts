@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { BankReconciliationStatus, BankStatementTransactionStatus, CreditNoteStatus, CustomerPaymentStatus, FiscalPeriodStatus, GeneratedDocumentStatus, InventoryAdjustmentStatus, JournalEntryStatus, Prisma, PurchaseBillStatus, PurchaseDebitNoteStatus, SalesInvoiceStatus, SupplierPaymentStatus } from "@prisma/client";
+import { BankReconciliationStatus, BankStatementTransactionStatus, CreditNoteStatus, CustomerPaymentStatus, FiscalPeriodStatus, GeneratedDocumentStatus, InventoryAdjustmentStatus, InventoryVarianceProposalStatus, JournalEntryStatus, Prisma, PurchaseBillStatus, PurchaseDebitNoteStatus, SalesInvoiceStatus, SupplierPaymentStatus } from "@prisma/client";
 import { FxCloseReadinessService } from "../foreign-exchange/fx-close-readiness.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -12,6 +12,7 @@ import {
   canonicalReadinessHash,
   normalizeBankStatementReadiness,
   normalizeInventoryAdjustmentReadiness,
+  normalizeInventoryVarianceProposalReadiness,
   normalizeCreditNoteReadiness,
   normalizeCustomerPaymentReadiness,
   normalizeFxReadiness,
@@ -684,6 +685,11 @@ export class AccountingCloseService {
       checks.push(unavailableCheck("inventory.adjustments.error", "Draft inventory adjustments", "INVENTORY_ADJUSTMENT_READINESS_UNAVAILABLE"));
     }
     try {
+      checks.push(...await this.inventoryVarianceProposalReadiness(organizationId, fiscalPeriod, executor));
+    } catch {
+      checks.push(unavailableCheck("inventory.varianceProposals.error", "Inventory variance proposals awaiting posting", "INVENTORY_VARIANCE_PROPOSAL_READINESS_UNAVAILABLE"));
+    }
+    try {
       checks.push(...normalizeFxReadiness(executor
         ? await this.fxCloseReadinessService.readiness(organizationId, fiscalPeriod.endsOn, executor)
         : await this.fxCloseReadinessService.readiness(organizationId, fiscalPeriod.endsOn)));
@@ -925,6 +931,20 @@ export class AccountingCloseService {
       client.inventoryAdjustment.findFirst({ where, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
     ]);
     return normalizeInventoryAdjustmentReadiness({ draftCount, sourceUpdatedAt: latestAdjustment?.updatedAt.toISOString() });
+  }
+
+  private async inventoryVarianceProposalReadiness(
+    organizationId: string,
+    fiscalPeriod: { startsOn: Date; endsOn: Date },
+    executor?: Prisma.TransactionClient,
+  ) {
+    const client = executor ?? this.prisma;
+    const where = { organizationId, status: { in: [InventoryVarianceProposalStatus.DRAFT, InventoryVarianceProposalStatus.PENDING_APPROVAL, InventoryVarianceProposalStatus.APPROVED] }, proposalDate: { gte: fiscalPeriod.startsOn, lte: fiscalPeriod.endsOn } };
+    const [pendingCount, latestProposal] = await Promise.all([
+      client.inventoryVarianceProposal.count({ where }),
+      client.inventoryVarianceProposal.findFirst({ where, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
+    ]);
+    return normalizeInventoryVarianceProposalReadiness({ pendingCount, sourceUpdatedAt: latestProposal?.updatedAt.toISOString() });
   }
 }
 

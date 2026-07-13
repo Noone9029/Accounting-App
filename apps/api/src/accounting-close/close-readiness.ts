@@ -91,6 +91,11 @@ export type InventoryAdjustmentReadiness = {
   sourceUpdatedAt?: string;
 };
 
+export type InventoryVarianceProposalReadiness = {
+  pendingCount: number;
+  sourceUpdatedAt?: string;
+};
+
 export function normalizeFxReadiness(readiness: FxReadiness): AccountingCloseCheck[] {
   if (readiness.status === "NOT_APPLICABLE") {
     return [{ ...check("fx.notApplicable", "Foreign exchange close readiness", "NOT_APPLICABLE", "NOT_APPLICABLE", "FX_NOT_APPLICABLE", "No foreign-currency close activity requires review for this period.", 0, "/fx-close", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
@@ -190,6 +195,13 @@ export function normalizeInventoryAdjustmentReadiness(readiness: InventoryAdjust
     return [{ ...check("inventory.draftAdjustments", "Draft inventory adjustments", "INFORMATION", "READY", "NO_DRAFT_INVENTORY_ADJUSTMENTS", "No draft inventory adjustments are dated in this fiscal period.", 0, "/inventory/adjustments", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
   }
   return [{ ...check("inventory.draftAdjustments", "Draft inventory adjustments", "WARNING", "OPEN", "DRAFT_INVENTORY_ADJUSTMENTS", "Draft inventory adjustments dated in this fiscal period require accountant review.", readiness.draftCount, "/inventory/adjustments", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
+}
+
+export function normalizeInventoryVarianceProposalReadiness(readiness: InventoryVarianceProposalReadiness): AccountingCloseCheck[] {
+  if (readiness.pendingCount === 0) {
+    return [{ ...check("inventory.pendingVarianceProposals", "Inventory variance proposals awaiting posting", "INFORMATION", "READY", "NO_PENDING_INVENTORY_VARIANCE_PROPOSALS", "No inventory variance proposals awaiting posting are dated in this fiscal period.", 0, "/inventory/reports/clearing-reconciliation", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
+  }
+  return [{ ...check("inventory.pendingVarianceProposals", "Inventory variance proposals awaiting posting", "WARNING", "OPEN", "PENDING_INVENTORY_VARIANCE_PROPOSALS", "Inventory variance proposals awaiting posting in this fiscal period require accountant review.", readiness.pendingCount, "/inventory/reports/clearing-reconciliation", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
 }
 
 export function canonicalReadinessHash(checks: Array<Omit<AccountingCloseCheck, "canAcknowledge"> & Partial<Pick<AccountingCloseCheck, "canAcknowledge">>>): string {
