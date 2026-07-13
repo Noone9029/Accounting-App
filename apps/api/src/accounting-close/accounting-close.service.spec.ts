@@ -330,6 +330,38 @@ describe("AccountingCloseService", () => {
     expect(tx.accountingCloseReadinessSnapshot.create).not.toHaveBeenCalled();
   });
 
+  it("reviews a prepared cycle only against its current matching draft readiness snapshot", async () => {
+    const { service, prisma, fx, recurring, auditLog } = createService();
+    fx.readiness.mockResolvedValue({ status: "READY", asOf: "2026-06-30", counts: { foreignDocuments: 0 }, actions: [], blockers: [] });
+    recurring.get.mockResolvedValue({ status: "READY", templateCount: 0, activeTemplates: 0, dueTemplates: 0, failedRuns: 0, blockedRuns: 0, generatedDraftsAwaitingReview: 0, schedulesMissingReferences: 0, foreignTemplatesMissingRateEvidence: 0, runsScheduledInsideLockedPeriods: 0, blocksFiscalClose: false, asOf: "2026-07-13T00:00:00.000Z" });
+    const readinessHash = (await service.readiness("org-1", "period-1")).canonicalHash;
+    const tx = {
+      accountingCloseCycle: { findFirst: jest.fn().mockResolvedValue({ id: "cycle-1", fiscalPeriodId: "period-1", status: "READY_FOR_REVIEW", preparedByUserId: "user-1", readinessHash }), updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      fiscalPeriod: { findFirst: jest.fn().mockResolvedValue(period) },
+      accountingCloseReadinessSnapshot: { findFirst: jest.fn().mockResolvedValue({ id: "snapshot-1", canonicalHash: readinessHash }), updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+    };
+    Object.assign(prisma, { $transaction: jest.fn((callback) => callback(tx)) });
+
+    await expect(service.reviewCycle("org-1", "user-2", "cycle-1", 5)).resolves.toMatchObject({ id: "cycle-1", status: "REVIEWED", version: 6, readinessHash, reviewedByUserId: "user-2" });
+
+    expect(fx.readiness).toHaveBeenCalledWith("org-1", period.endsOn, tx);
+    expect(recurring.get).toHaveBeenCalledWith("org-1", { startsOn: period.startsOn, endsOn: period.endsOn }, tx);
+    expect(tx.accountingCloseReadinessSnapshot.findFirst).toHaveBeenCalledWith({ where: { organizationId: "org-1", closeCycleId: "cycle-1", status: "DRAFT", canonicalHash: readinessHash }, orderBy: { capturedAt: "desc" }, select: { id: true, canonicalHash: true } });
+    expect(tx.accountingCloseReadinessSnapshot.updateMany).toHaveBeenCalledWith({ where: { id: "snapshot-1", organizationId: "org-1", status: "DRAFT" }, data: { status: "REVIEWED" } });
+    expect(tx.accountingCloseCycle.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ id: "cycle-1", version: 5, status: "READY_FOR_REVIEW" }), data: expect.objectContaining({ status: "REVIEWED", reviewedByUserId: "user-2", readinessHash }) }));
+    expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({ action: "REVIEW", entityType: "AccountingCloseCycle", entityId: "cycle-1", after: expect.objectContaining({ snapshotId: "snapshot-1", readinessHash }) }), tx);
+  });
+
+  it("rejects reviewer self-approval before reading or claiming a prepared cycle", async () => {
+    const { service, prisma } = createService();
+    const tx = { accountingCloseCycle: { findFirst: jest.fn().mockResolvedValue({ id: "cycle-1", fiscalPeriodId: "period-1", status: "READY_FOR_REVIEW", preparedByUserId: "user-1", readinessHash: "clear-hash" }) } };
+    Object.assign(prisma, { $transaction: jest.fn((callback) => callback(tx)) });
+
+    await expect(service.reviewCycle("org-1", "user-1", "cycle-1", 5)).rejects.toBeInstanceOf(BadRequestException);
+
+    expect((tx.accountingCloseCycle as any).updateMany).toBeUndefined();
+  });
+
   it("captures an immutable tenant-scoped readiness snapshot from current normalized checks", async () => {
     const { service, prisma, fx, recurring, auditLog } = createService();
     const snapshot = {
@@ -375,5 +407,18 @@ describe("AccountingCloseService", () => {
       expect.objectContaining({ checkKey: "fx.MISSING_CLOSING_RATE", severity: "BLOCKER", status: "BLOCKED", code: "MISSING_CLOSING_RATE", count: 1 }),
     ]));
     expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({ action: "REFRESH", entityType: "AccountingCloseReadinessSnapshot", entityId: "snapshot-1" }), tx);
+  });
+
+  it("invalidates preparation when a readiness refresh changes a ready-for-review cycle", async () => {
+    const { service, prisma, fx, recurring } = createService();
+    fx.readiness.mockResolvedValue({ status: "READY", asOf: "2026-06-30", counts: { foreignDocuments: 0 }, actions: [], blockers: [] });
+    recurring.get.mockResolvedValue({ status: "READY", templateCount: 0, activeTemplates: 0, dueTemplates: 0, failedRuns: 0, blockedRuns: 0, generatedDraftsAwaitingReview: 0, schedulesMissingReferences: 0, foreignTemplatesMissingRateEvidence: 0, runsScheduledInsideLockedPeriods: 0, blocksFiscalClose: false, asOf: "2026-07-13T00:00:00.000Z" });
+    const snapshot = { id: "snapshot-2", organizationId: "org-1", closeCycleId: "cycle-1", fiscalPeriodId: "period-1", capturedAt: new Date(), capturedByUserId: "user-1", status: "DRAFT", blockerCount: 0, warningCount: 0, informationCount: 0, checkCount: 0, canonicalHash: "hash", sourceVersion: 5, items: [] };
+    const tx = { accountingCloseCycle: { findFirst: jest.fn().mockResolvedValue({ id: "cycle-1", organizationId: "org-1", fiscalPeriodId: "period-1", status: "READY_FOR_REVIEW" }), updateMany: jest.fn().mockResolvedValue({ count: 1 }) }, fiscalPeriod: { findFirst: jest.fn().mockResolvedValue(period) }, accountingCloseReadinessSnapshot: { create: jest.fn().mockResolvedValue(snapshot) } };
+    Object.assign(prisma, { $transaction: jest.fn((callback) => callback(tx)) });
+
+    await service.refreshCycle("org-1", "user-1", "cycle-1", 4);
+
+    expect(tx.accountingCloseCycle.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "IN_PROGRESS", preparedAt: null, preparedByUserId: null, reviewedAt: null, reviewedByUserId: null }) }));
   });
 });
