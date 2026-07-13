@@ -7,6 +7,7 @@ import { usePermissions } from "@/components/permissions/permission-provider";
 import { LedgerAlert, LedgerButton, LedgerDataTable, LedgerEmptyState, LedgerErrorState, LedgerFieldLabel, LedgerFieldText, LedgerInput, LedgerLoadingState, LedgerPage, LedgerPageBody, LedgerPageHeader, LedgerPanel, LedgerSelect, LedgerStatusBadge } from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
+import { accountingCloseEvidenceExportPath, downloadAuthenticatedFile } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
 
 type Cycle = { id: string; fiscalPeriodId: string; status: string; version: number; readinessHash: string | null; fiscalPeriod: { name: string; status: string }; taskCount: number; evidenceCount: number; snapshotCount: number; lastRefreshedAt?: string | null };
@@ -33,6 +34,8 @@ export default function AccountingCloseCyclePage() {
   const [comparisonSnapshotId, setComparisonSnapshotId] = useState("");
   const [snapshotComparison, setSnapshotComparison] = useState<SnapshotComparison | null>(null);
   const [comparisonLoading, setComparisonLoading] = useState(false);
+  const [evidenceExporting, setEvidenceExporting] = useState<"" | "json" | "csv">("");
+  const [evidenceExportError, setEvidenceExportError] = useState("");
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -42,13 +45,16 @@ export default function AccountingCloseCyclePage() {
   const requestId = useRef(0);
   const snapshotRequestId = useRef(0);
   const comparisonRequestId = useRef(0);
+  const evidenceExportRequestId = useRef(0);
   const canManage = canAny(PERMISSIONS.accountingClose.manage);
+  const canRead = canAny(PERMISSIONS.accountingClose.read);
 
   useEffect(() => {
     requestId.current += 1;
+    evidenceExportRequestId.current += 1;
     snapshotRequestId.current += 1;
     comparisonRequestId.current += 1;
-    setCycle(null); setTasks([]); setSnapshots([]); setSnapshotMeta(null); setSelectedSnapshot(null); setSnapshotDetail(null); setSnapshotLoading(false); setSnapshotPageLoading(false); setBaselineSnapshotId(""); setComparisonSnapshotId(""); setSnapshotComparison(null); setComparisonLoading(false); setError(""); setRunning(null); setEvidenceLabel(""); setEvidenceTaskId("");
+    setCycle(null); setTasks([]); setSnapshots([]); setSnapshotMeta(null); setSelectedSnapshot(null); setSnapshotDetail(null); setSnapshotLoading(false); setSnapshotPageLoading(false); setBaselineSnapshotId(""); setComparisonSnapshotId(""); setSnapshotComparison(null); setComparisonLoading(false); setEvidenceExporting(""); setEvidenceExportError(""); setError(""); setRunning(null); setEvidenceLabel(""); setEvidenceTaskId("");
     if (organizationId && cycleId) void load(); else setLoading(false);
   }, [organizationId, cycleId]);
 
@@ -141,13 +147,29 @@ export default function AccountingCloseCyclePage() {
     finally { if (context === requestId.current) setRunning(null); }
   }
 
+  async function downloadEvidenceExport(format: "json" | "csv") {
+    if (!cycle) return;
+    const context = ++evidenceExportRequestId.current;
+    const cycleContext = cycleId;
+    const organizationContext = organizationId;
+    setEvidenceExporting(format); setEvidenceExportError("");
+    try {
+      await downloadAuthenticatedFile(accountingCloseEvidenceExportPath(cycle.id, format), `accounting-close-${cycle.id}-evidence.${format}`);
+    } catch (cause) {
+      if (context === evidenceExportRequestId.current && cycleContext === cycleId && organizationContext === organizationId) setEvidenceExportError(cause instanceof Error ? cause.message : "Unable to download close evidence.");
+    } finally {
+      if (context === evidenceExportRequestId.current && cycleContext === cycleId && organizationContext === organizationId) setEvidenceExporting("");
+    }
+  }
+
   const statusTone = cycle?.status === "LOCKED" ? "danger" : cycle?.status === "REVIEWED" ? "success" : cycle?.status === "READY_FOR_REVIEW" ? "warning" : "info";
   const tasksMutable = cycle?.fiscalPeriod.status === "OPEN" && ["IN_PROGRESS", "READY_FOR_REVIEW"].includes(cycle.status);
   return <LedgerPage>
-    <LedgerPageHeader eyebrow="Accounting controls" title={cycle ? `${cycle.fiscalPeriod.name} close cycle` : "Close cycle"} description="Checklist, readiness snapshots, and fiscal-period actions remain guarded by the authoritative close workflow." badge={cycle ? <LedgerStatusBadge tone={statusTone}>{cycle.status.replaceAll("_", " ")}</LedgerStatusBadge> : undefined} actions={<LedgerButton href="/accounting-close" variant="quiet">All close cycles</LedgerButton>} />
+    <LedgerPageHeader eyebrow="Accounting controls" title={cycle ? `${cycle.fiscalPeriod.name} close cycle` : "Close cycle"} description="Checklist, readiness snapshots, and fiscal-period actions remain guarded by the authoritative close workflow." badge={cycle ? <LedgerStatusBadge tone={statusTone}>{cycle.status.replaceAll("_", " ")}</LedgerStatusBadge> : undefined} actions={<div className="flex flex-wrap gap-2">{cycle && canRead ? <><LedgerButton size="sm" variant="quiet" onClick={() => void downloadEvidenceExport("json")} disabled={evidenceExporting !== ""}>{evidenceExporting === "json" ? "Downloading JSON..." : "Download evidence JSON"}</LedgerButton><LedgerButton size="sm" variant="quiet" onClick={() => void downloadEvidenceExport("csv")} disabled={evidenceExporting !== ""}>{evidenceExporting === "csv" ? "Downloading CSV..." : "Download evidence CSV"}</LedgerButton></> : null}<LedgerButton href="/accounting-close" variant="quiet">All close cycles</LedgerButton></div>} />
     <LedgerPageBody>
       {loading ? <LedgerLoadingState title="Loading close cycle" /> : null}
       {error ? <LedgerErrorState title="Unable to load close cycle" description={error} action={<LedgerButton onClick={() => void load()}>Try again</LedgerButton>} /> : null}
+      {evidenceExportError ? <LedgerAlert tone="warning">{evidenceExportError}</LedgerAlert> : null}
       {cycle ? <>
         <LedgerPanel>
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div className="min-w-0"><h2 className="text-base font-semibold text-ink">Readiness control</h2><p className="mt-1 break-all text-sm text-steel">Current hash: {cycle.readinessHash ?? "Not captured yet"}</p></div><div className="flex flex-wrap gap-2">{canManage ? <LedgerButton onClick={() => void transition("refresh")} disabled={running !== null}>{running === "refresh" ? "Refreshing..." : "Refresh readiness"}</LedgerButton> : null}{cycle.status === "IN_PROGRESS" && canAny(PERMISSIONS.accountingClose.prepare) ? <LedgerButton variant="primary" onClick={() => void transition("prepare")} disabled={running !== null}>Prepare for review</LedgerButton> : null}{cycle.status === "READY_FOR_REVIEW" && canAny(PERMISSIONS.accountingClose.review) ? <LedgerButton variant="primary" onClick={() => void transition("review")} disabled={running !== null}>Record review</LedgerButton> : null}{cycle.status === "REVIEWED" && canAny(PERMISSIONS.accountingClose.close) ? <LedgerButton variant="danger" onClick={() => void transition("close")} disabled={running !== null}>Close period</LedgerButton> : null}{cycle.status === "CLOSED" && canAny(PERMISSIONS.accountingClose.lock) ? <LedgerButton variant="danger" onClick={() => void transition("lock")} disabled={running !== null}>Lock period</LedgerButton> : null}</div></div>

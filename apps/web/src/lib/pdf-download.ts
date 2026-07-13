@@ -56,6 +56,10 @@ export function bankReconciliationReportCsvPath(reconciliationId: string): strin
   return `/bank-reconciliations/${encodeURIComponent(reconciliationId)}/report.csv`;
 }
 
+export function accountingCloseEvidenceExportPath(cycleId: string, format: "json" | "csv"): string {
+  return `/accounting-close/cycles/${encodeURIComponent(cycleId)}/export?format=${format}`;
+}
+
 export function statementPdfPath(contactId: string, from?: string, to?: string): string {
   const query = new URLSearchParams();
   if (from) {
