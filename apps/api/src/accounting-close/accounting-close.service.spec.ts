@@ -901,6 +901,7 @@ describe("AccountingCloseService", () => {
     expect(tx.accountingCloseTask.findFirst).toHaveBeenCalledWith({ where: { organizationId: "org-1", closeCycleId: "cycle-1", source: { not: "SYSTEM" }, isRequired: true, status: { not: "COMPLETED" } }, select: { id: true } });
     expect(tx.accountingCloseCycle.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ id: "cycle-1", version: 4, status: "IN_PROGRESS" }), data: expect.objectContaining({ status: "READY_FOR_REVIEW", preparedByUserId: "user-1", readinessHash: expect.any(String) }) }));
     expect(tx.accountingCloseReadinessSnapshot.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ closeCycleId: "cycle-1", status: "DRAFT", blockerCount: 0, canonicalHash: expect.any(String), sourceVersion: 5 }) }));
+    expect(tx.accountingCloseReadinessSnapshot.create.mock.calls[0][0].data.items.create.every((item: Record<string, unknown>) => !("organizationId" in item))).toBe(true);
     expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({ action: "PREPARE", entityType: "AccountingCloseCycle", entityId: "cycle-1" }), tx);
   });
 
@@ -1031,9 +1032,7 @@ describe("AccountingCloseService", () => {
     expect(tx.accountingCloseReadinessSnapshot.create.mock.calls[0][0].data.items.create).toEqual(expect.arrayContaining([
       expect.objectContaining({ checkKey: "fx.MISSING_CLOSING_RATE", severity: "BLOCKER", status: "BLOCKED", code: "MISSING_CLOSING_RATE", count: 1 }),
     ]));
-    expect(tx.accountingCloseReadinessSnapshot.create.mock.calls[0][0].data.items.create).toEqual(expect.arrayContaining([
-      expect.not.objectContaining({ organizationId: expect.anything() }),
-    ]));
+    expect(tx.accountingCloseReadinessSnapshot.create.mock.calls[0][0].data.items.create.every((item: Record<string, unknown>) => !("organizationId" in item))).toBe(true);
     expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({ action: "REFRESH", entityType: "AccountingCloseReadinessSnapshot", entityId: "snapshot-1" }), tx);
   });
 
@@ -1084,6 +1083,7 @@ describe("AccountingCloseService", () => {
     expect(fiscalPeriods.closeInTransaction).toHaveBeenCalledWith("org-1", "user-2", "period-1", tx);
     expect(tx.accountingCloseCycle.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ status: "REVIEWED", version: 6, readinessHash }), data: expect.objectContaining({ status: "CLOSED", closedByUserId: "user-2" }) }));
     expect(tx.accountingCloseReadinessSnapshot.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "CLOSED", canonicalHash: readinessHash }) }));
+    expect(tx.accountingCloseReadinessSnapshot.create.mock.calls[0][0].data.items.create.every((item: Record<string, unknown>) => !("organizationId" in item))).toBe(true);
     expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({ action: "CLOSE", entityType: "AccountingCloseCycle", entityId: "cycle-1" }), tx);
   });
 
@@ -1101,6 +1101,7 @@ describe("AccountingCloseService", () => {
     expect(fiscalPeriods.lockInTransaction).toHaveBeenCalledWith("org-1", "user-2", "period-1", tx);
     expect(tx.accountingCloseCycle.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ status: "CLOSED", version: 7, readinessHash }), data: expect.objectContaining({ status: "LOCKED", lockedByUserId: "user-2" }) }));
     expect(tx.accountingCloseReadinessSnapshot.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "LOCKED", canonicalHash: readinessHash }) }));
+    expect(tx.accountingCloseReadinessSnapshot.create.mock.calls[0][0].data.items.create.every((item: Record<string, unknown>) => !("organizationId" in item))).toBe(true);
     expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({ action: "LOCK", entityType: "AccountingCloseCycle", entityId: "cycle-1" }), tx);
   });
 
