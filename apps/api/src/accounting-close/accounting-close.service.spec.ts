@@ -161,6 +161,39 @@ describe("AccountingCloseService", () => {
     expect(prisma.accountingCloseReadinessSnapshot.findMany).not.toHaveBeenCalled();
   });
 
+  it("compares two tenant-scoped immutable snapshots with deterministic safe check changes", async () => {
+    const { service, prisma } = createService();
+    const snapshot = (id: string, items: any[]) => ({ id, organizationId: "org-1", closeCycleId: "cycle-1", fiscalPeriodId: "period-1", capturedAt: new Date(id === "baseline" ? "2026-06-30T10:00:00.000Z" : "2026-07-01T10:00:00.000Z"), capturedByUserId: "user-1", status: "REVIEWED", blockerCount: 0, warningCount: 1, informationCount: 0, checkCount: items.length, canonicalHash: `${id}-hash`, sourceVersion: 4, requestId: "internal", items });
+    Object.assign(prisma, {
+      accountingCloseReadinessSnapshot: { findMany: jest.fn().mockResolvedValue([
+        snapshot("baseline", [
+          { checkKey: "ar.aging", severity: "WARNING", status: "OPEN", code: "AR_OLD", safeMessage: "Review overdue receivables.", count: 2, currencyCode: null, sourceUpdatedAt: null, metadataSafe: { title: "AR aging" }, sourceEntityId: "internal-a" },
+          { checkKey: "removed.check", severity: "INFORMATION", status: "OPEN", code: "REMOVED", safeMessage: "Was present.", count: null, currencyCode: null, sourceUpdatedAt: null, metadataSafe: null },
+        ]),
+        snapshot("current", [
+          { checkKey: "ar.aging", severity: "WARNING", status: "OPEN", code: "AR_OLD", safeMessage: "Review overdue receivables.", count: 3, currencyCode: null, sourceUpdatedAt: null, metadataSafe: { title: "AR aging" }, sourceEntityId: "internal-b" },
+          { checkKey: "added.check", severity: "BLOCKER", status: "BLOCKED", code: "ADDED", safeMessage: "New blocker.", count: 1, currencyCode: "AED", sourceUpdatedAt: null, metadataSafe: null },
+        ]),
+      ]) },
+    });
+
+    const result = await service.compareSnapshots("org-1", "cycle-1", "baseline", "current");
+    expect(result).toMatchObject({ baseline: { id: "baseline", canonicalHash: "baseline-hash" }, comparison: { id: "current", canonicalHash: "current-hash" }, changes: [
+      { checkKey: "added.check", changeType: "ADDED", after: expect.objectContaining({ safeMessage: "New blocker." }) },
+      { checkKey: "ar.aging", changeType: "MODIFIED", before: expect.objectContaining({ count: 2 }), after: expect.objectContaining({ count: 3 }) },
+      { checkKey: "removed.check", changeType: "REMOVED", before: expect.objectContaining({ safeMessage: "Was present." }) },
+    ] });
+    expect(result.changes[1]!.after).not.toHaveProperty("sourceEntityId");
+    expect(prisma.accountingCloseReadinessSnapshot.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { organizationId: "org-1", closeCycleId: "cycle-1", id: { in: ["baseline", "current"] } } }));
+  });
+
+  it("rejects self-comparison or a snapshot outside the requested tenant and cycle", async () => {
+    const { service, prisma } = createService();
+    await expect(service.compareSnapshots("org-1", "cycle-1", "same", "same")).rejects.toBeInstanceOf(BadRequestException);
+    Object.assign(prisma, { accountingCloseReadinessSnapshot: { findMany: jest.fn().mockResolvedValue([]) } });
+    await expect(service.compareSnapshots("org-1", "cycle-1", "baseline", "other-tenant")).rejects.toBeInstanceOf(NotFoundException);
+  });
+
   it("attaches tenant-owned generated-document evidence to a mutable close task with safe fields only", async () => {
     const { service, prisma, auditLog } = createService();
     const evidence = { id: "evidence-1", organizationId: "org-1", closeCycleId: "cycle-1", closeTaskId: "task-1", evidenceType: "REPORT", reportType: "TRIAL_BALANCE", generatedDocumentId: "document-1", safeLabel: "June trial balance" };

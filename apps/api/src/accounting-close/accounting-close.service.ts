@@ -98,6 +98,29 @@ export class AccountingCloseService {
     return snapshotResponse(snapshot);
   }
 
+  async compareSnapshots(organizationId: string, cycleId: string, baselineSnapshotId: string, comparisonSnapshotId: string) {
+    if (baselineSnapshotId === comparisonSnapshotId) throw new BadRequestException("Choose two different readiness snapshots to compare.");
+    const snapshots = await this.prisma.accountingCloseReadinessSnapshot.findMany({
+      where: { organizationId, closeCycleId: cycleId, id: { in: [baselineSnapshotId, comparisonSnapshotId] } },
+      select: snapshotComparisonSelect,
+    });
+    const byId = new Map(snapshots.map((snapshot) => [snapshot.id, snapshot]));
+    const baseline = byId.get(baselineSnapshotId);
+    const comparison = byId.get(comparisonSnapshotId);
+    if (!baseline || !comparison) throw new NotFoundException("Close readiness snapshot not found.");
+    const baselineItems = new Map(baseline.items.map((item) => [item.checkKey, item]));
+    const comparisonItems = new Map(comparison.items.map((item) => [item.checkKey, item]));
+    const changes: Array<{ checkKey: string; changeType: "ADDED" | "REMOVED" | "MODIFIED"; before: ReturnType<typeof snapshotItemResponse> | null; after: ReturnType<typeof snapshotItemResponse> | null }> = [];
+    for (const checkKey of [...new Set([...baselineItems.keys(), ...comparisonItems.keys()])].sort()) {
+      const before = baselineItems.get(checkKey);
+      const after = comparisonItems.get(checkKey);
+      if (!before) changes.push({ checkKey, changeType: "ADDED", before: null, after: snapshotItemResponse(after!) });
+      else if (!after) changes.push({ checkKey, changeType: "REMOVED", before: snapshotItemResponse(before), after: null });
+      else if (snapshotItemFingerprint(before) !== snapshotItemFingerprint(after)) changes.push({ checkKey, changeType: "MODIFIED", before: snapshotItemResponse(before), after: snapshotItemResponse(after) });
+    }
+    return { baseline: snapshotSummary(baseline), comparison: snapshotSummary(comparison), changeCount: changes.length, changes };
+  }
+
   async addEvidence(organizationId: string, actorUserId: string, cycleId: string, expectedVersion: number, input: { closeTaskId?: string; evidenceType: string; reportType?: string; generatedDocumentId?: string; safeLabel: string }) {
     if (!Number.isInteger(expectedVersion) || expectedVersion < 1) throw new BadRequestException("expectedVersion must be a positive integer.");
     const safeLabel = input.safeLabel.trim();
@@ -618,6 +641,20 @@ const snapshotSummarySelect = {
   sourceVersion: true,
 } as const;
 
+const snapshotItemSelect = {
+  checkKey: true,
+  severity: true,
+  status: true,
+  code: true,
+  safeMessage: true,
+  count: true,
+  currencyCode: true,
+  sourceUpdatedAt: true,
+  metadataSafe: true,
+} as const;
+
+const snapshotComparisonSelect = { ...snapshotSummarySelect, items: { select: snapshotItemSelect, orderBy: { checkKey: "asc" } } } as const;
+
 function snapshotSummary(snapshot: {
   id: string;
   closeCycleId: string;
@@ -686,18 +723,23 @@ function snapshotResponse(snapshot: {
     checkCount: snapshot.checkCount,
     canonicalHash: snapshot.canonicalHash,
     sourceVersion: snapshot.sourceVersion,
-    items: snapshot.items.map((item) => ({
-      checkKey: item.checkKey,
-      severity: item.severity,
-      status: item.status,
-      code: item.code,
-      safeMessage: item.safeMessage,
-      count: item.count,
-      currencyCode: item.currencyCode,
-      sourceUpdatedAt: item.sourceUpdatedAt,
-      metadataSafe: item.metadataSafe,
-    })),
+    items: snapshot.items.map(snapshotItemResponse),
   };
+}
+
+function snapshotItemResponse(item: { checkKey: string; severity: string; status: string; code: string; safeMessage: string; count: number | null; currencyCode: string | null; sourceUpdatedAt: Date | null; metadataSafe: Prisma.JsonValue | null }) {
+  return { checkKey: item.checkKey, severity: item.severity, status: item.status, code: item.code, safeMessage: item.safeMessage, count: item.count, currencyCode: item.currencyCode, sourceUpdatedAt: item.sourceUpdatedAt, metadataSafe: item.metadataSafe };
+}
+
+function snapshotItemFingerprint(item: Parameters<typeof snapshotItemResponse>[0]) {
+  const safe = snapshotItemResponse(item);
+  return JSON.stringify({ ...safe, sourceUpdatedAt: safe.sourceUpdatedAt?.toISOString() ?? null, metadataSafe: stableJson(safe.metadataSafe) });
+}
+
+function stableJson(value: Prisma.JsonValue | null): string {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
+  return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableJson(value[key] ?? null)}`).join(",")}}`;
 }
 
 const STANDARD_MANUAL_TASKS = [
