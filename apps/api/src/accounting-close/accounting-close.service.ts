@@ -5,6 +5,7 @@ import { AuditLogService } from "../audit-log/audit-log.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { RecurringReadinessService } from "../recurring-transactions/recurring-readiness.service";
 import { FiscalPeriodService } from "../fiscal-periods/fiscal-period.service";
+import { toCsv } from "../reports/report-csv";
 import {
   AccountingCloseCheck,
   canonicalReadinessHash,
@@ -119,6 +120,102 @@ export class AccountingCloseService {
       else if (snapshotItemFingerprint(before) !== snapshotItemFingerprint(after)) changes.push({ checkKey, changeType: "MODIFIED", before: snapshotItemResponse(before), after: snapshotItemResponse(after) });
     }
     return { baseline: snapshotSummary(baseline), comparison: snapshotSummary(comparison), changeCount: changes.length, changes };
+  }
+
+  async exportCycleEvidence(organizationId: string, cycleId: string) {
+    const cycle = await this.prisma.accountingCloseCycle.findFirst({
+      where: { id: cycleId, organizationId },
+      select: closeEvidenceExportCycleSelect,
+    });
+    if (!cycle) throw new NotFoundException("Close cycle not found.");
+
+    const tasks = await this.prisma.accountingCloseTask.findMany({
+      where: { organizationId, closeCycleId: cycleId },
+      select: closeEvidenceExportTaskSelect,
+      orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+      take: MAX_CLOSE_EVIDENCE_EXPORT_ROWS + 1,
+    });
+    if (tasks.length > MAX_CLOSE_EVIDENCE_EXPORT_ROWS) throw new BadRequestException("Close evidence export exceeds the 10000-task limit.");
+
+    const evidence = await this.prisma.accountingCloseEvidence.findMany({
+      where: { organizationId, closeCycleId: cycleId },
+      select: closeEvidenceExportEvidenceSelect,
+      orderBy: [{ addedAt: "asc" }, { id: "asc" }],
+      take: MAX_CLOSE_EVIDENCE_EXPORT_ROWS + 1,
+    });
+    if (evidence.length > MAX_CLOSE_EVIDENCE_EXPORT_ROWS) throw new BadRequestException("Close evidence export exceeds the 10000-evidence limit.");
+
+    const latestSnapshot = await this.prisma.accountingCloseReadinessSnapshot.findFirst({
+      where: { organizationId, closeCycleId: cycleId },
+      select: {
+        ...snapshotSummarySelect,
+        items: { select: snapshotItemSelect, orderBy: { checkKey: "asc" }, take: MAX_CLOSE_EVIDENCE_EXPORT_CHECKS + 1 },
+      },
+      orderBy: [{ capturedAt: "desc" }, { id: "desc" }],
+    });
+    if (latestSnapshot && latestSnapshot.items.length > MAX_CLOSE_EVIDENCE_EXPORT_CHECKS) throw new BadRequestException("Close evidence export exceeds the 500-check limit.");
+
+    return {
+      schemaVersion: 1,
+      generatedAt: new Date(),
+      organization: {
+        id: cycle.organization.id,
+        name: cycle.organization.name,
+        baseCurrency: cycle.organization.baseCurrency,
+      },
+      fiscalPeriod: {
+        id: cycle.fiscalPeriod.id,
+        name: cycle.fiscalPeriod.name,
+        startsOn: cycle.fiscalPeriod.startsOn,
+        endsOn: cycle.fiscalPeriod.endsOn,
+        status: cycle.fiscalPeriod.status,
+      },
+      cycle: {
+        id: cycle.id,
+        status: cycle.status,
+        version: cycle.version,
+        startedAt: cycle.startedAt,
+        preparedAt: cycle.preparedAt,
+        preparerUserId: cycle.preparedByUserId,
+        reviewedAt: cycle.reviewedAt,
+        reviewerUserId: cycle.reviewedByUserId,
+        closedAt: cycle.closedAt,
+        closedByUserId: cycle.closedByUserId,
+        lockedAt: cycle.lockedAt,
+        lockedByUserId: cycle.lockedByUserId,
+        readinessHash: cycle.readinessHash,
+      },
+      tasks: tasks.map(closeEvidenceExportTask),
+      evidence: evidence.map(closeEvidenceExportEvidence),
+      latestReadinessSnapshot: latestSnapshot ? snapshotResponse(latestSnapshot) : null,
+    };
+  }
+
+  exportCycleEvidenceCsv(manifest: Awaited<ReturnType<AccountingCloseService["exportCycleEvidence"]>>) {
+    const rows: unknown[][] = [
+      ["LedgerByte Close Evidence Export"],
+      ["Generated At", manifest.generatedAt.toISOString()],
+      ["Organization", manifest.organization.name],
+      ["Organization ID", manifest.organization.id],
+      ["Base Currency", manifest.organization.baseCurrency],
+      ["Fiscal Period", manifest.fiscalPeriod.name],
+      ["Fiscal Period ID", manifest.fiscalPeriod.id],
+      ["Cycle ID", manifest.cycle.id],
+      ["Cycle Status", manifest.cycle.status],
+      ["Readiness Hash", manifest.cycle.readinessHash ?? ""],
+      [],
+      ["Record Type", "ID", "Task ID", "Snapshot ID", "Check Key", "Status", "Severity", "Safe Label or Message", "Report Type", "Generated Document ID", "Acknowledgement Reason", "Canonical Hash", "Recorded At"],
+    ];
+    for (const task of manifest.tasks) {
+      rows.push(["TASK", task.id, "", "", "", task.status, task.severity, task.title, "", "", task.acknowledgementReason ?? "", "", task.completedAt?.toISOString() ?? task.dueDate?.toISOString() ?? ""]);
+    }
+    for (const item of manifest.latestReadinessSnapshot?.items ?? []) {
+      rows.push(["CHECK", "", "", manifest.latestReadinessSnapshot!.id, item.checkKey, item.status, item.severity, item.safeMessage, "", "", "", manifest.latestReadinessSnapshot!.canonicalHash, item.sourceUpdatedAt?.toISOString() ?? manifest.latestReadinessSnapshot!.capturedAt.toISOString()]);
+    }
+    for (const item of manifest.evidence) {
+      rows.push(["EVIDENCE", item.id, item.closeTaskId ?? "", "", "", "", "", item.safeLabel, item.reportType ?? "", item.generatedDocumentId ?? "", "", "", item.addedAt.toISOString()]);
+    }
+    return { filename: `accounting-close-evidence-${manifest.cycle.id}.csv`, content: toCsv(rows) };
   }
 
   async addEvidence(organizationId: string, actorUserId: string, cycleId: string, expectedVersion: number, input: { closeTaskId?: string; evidenceType: string; reportType?: string; generatedDocumentId?: string; safeLabel: string }) {
@@ -624,6 +721,105 @@ function taskResponse(task: any) {
 
 function evidenceResponse(evidence: any) {
   return { id: evidence.id, closeTaskId: evidence.closeTaskId, evidenceType: evidence.evidenceType, reportType: evidence.reportType, generatedDocumentId: evidence.generatedDocumentId, safeLabel: evidence.safeLabel, addedAt: evidence.addedAt };
+}
+
+const MAX_CLOSE_EVIDENCE_EXPORT_ROWS = 10_000;
+const MAX_CLOSE_EVIDENCE_EXPORT_CHECKS = 500;
+
+const closeEvidenceExportCycleSelect = {
+  id: true,
+  status: true,
+  version: true,
+  startedAt: true,
+  preparedAt: true,
+  preparedByUserId: true,
+  reviewedAt: true,
+  reviewedByUserId: true,
+  closedAt: true,
+  closedByUserId: true,
+  lockedAt: true,
+  lockedByUserId: true,
+  readinessHash: true,
+  organization: { select: { id: true, name: true, baseCurrency: true } },
+  fiscalPeriod: { select: { id: true, name: true, startsOn: true, endsOn: true, status: true } },
+} as const;
+
+const closeEvidenceExportTaskSelect = {
+  id: true,
+  taskType: true,
+  source: true,
+  title: true,
+  severity: true,
+  status: true,
+  isRequired: true,
+  assignedToUserId: true,
+  dueDate: true,
+  completedAt: true,
+  completedByUserId: true,
+  acknowledgementReason: true,
+  sortOrder: true,
+} as const;
+
+const closeEvidenceExportEvidenceSelect = {
+  id: true,
+  closeTaskId: true,
+  evidenceType: true,
+  reportType: true,
+  generatedDocumentId: true,
+  safeLabel: true,
+  addedAt: true,
+} as const;
+
+function closeEvidenceExportTask(task: {
+  id: string;
+  taskType: string;
+  source: string;
+  title: string;
+  severity: string;
+  status: string;
+  isRequired: boolean;
+  assignedToUserId: string | null;
+  dueDate: Date | null;
+  completedAt: Date | null;
+  completedByUserId: string | null;
+  acknowledgementReason: string | null;
+  sortOrder: number;
+}) {
+  return {
+    id: task.id,
+    taskType: task.taskType,
+    source: task.source,
+    title: task.title,
+    severity: task.severity,
+    status: task.status,
+    isRequired: task.isRequired,
+    assignedToUserId: task.assignedToUserId,
+    dueDate: task.dueDate,
+    completedAt: task.completedAt,
+    completedByUserId: task.completedByUserId,
+    acknowledgementReason: task.acknowledgementReason,
+    sortOrder: task.sortOrder,
+  };
+}
+
+function closeEvidenceExportEvidence(evidence: {
+  id: string;
+  closeTaskId: string | null;
+  evidenceType: string;
+  reportType: string | null;
+  generatedDocumentId: string | null;
+  safeLabel: string;
+  addedAt: Date;
+}) {
+  return {
+    id: evidence.id,
+    closeTaskId: evidence.closeTaskId,
+    evidenceType: evidence.evidenceType,
+    reportType: evidence.reportType,
+    generatedDocumentId: evidence.generatedDocumentId,
+    safeLabel: evidence.safeLabel,
+    addedAt: evidence.addedAt,
+  };
 }
 
 const snapshotSummarySelect = {

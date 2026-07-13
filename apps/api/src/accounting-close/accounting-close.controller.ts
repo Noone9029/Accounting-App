@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, Res, UseGuards } from "@nestjs/common";
+import type { Response } from "express";
 import { PERMISSIONS } from "@ledgerbyte/shared";
 import { CurrentOrganizationId } from "../auth/decorators/current-organization.decorator";
 import { RequirePermissions } from "../auth/decorators/require-permissions.decorator";
@@ -20,6 +21,7 @@ import { ReviewAccountingCloseCycleDto } from "./dto/review-accounting-close-cyc
 import { CloseAccountingCloseCycleDto } from "./dto/close-accounting-close-cycle.dto";
 import { LockAccountingCloseCycleDto } from "./dto/lock-accounting-close-cycle.dto";
 import { FindAccountingCloseCycleDto } from "./dto/find-accounting-close-cycle.dto";
+import { ExportAccountingCloseEvidenceDto } from "./dto/export-accounting-close-evidence.dto";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import type { AuthenticatedUser } from "../auth/auth.types";
 import { AccountingCloseService } from "./accounting-close.service";
@@ -51,6 +53,24 @@ export class AccountingCloseController {
   @RequirePermissions(PERMISSIONS.accountingClose.read)
   getCycle(@CurrentOrganizationId() organizationId: string, @Param("id") cycleId: string) {
     return this.accountingCloseService.getCycle(organizationId, cycleId);
+  }
+
+  @Get("cycles/:id/export")
+  @RequirePermissions(PERMISSIONS.accountingClose.read)
+  async exportCycleEvidence(
+    @CurrentOrganizationId() organizationId: string,
+    @Param("id", new ParseUUIDPipe()) cycleId: string,
+    @Query() query: ExportAccountingCloseEvidenceDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const manifest = await this.accountingCloseService.exportCycleEvidence(organizationId, cycleId);
+    if (query.format === "csv") {
+      const csv = this.accountingCloseService.exportCycleEvidenceCsv(manifest);
+      response.setHeader("content-type", "text/csv; charset=utf-8");
+      response.setHeader("content-disposition", `attachment; filename="${csv.filename}"`);
+      return csv.content;
+    }
+    return manifest;
   }
 
   @Get("cycles/:id/tasks")
