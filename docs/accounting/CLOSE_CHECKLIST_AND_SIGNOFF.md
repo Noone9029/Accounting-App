@@ -18,6 +18,10 @@ Where an organization has at least two eligible users, preparer and reviewer mus
 
 A stale review is never sufficient authority to close or lock. Any new readiness hash, authoritative blocker, readiness error, or historical-state-unproven result invalidates a prior review. The close and lock actions calculate readiness again within the authoritative transaction; the UI’s prior green display is only review evidence.
 
+While the fiscal period remains open, a reviewer can return a reviewed cycle to its preparer with a required reason. This clears active sign-off state without mutating the fiscal period and retains the reviewed snapshot as history. If the close recheck itself finds drift, it atomically records a new `DRAFT` readiness snapshot, audits the review invalidation, returns the cycle to `IN_PROGRESS`, and responds with a conflict so the user reloads, refreshes, prepares, and reviews again.
+
+If lock revalidation finds post-close drift, LedgerByte does not lock the period. It records a frozen `CLOSED` snapshot and `LOCK_BLOCKED` audit event, then explains the required recovery: an authorized user uses the existing fiscal-period reopen workflow, and a reviewer returns the reopened cycle to preparation with a reason before the close steps are performed again.
+
 ## Supporting reports and limits
 
 Evidence and report links help the accountant review the period, but they are not a claim that reports were archived immutably. The current export contains safe cycle, task, evidence-reference, and snapshot fields and is bounded to protect the service. Report-pack archive execution and backup/PITR restoration proof remain separate operational capabilities and are not implied by a close sign-off.

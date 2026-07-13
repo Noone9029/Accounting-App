@@ -85,6 +85,127 @@ describe("accountant close cycle detail", () => {
     await waitFor(() => expect(apiRequestMock).toHaveBeenCalledWith("/accounting-close/cycles/cycle-1/evidence", { method: "POST", body: { expectedVersion: 4, evidenceType: "REPORT", reportType: "TRIAL_BALANCE", safeLabel: "June trial balance reviewed" } }));
   });
 
+  it("returns a reviewed cycle to preparation with an explicit reason", async () => {
+    const prompt = jest.spyOn(window, "prompt").mockReturnValue("Readiness changed after review.");
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/accounting-close/cycles/cycle-1") return Promise.resolve({ id: "cycle-1", fiscalPeriodId: "period-1", status: "REVIEWED", version: 7, readinessHash: "reviewed-hash", fiscalPeriod: { name: "June 2026", status: "OPEN" }, taskCount: 2, evidenceCount: 1, snapshotCount: 1 });
+      if (path === "/accounting-close/cycles/cycle-1/tasks?page=1&pageSize=100") return Promise.resolve({ items: [], meta: { totalItems: 0 } });
+      if (path === "/accounting-close/cycles/cycle-1/snapshots?page=1&pageSize=100") return Promise.resolve({ items: [], meta: { totalItems: 0 } });
+      if (path === "/accounting-close/cycles/cycle-1/return-to-preparer") return Promise.resolve({ id: "cycle-1", status: "IN_PROGRESS", version: 8 });
+      return Promise.resolve(null);
+    });
+
+    render(<AccountingCloseCyclePage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Return to preparer" }));
+    await waitFor(() => expect(apiRequestMock).toHaveBeenCalledWith("/accounting-close/cycles/cycle-1/return-to-preparer", { method: "POST", body: { expectedVersion: 7, returnReason: "Readiness changed after review." } }));
+    prompt.mockRestore();
+  });
+
+  it("offers return to preparation after an authorized fiscal-period reopen instead of an invalid lock action", async () => {
+    const prompt = jest.spyOn(window, "prompt").mockReturnValue("Lock readiness changed after close.");
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/accounting-close/cycles/cycle-1") return Promise.resolve({ id: "cycle-1", fiscalPeriodId: "period-1", status: "CLOSED", version: 8, readinessHash: "closed-hash", fiscalPeriod: { name: "June 2026", status: "OPEN" }, taskCount: 2, evidenceCount: 1, snapshotCount: 2 });
+      if (path === "/accounting-close/cycles/cycle-1/tasks?page=1&pageSize=100") return Promise.resolve({ items: [], meta: { totalItems: 0 } });
+      if (path === "/accounting-close/cycles/cycle-1/snapshots?page=1&pageSize=100") return Promise.resolve({ items: [], meta: { totalItems: 0 } });
+      if (path === "/accounting-close/cycles/cycle-1/return-to-preparer") return Promise.resolve({ id: "cycle-1", status: "IN_PROGRESS", version: 9 });
+      return Promise.resolve(null);
+    });
+
+    render(<AccountingCloseCyclePage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Return to preparer" }));
+    await waitFor(() => expect(apiRequestMock).toHaveBeenCalledWith("/accounting-close/cycles/cycle-1/return-to-preparer", { method: "POST", body: { expectedVersion: 8, returnReason: "Lock readiness changed after close." } }));
+    expect(screen.getByText("The fiscal period is open while this close cycle remains closed. Return the close cycle to preparation before starting a fresh readiness and review workflow.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Refresh readiness" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Lock period" })).not.toBeInTheDocument();
+    prompt.mockRestore();
+  });
+
+  it("reloads the cycle after the close gate invalidates a stale review", async () => {
+    const confirm = jest.spyOn(window, "confirm").mockReturnValue(true);
+    let cycleReads = 0;
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/accounting-close/cycles/cycle-1") {
+        cycleReads += 1;
+        return Promise.resolve({ id: "cycle-1", fiscalPeriodId: "period-1", status: cycleReads === 1 ? "REVIEWED" : "IN_PROGRESS", version: cycleReads === 1 ? 7 : 8, readinessHash: cycleReads === 1 ? "reviewed-hash" : null, fiscalPeriod: { name: "June 2026", status: "OPEN" }, taskCount: 2, evidenceCount: 1, snapshotCount: 2 });
+      }
+      if (path === "/accounting-close/cycles/cycle-1/tasks?page=1&pageSize=100") return Promise.resolve({ items: [], meta: { totalItems: 0 } });
+      if (path === "/accounting-close/cycles/cycle-1/snapshots?page=1&pageSize=100") return Promise.resolve({ items: [], meta: { totalItems: 0 } });
+      if (path === "/accounting-close/cycles/cycle-1/close") return Promise.reject(Object.assign(new Error("Close readiness changed and the review was invalidated."), { status: 409, details: { error: { code: "ACCOUNTING_CLOSE_REVIEW_INVALIDATED", message: "Close readiness changed and the review was invalidated.", statusCode: 409, requestId: "req-close-invalidated" } } }));
+      return Promise.resolve(null);
+    });
+
+    render(<AccountingCloseCyclePage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Close period" }));
+    await waitFor(() => expect(apiRequestMock).toHaveBeenCalledWith(
+      "/accounting-close/cycles/cycle-1/close",
+      expect.objectContaining({
+        method: "POST",
+        body: { expectedVersion: 7 },
+        headers: { "idempotency-key": expect.stringMatching(/^acct-close-close-[A-Za-z0-9._:-]+$/) },
+      }),
+    ));
+    expect(await screen.findByText("IN PROGRESS")).toBeInTheDocument();
+    expect(screen.getByText("The review was invalidated because readiness changed. Refresh readiness and record a new review before closing this period.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Refresh readiness" })).toBeEnabled();
+    confirm.mockRestore();
+  });
+
+  it("shows post-close drift and reloads after a safe lock revalidation conflict", async () => {
+    const confirm = jest.spyOn(window, "confirm").mockReturnValue(true);
+    let cycleReads = 0;
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/accounting-close/cycles/cycle-1") {
+        cycleReads += 1;
+        return Promise.resolve({ id: "cycle-1", fiscalPeriodId: "period-1", status: "CLOSED", version: 8, readinessHash: "closed-hash", fiscalPeriod: { name: "June 2026", status: "CLOSED" }, taskCount: 2, evidenceCount: 1, snapshotCount: cycleReads === 1 ? 2 : 3 });
+      }
+      if (path === "/accounting-close/cycles/cycle-1/tasks?page=1&pageSize=100") return Promise.resolve({ items: [], meta: { totalItems: 0 } });
+      if (path === "/accounting-close/cycles/cycle-1/snapshots?page=1&pageSize=100") return Promise.resolve({ items: [], meta: { totalItems: 0 } });
+      if (path === "/accounting-close/cycles/cycle-1/lock") return Promise.reject(Object.assign(new Error("Readiness changed after the period was closed."), { status: 409, details: { error: { code: "ACCOUNTING_CLOSE_LOCK_REVALIDATION_FAILED", message: "Readiness changed after the period was closed.", statusCode: 409, requestId: "req-lock-drift" } } }));
+      return Promise.resolve(null);
+    });
+
+    render(<AccountingCloseCyclePage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Lock period" }));
+    await waitFor(() => expect(apiRequestMock).toHaveBeenCalledWith(
+      "/accounting-close/cycles/cycle-1/lock",
+      expect.objectContaining({
+        method: "POST",
+        body: { expectedVersion: 8 },
+        headers: { "idempotency-key": expect.stringMatching(/^acct-close-lock-[A-Za-z0-9._:-]+$/) },
+      }),
+    ));
+    expect(await screen.findByText("Close readiness changed after the fiscal period was closed. No lock was applied. Use the authorized fiscal-period reopen workflow, then return this close cycle to preparation before a fresh review and lock attempt.")).toBeInTheDocument();
+    expect(cycleReads).toBe(2);
+    confirm.mockRestore();
+  });
+
+  it("keeps a generic close conflict visible instead of treating it as a review invalidation", async () => {
+    const confirm = jest.spyOn(window, "confirm").mockReturnValue(true);
+    let cycleReads = 0;
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/accounting-close/cycles/cycle-1") {
+        cycleReads += 1;
+        return Promise.resolve({ id: "cycle-1", fiscalPeriodId: "period-1", status: "REVIEWED", version: 7, readinessHash: "reviewed-hash", fiscalPeriod: { name: "June 2026", status: "OPEN" }, taskCount: 2, evidenceCount: 1, snapshotCount: 1 });
+      }
+      if (path === "/accounting-close/cycles/cycle-1/tasks?page=1&pageSize=100") return Promise.resolve({ items: [], meta: { totalItems: 0 } });
+      if (path === "/accounting-close/cycles/cycle-1/snapshots?page=1&pageSize=100") return Promise.resolve({ items: [], meta: { totalItems: 0 } });
+      if (path === "/accounting-close/cycles/cycle-1/close") return Promise.reject(Object.assign(new Error("Close cycle changed. Reload and retry."), { status: 409, details: { code: "CLOSE_CYCLE_CHANGED" } }));
+      return Promise.resolve(null);
+    });
+
+    render(<AccountingCloseCyclePage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Close period" }));
+    expect(await screen.findByText("Close cycle changed. Reload and retry.")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Close period" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Close period" }));
+    await waitFor(() => expect(apiRequestMock.mock.calls.filter(([path]) => path === "/accounting-close/cycles/cycle-1/close")).toHaveLength(2));
+    const closeCalls = apiRequestMock.mock.calls.filter(([path]) => path === "/accounting-close/cycles/cycle-1/close");
+    expect((closeCalls[0][1] as { headers: { "idempotency-key": string } }).headers["idempotency-key"])
+      .toBe((closeCalls[1][1] as { headers: { "idempotency-key": string } }).headers["idempotency-key"]);
+    expect(cycleReads).toBe(1);
+    confirm.mockRestore();
+  });
+
   it("downloads the safe close evidence manifest as JSON or CSV without mutating the cycle", async () => {
     render(<AccountingCloseCyclePage />);
     expect(await screen.findByRole("button", { name: "Download evidence JSON" })).toBeInTheDocument();

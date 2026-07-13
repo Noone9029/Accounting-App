@@ -15,7 +15,7 @@ FX blockers remain blockers because `FxCloseReadinessService` already enforces t
 
 ## Review and transitions
 
-A cycle may be prepared only with no current blockers and all required manual tasks completed. A reviewer records the exact readiness hash. Any later authoritative hash change invalidates review. Close and lock rerun the checks inside the authoritative transaction and fail closed on stale, unproven, or errored readiness.
+A cycle may be prepared only with no current blockers and all required manual tasks completed. A reviewer records the exact readiness hash. Any later authoritative hash change invalidates review. Close and lock rerun the checks inside the authoritative transaction and fail closed on stale, unproven, or errored readiness. A reviewer may return an open reviewed cycle to preparation with a required reason; source drift found by the close transaction automatically commits that review invalidation and a new draft snapshot before responding with a conflict. If lock revalidation finds post-close drift, LedgerByte commits a frozen `CLOSED` snapshot, a `LOCK_BLOCKED` audit event, and a safe idempotent conflict without locking the fiscal period. Recovery uses the existing authorized fiscal-period reopen workflow first; only once the fiscal period is open may a reviewer return the closed cycle to preparation for a fresh refresh and review.
 
 Preparer and reviewer are distinct when at least two eligible users exist. A single-user demonstration organization may use a clearly labelled single-user mode only when its explicit organization policy allows it.
 
