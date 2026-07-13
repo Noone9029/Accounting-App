@@ -12,6 +12,7 @@ import { ReopenAccountingCloseTaskDto } from "./dto/reopen-accounting-close-task
 import { RefreshAccountingCloseCycleDto } from "./dto/refresh-accounting-close-cycle.dto";
 import { ListAccountingCloseTasksDto } from "./dto/list-accounting-close-tasks.dto";
 import { AssignAccountingCloseTaskDto } from "./dto/assign-accounting-close-task.dto";
+import { AddAccountingCloseEvidenceDto } from "./dto/add-accounting-close-evidence.dto";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import type { AuthenticatedUser } from "../auth/auth.types";
 import { AccountingCloseService } from "./accounting-close.service";
@@ -55,6 +56,12 @@ export class AccountingCloseController {
     @Body() dto: AssignAccountingCloseTaskDto,
   ) {
     return this.accountingCloseService.assignTask(organizationId, user.id, cycleId, taskId, dto.expectedVersion, dto.assignedToUserId);
+  }
+
+  @Post("cycles/:id/evidence")
+  @RequirePermissions(PERMISSIONS.accountingClose.manage)
+  addEvidence(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") cycleId: string, @Body() dto: AddAccountingCloseEvidenceDto) {
+    return this.accountingCloseService.addEvidence(organizationId, user.id, cycleId, dto.expectedVersion, dto);
   }
 
   @Post("cycles/:id/tasks/:taskId/complete")

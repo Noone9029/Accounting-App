@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { FiscalPeriodStatus, Prisma } from "@prisma/client";
+import { FiscalPeriodStatus, GeneratedDocumentStatus, Prisma } from "@prisma/client";
 import { FxCloseReadinessService } from "../foreign-exchange/fx-close-readiness.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -42,6 +42,27 @@ export class AccountingCloseService {
       this.prisma.accountingCloseTask.count({ where }),
     ]);
     return { items: tasks.map(taskResponse), meta: { page: safePage, pageSize: safePageSize, totalItems, totalPages: Math.max(1, Math.ceil(totalItems / safePageSize)) } };
+  }
+
+  async addEvidence(organizationId: string, actorUserId: string, cycleId: string, expectedVersion: number, input: { closeTaskId?: string; evidenceType: string; reportType?: string; generatedDocumentId?: string; safeLabel: string }) {
+    if (!Number.isInteger(expectedVersion) || expectedVersion < 1) throw new BadRequestException("expectedVersion must be a positive integer.");
+    const safeLabel = input.safeLabel.trim();
+    if (!safeLabel || (!input.reportType && !input.generatedDocumentId)) throw new BadRequestException("Evidence requires a report type or generated document.");
+    try { return await this.prisma.$transaction(async (tx) => {
+      const cycle = await tx.accountingCloseCycle.findFirst({ where: { id: cycleId, organizationId }, select: { id: true, fiscalPeriodId: true, status: true } });
+      if (!cycle) throw new NotFoundException("Close cycle not found.");
+      if (!["IN_PROGRESS", "READY_FOR_REVIEW"].includes(cycle.status)) throw new BadRequestException("Evidence cannot be attached after review, close, or lock.");
+      const fiscalPeriod = await tx.fiscalPeriod.findFirst({ where: { id: cycle.fiscalPeriodId, organizationId }, select: { id: true, status: true } });
+      if (!fiscalPeriod) throw new NotFoundException("Fiscal period not found.");
+      if (fiscalPeriod.status !== FiscalPeriodStatus.OPEN) throw new BadRequestException("Evidence cannot be attached after the fiscal period is closed or locked.");
+      if (input.closeTaskId) { const task = await tx.accountingCloseTask.findFirst({ where: { id: input.closeTaskId, closeCycleId: cycleId, organizationId }, select: { id: true } }); if (!task) throw new NotFoundException("Close task not found."); }
+      if (input.generatedDocumentId) { const document = await tx.generatedDocument.findFirst({ where: { id: input.generatedDocumentId, organizationId, status: GeneratedDocumentStatus.GENERATED }, select: { id: true } }); if (!document) throw new NotFoundException("Generated document not found."); }
+      const claimed = await tx.accountingCloseCycle.updateMany({ where: { id: cycleId, organizationId, version: expectedVersion, status: { in: ["IN_PROGRESS", "READY_FOR_REVIEW"] }, fiscalPeriod: { is: { organizationId, status: FiscalPeriodStatus.OPEN } } }, data: { version: { increment: 1 } } });
+      if (claimed.count !== 1) throw new ConflictException("Close cycle changed. Reload and retry.");
+      const evidence = await tx.accountingCloseEvidence.create({ data: { organizationId, closeCycleId: cycleId, closeTaskId: input.closeTaskId, evidenceType: input.evidenceType, reportType: input.reportType, generatedDocumentId: input.generatedDocumentId, safeLabel, addedByUserId: actorUserId } });
+      await this.auditLogService.log({ organizationId, actorUserId, action: "ATTACH_EVIDENCE", entityType: "AccountingCloseEvidence", entityId: evidence.id, after: { closeCycleId: cycleId, closeTaskId: evidence.closeTaskId, evidenceType: evidence.evidenceType, reportType: evidence.reportType, generatedDocumentId: evidence.generatedDocumentId, safeLabel: evidence.safeLabel } }, tx);
+      return evidenceResponse(evidence);
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }); } catch (error) { if (prismaErrorCode(error) === "P2034") throw new ConflictException("Close cycle changed. Reload and retry."); throw error; }
   }
 
   async assignTask(organizationId: string, actorUserId: string, cycleId: string, taskId: string, expectedVersion: number, assignedToUserId: string) {
@@ -362,6 +383,10 @@ function taskResponse(task: any) {
     reopenedAt: task.reopenedAt, reopenedByUserId: task.reopenedByUserId, reopenReason: task.reopenReason,
     acknowledgementReason: task.acknowledgementReason, sortOrder: task.sortOrder, systemCheckKey: task.systemCheckKey,
   };
+}
+
+function evidenceResponse(evidence: any) {
+  return { id: evidence.id, closeTaskId: evidence.closeTaskId, evidenceType: evidence.evidenceType, reportType: evidence.reportType, generatedDocumentId: evidence.generatedDocumentId, safeLabel: evidence.safeLabel, addedAt: evidence.addedAt };
 }
 
 function snapshotResponse(snapshot: {
