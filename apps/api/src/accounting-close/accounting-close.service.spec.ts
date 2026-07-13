@@ -1,5 +1,5 @@
 import { BadRequestException, NotFoundException } from "@nestjs/common";
-import { BankReconciliationStatus, BankStatementTransactionStatus, CashExpenseStatus, CreditNoteStatus, CustomerPaymentStatus, DocumentInboxStatus, FiscalPeriodStatus, InventoryAdjustmentStatus, InventoryVarianceProposalStatus, JournalEntryStatus, PurchaseBillStatus, PurchaseDebitNoteStatus, ReportPackStatus, SalesInvoiceStatus, SupplierPaymentStatus } from "@prisma/client";
+import { BankDepositBatchStatus, BankReconciliationStatus, BankStatementTransactionStatus, CardSettlementStatus, CashExpenseStatus, CreditNoteStatus, CustomerPaymentStatus, DocumentInboxStatus, FiscalPeriodStatus, InventoryAdjustmentStatus, InventoryVarianceProposalStatus, JournalEntryStatus, PurchaseBillStatus, PurchaseDebitNoteStatus, ReportPackStatus, SalesInvoiceStatus, SupplierPaymentStatus } from "@prisma/client";
 import { AccountingCloseService } from "./accounting-close.service";
 
 describe("AccountingCloseService", () => {
@@ -44,6 +44,8 @@ describe("AccountingCloseService", () => {
         count: jest.fn().mockResolvedValue(0),
         findFirst: jest.fn().mockResolvedValue(null),
       },
+      bankDepositBatch: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
+      cardSettlement: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
       inventoryAdjustment: {
         count: jest.fn().mockResolvedValue(0),
         findFirst: jest.fn().mockResolvedValue(null),
@@ -315,6 +317,26 @@ describe("AccountingCloseService", () => {
     };
     expect(prisma.bankReconciliation.count).toHaveBeenCalledWith({ where });
     expect(prisma.bankReconciliation.findFirst).toHaveBeenCalledWith({ where, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } });
+  });
+
+  it("surfaces tenant-scoped draft deposits and card settlements inside the fiscal period as authoritative warnings", async () => {
+    const { service, prisma } = createService();
+    prisma.bankDepositBatch.count.mockResolvedValue(2);
+    prisma.bankDepositBatch.findFirst.mockResolvedValue({ updatedAt: new Date("2026-06-29T12:00:00.000Z") });
+    prisma.cardSettlement.count.mockResolvedValue(1);
+    prisma.cardSettlement.findFirst.mockResolvedValue({ updatedAt: new Date("2026-06-30T12:00:00.000Z") });
+
+    await expect(service.readiness("org-1", "period-1")).resolves.toMatchObject({
+      warningCount: 3,
+      checks: expect.arrayContaining([
+        expect.objectContaining({ key: "banking.draftDepositBatches", severity: "WARNING", status: "OPEN", code: "DRAFT_BANK_DEPOSIT_BATCHES", count: 2, canAcknowledge: false, detailsHref: "/bank-accounts", sourceUpdatedAt: "2026-06-29T12:00:00.000Z" }),
+        expect.objectContaining({ key: "banking.draftCardSettlements", severity: "WARNING", status: "OPEN", code: "DRAFT_CARD_SETTLEMENTS", count: 1, canAcknowledge: false, detailsHref: "/bank-accounts", sourceUpdatedAt: "2026-06-30T12:00:00.000Z" }),
+      ]),
+    });
+    const depositWhere = { organizationId: "org-1", status: BankDepositBatchStatus.DRAFT, depositDate: { gte: period.startsOn, lte: period.endsOn } };
+    const settlementWhere = { organizationId: "org-1", status: CardSettlementStatus.DRAFT, settlementDate: { gte: period.startsOn, lte: period.endsOn } };
+    expect(prisma.bankDepositBatch.count).toHaveBeenCalledWith({ where: depositWhere });
+    expect(prisma.cardSettlement.count).toHaveBeenCalledWith({ where: settlementWhere });
   });
 
   it("surfaces tenant-scoped draft inventory adjustments inside the fiscal period as an authoritative warning", async () => {
@@ -834,6 +856,8 @@ describe("AccountingCloseService", () => {
       supplierPayment: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
       bankStatementTransaction: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
       bankReconciliation: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
+      bankDepositBatch: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
+      cardSettlement: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
       inventoryAdjustment: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
       inventoryVarianceProposal: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
       reportPack: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
@@ -888,6 +912,8 @@ describe("AccountingCloseService", () => {
       supplierPayment: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
       bankStatementTransaction: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
       bankReconciliation: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
+      bankDepositBatch: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
+      cardSettlement: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
       inventoryAdjustment: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
       inventoryVarianceProposal: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
       reportPack: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
@@ -951,6 +977,8 @@ describe("AccountingCloseService", () => {
       supplierPayment: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
       bankStatementTransaction: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
       bankReconciliation: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
+      bankDepositBatch: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
+      cardSettlement: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
       inventoryAdjustment: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
       inventoryVarianceProposal: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
       reportPack: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
@@ -1008,6 +1036,8 @@ describe("AccountingCloseService", () => {
       supplierPayment: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
       bankStatementTransaction: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
       bankReconciliation: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
+      bankDepositBatch: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
+      cardSettlement: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
       inventoryAdjustment: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
       inventoryVarianceProposal: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
       reportPack: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
@@ -1031,6 +1061,7 @@ describe("AccountingCloseService", () => {
     recurring.get.mockResolvedValue({ status: "READY", templateCount: 0, activeTemplates: 0, dueTemplates: 0, failedRuns: 0, blockedRuns: 0, generatedDraftsAwaitingReview: 0, schedulesMissingReferences: 0, foreignTemplatesMissingRateEvidence: 0, runsScheduledInsideLockedPeriods: 0, blocksFiscalClose: false, asOf: "2026-07-13T00:00:00.000Z" });
     const readinessHash = (await service.readiness("org-1", "period-1")).canonicalHash;
     const tx = { accountingCloseCycle: { findFirst: jest.fn().mockResolvedValue({ id: "cycle-1", fiscalPeriodId: "period-1", status: "CLOSED", readinessHash }), updateMany: jest.fn().mockResolvedValue({ count: 1 }) }, fiscalPeriod: { findFirst: jest.fn().mockResolvedValue({ ...period, status: FiscalPeriodStatus.CLOSED }) }, journalEntry: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) }, salesInvoice: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) }, creditNote: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) }, customerPayment: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) }, purchaseBill: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) }, purchaseDebitNote: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) }, supplierPayment: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) }, cashExpense: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) }, documentInboxItem: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) }, bankStatementTransaction: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) }, bankReconciliation: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) }, inventoryAdjustment: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) }, inventoryVarianceProposal: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) }, reportPack: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) }, accountingCloseReadinessSnapshot: { create: jest.fn().mockResolvedValue({ id: "snapshot-lock" }) } };
+    Object.assign(tx, { bankDepositBatch: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) }, cardSettlement: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) } });
     Object.assign(prisma, { $transaction: jest.fn((callback) => callback(tx)) });
     fiscalPeriods.lockInTransaction.mockResolvedValue({ id: "period-1", status: FiscalPeriodStatus.LOCKED });
 
