@@ -22,6 +22,7 @@ type FxReadiness = {
   blockers: Array<{ code: string; count: number; message: string; actionHref: string }>;
   actions: Array<{ code: string; label: string; href: string }>;
   counts: Record<string, number>;
+  sourceUpdatedAt?: string;
 };
 
 type RecurringReadiness = {
@@ -37,16 +38,17 @@ type RecurringReadiness = {
   runsScheduledInsideLockedPeriods: number;
   blocksFiscalClose: boolean;
   asOf: string;
+  sourceUpdatedAt?: string;
 };
 
 export function normalizeFxReadiness(readiness: FxReadiness): AccountingCloseCheck[] {
   if (readiness.status === "NOT_APPLICABLE") {
-    return [check("fx.notApplicable", "Foreign exchange close readiness", "NOT_APPLICABLE", "NOT_APPLICABLE", "FX_NOT_APPLICABLE", "No foreign-currency close activity requires review for this period.", 0, "/fx-close", false)];
+    return [{ ...check("fx.notApplicable", "Foreign exchange close readiness", "NOT_APPLICABLE", "NOT_APPLICABLE", "FX_NOT_APPLICABLE", "No foreign-currency close activity requires review for this period.", 0, "/fx-close", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
   }
   if (readiness.blockers.length === 0) {
-    return [check("fx.ready", "Foreign exchange close readiness", "INFORMATION", "READY", "FX_READY", "Foreign-exchange close readiness is currently clear.", 0, "/fx-close", false)];
+    return [{ ...check("fx.ready", "Foreign exchange close readiness", "INFORMATION", "READY", "FX_READY", "Foreign-exchange close readiness is currently clear.", 0, "/fx-close", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
   }
-  return readiness.blockers.map((blocker) => check(`fx.${blocker.code}`, "Foreign exchange close readiness", "BLOCKER", "BLOCKED", blocker.code, blocker.message, blocker.count, blocker.actionHref, false));
+  return readiness.blockers.map((blocker) => ({ ...check(`fx.${blocker.code}`, "Foreign exchange close readiness", "BLOCKER", "BLOCKED", blocker.code, blocker.message, blocker.count, blocker.actionHref, false), sourceUpdatedAt: readiness.sourceUpdatedAt }));
 }
 
 export function normalizeRecurringReadiness(readiness: RecurringReadiness): AccountingCloseCheck[] {
@@ -65,11 +67,13 @@ export function normalizeRecurringReadiness(readiness: RecurringReadiness): Acco
   const result = issues.filter(([field]) => readiness[field] > 0).map(([field, code, message]) =>
     check(`recurring.${String(field)}`, "Recurring transaction readiness", readiness.blocksFiscalClose ? "BLOCKER" : "WARNING", readiness.blocksFiscalClose ? "BLOCKED" : "OPEN", code, message, readiness[field], "/recurring-transactions", !readiness.blocksFiscalClose),
   );
-  return result.length ? result : [check("recurring.ready", "Recurring transaction readiness", "INFORMATION", "READY", "RECURRING_READY", "Recurring transaction readiness is currently clear.", 0, "/recurring-transactions", false)];
+  return result.length
+    ? result.map((item) => ({ ...item, sourceUpdatedAt: readiness.sourceUpdatedAt }))
+    : [{ ...check("recurring.ready", "Recurring transaction readiness", "INFORMATION", "READY", "RECURRING_READY", "Recurring transaction readiness is currently clear.", 0, "/recurring-transactions", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
 }
 
 export function canonicalReadinessHash(checks: Array<Omit<AccountingCloseCheck, "canAcknowledge"> & Partial<Pick<AccountingCloseCheck, "canAcknowledge">>>): string {
-  const canonical = checks.map(({ sourceUpdatedAt: _sourceUpdatedAt, canAcknowledge: _canAcknowledge, ...check }) => check).sort((left, right) => left.key.localeCompare(right.key));
+  const canonical = checks.map(({ canAcknowledge: _canAcknowledge, ...check }) => check).sort((left, right) => left.key.localeCompare(right.key));
   return createHash("sha256").update(JSON.stringify(canonical)).digest("hex");
 }
 

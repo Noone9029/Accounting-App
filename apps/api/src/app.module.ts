@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { AccountingModule } from "./accounting/accounting.module";
+import { AccountingCloseModule } from "./accounting-close/accounting-close.module";
 import { AttachmentModule } from "./attachments/attachment.module";
 import { AuditLogModule } from "./audit-log/audit-log.module";
 import { AuthModule } from "./auth/auth.module";
@@ -142,6 +143,7 @@ import { validateLedgerByteConfig } from "./config/production-config";
     SupplierPaymentModule,
     SupplierRefundModule,
     AccountingModule,
+    AccountingCloseModule,
     ChartOfAccountsModule,
     TaxRateModule,
     AuditLogModule,

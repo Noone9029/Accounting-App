@@ -1,7 +1,7 @@
 import { canonicalReadinessHash, normalizeFxReadiness, normalizeRecurringReadiness } from "./close-readiness";
 
 describe("accounting close readiness normalization", () => {
-  it("produces the same hash for the same checks regardless of input order or capture timestamps", () => {
+  it("keeps a stable hash for input order but changes it when authoritative source freshness changes", () => {
     const first = canonicalReadinessHash([
       { key: "recurring.due", title: "Recurring runs due", severity: "WARNING", status: "OPEN", code: "DUE", safeMessage: "One run is due.", count: 1, detailsHref: "/recurring-transactions" },
       { key: "fx.close", title: "Foreign exchange close readiness", severity: "BLOCKER", status: "BLOCKED", code: "MISSING_CLOSING_RATE", safeMessage: "Capture a rate.", count: 1, detailsHref: "/fx-close" },
@@ -11,7 +11,7 @@ describe("accounting close readiness normalization", () => {
       { key: "recurring.due", title: "Recurring runs due", severity: "WARNING", status: "OPEN", code: "DUE", safeMessage: "One run is due.", count: 1, detailsHref: "/recurring-transactions", sourceUpdatedAt: "2026-07-13T12:01:00.000Z" },
     ]);
 
-    expect(first).toBe(second);
+    expect(first).not.toBe(second);
   });
 
   it("keeps authoritative FX blockers as non-overridable blockers", () => {

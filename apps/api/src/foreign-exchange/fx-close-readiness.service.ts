@@ -37,6 +37,7 @@ export interface FxCloseReadiness {
     historicalSourceChangesAfterClose: number;
   };
   actions: Array<{ code: string; label: string; href: string }>;
+  sourceUpdatedAt?: string;
 }
 
 type FxCloseExecutor = PrismaService | Prisma.TransactionClient;
@@ -65,6 +66,10 @@ export class FxCloseReadinessService {
       draftManualInvoices,
       draftManualBills,
       missingRealizedFxJournals,
+      latestInvoice,
+      latestBill,
+      latestCustomerPayment,
+      latestSupplierPayment,
     ] = await Promise.all([
       executor.salesInvoice.count({ where: { organizationId, currency: foreignCurrency, issueDate: { lte: asOf } } }),
       executor.purchaseBill.count({ where: { organizationId, currency: foreignCurrency, billDate: { lte: asOf } } }),
@@ -83,11 +88,17 @@ export class FxCloseReadinessService {
         where: { organizationId, currency: foreignCurrency, status: PurchaseBillStatus.DRAFT, rateSource: CurrencyRateSource.MANUAL, billDate: { lte: asOf } },
       }),
       this.missingRealizedJournalCount(organizationId, asOf, executor, gainOrLoss),
+      executor.salesInvoice.findFirst({ where: { organizationId, currency: foreignCurrency, issueDate: { lte: asOf } }, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
+      executor.purchaseBill.findFirst({ where: { organizationId, currency: foreignCurrency, billDate: { lte: asOf } }, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
+      executor.customerPayment.findFirst({ where: { organizationId, currency: foreignCurrency, paymentDate: { lte: asOf } }, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
+      executor.supplierPayment.findFirst({ where: { organizationId, currency: foreignCurrency, paymentDate: { lte: asOf } }, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
     ]);
+
+    const documentSourceUpdatedAt = latestUpdatedAt([latestInvoice?.updatedAt, latestBill?.updatedAt, latestCustomerPayment?.updatedAt, latestSupplierPayment?.updatedAt]);
 
     const foreignDocuments = foreignInvoiceCount + foreignBillCount;
     if (foreignDocuments === 0 && foreignCustomerPaymentCount + foreignSupplierPaymentCount === 0 && missingRealizedFxJournals === 0) {
-      return { status: "NOT_APPLICABLE", asOf: asOfLabel, blockers: [], counts: emptyCounts(), actions: [] };
+      return { status: "NOT_APPLICABLE", asOf: asOfLabel, blockers: [], counts: emptyCounts(), actions: [], sourceUpdatedAt: documentSourceUpdatedAt };
     }
 
     const openForeignDocumentCount = openInvoiceCount + openBillCount;
@@ -110,7 +121,7 @@ export class FxCloseReadinessService {
       }),
       executor.fxRevaluationRun.findFirst({
         where: { organizationId, revaluationDate: closeDay, status: FxRevaluationStatus.POSTED },
-        select: { id: true },
+        select: { id: true, updatedAt: true },
       }),
       countFxSourceActivityAfter(executor, organizationId, baseCurrency, asOf),
     ]);
@@ -118,7 +129,8 @@ export class FxCloseReadinessService {
     const { accountConfigurationComplete, controlAccountsComplete } = evaluateFxAccountReadiness({ configuration, controlAccounts });
     const foreignCurrencies = [...new Set([...invoiceCurrencies, ...billCurrencies].map((row) => currency(row.currency)))].sort();
     const rates = foreignCurrencies.length
-      ? await executor.currencyRateSnapshot.findMany({
+      ? await executor.currencyRateSnapshot.groupBy({
+          by: ["transactionCurrency"],
           where: {
             organizationId,
             baseCurrency,
@@ -126,8 +138,7 @@ export class FxCloseReadinessService {
             rateDate: closeDay,
             source: { in: [CurrencyRateSource.MANUAL, CurrencyRateSource.IMPORT] },
           },
-          select: { transactionCurrency: true },
-          distinct: ["transactionCurrency"],
+          _max: { createdAt: true },
         })
       : [];
     const availableRates = new Set(rates.map((row) => currency(row.transactionCurrency)));
@@ -177,6 +188,7 @@ export class FxCloseReadinessService {
       blockers,
       counts,
       actions: blockers.map((item) => ({ code: item.code, label: item.message, href: item.actionHref })),
+      sourceUpdatedAt: latestUpdatedAt([documentSourceUpdatedAt, configuration?.updatedAt, postedCloseRun?.updatedAt, ...rates.map((rate) => rate._max.createdAt)]),
     };
   }
 
@@ -229,6 +241,11 @@ export class FxCloseReadinessService {
     ]);
     return customerOriginal + customerUnappliedOriginal + supplierOriginal + supplierUnappliedOriginal + customerVoid + supplierVoid + customerUnappliedReversal + supplierUnappliedReversal;
   }
+}
+
+function latestUpdatedAt(values: Array<Date | string | null | undefined>): string | undefined {
+  const timestamps = values.map((value) => value instanceof Date ? value.getTime() : typeof value === "string" ? new Date(value).getTime() : Number.NaN).filter(Number.isFinite);
+  return timestamps.length ? new Date(Math.max(...timestamps)).toISOString() : undefined;
 }
 
 function blocker(code: string, count: number, message: string, actionHref: string): FxCloseBlocker { return { code, count, message, actionHref }; }
