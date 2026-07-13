@@ -117,4 +117,61 @@ describe("AccountingCloseService", () => {
 
     await expect(service.createCycle("org-1", "user-1", "period-1")).resolves.toEqual(existing);
   });
+
+  it("completes only a tenant-scoped manual task with the expected cycle version", async () => {
+    const { service, prisma, auditLog } = createService();
+    const task = { id: "task-1", organizationId: "org-1", closeCycleId: "cycle-1", source: "STANDARD_TEMPLATE", status: "OPEN" };
+    const tx = {
+      accountingCloseTask: {
+        findFirst: jest.fn().mockResolvedValue(task),
+        update: jest.fn().mockResolvedValue({ ...task, status: "COMPLETED", completionNote: "Reviewed." }),
+      },
+      accountingCloseCycle: { findFirst: jest.fn().mockResolvedValue({ id: "cycle-1", fiscalPeriodId: "period-1", status: "IN_PROGRESS" }), updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      fiscalPeriod: { findFirst: jest.fn().mockResolvedValue({ id: "period-1", status: FiscalPeriodStatus.OPEN }) },
+    };
+    Object.assign(prisma, { $transaction: jest.fn((callback) => callback(tx)) });
+
+    await expect(service.completeTask("org-1", "user-1", "cycle-1", "task-1", 3, "Reviewed.")).resolves.toMatchObject({ status: "COMPLETED" });
+    expect(tx.accountingCloseCycle.updateMany).toHaveBeenCalledWith({ where: { id: "cycle-1", organizationId: "org-1", version: 3, status: { in: ["IN_PROGRESS", "READY_FOR_REVIEW"] }, fiscalPeriod: { is: { organizationId: "org-1", status: FiscalPeriodStatus.OPEN } } }, data: { version: { increment: 1 } } });
+    expect(tx.accountingCloseTask.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "COMPLETED", completedByUserId: "user-1", completionNote: "Reviewed." }) }));
+    expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({ action: "COMPLETE", entityType: "AccountingCloseTask", entityId: "task-1" }), tx);
+  });
+
+  it("rejects completion after the cycle is closed or locked", async () => {
+    const { service, prisma } = createService();
+    const tx = {
+      accountingCloseCycle: { findFirst: jest.fn().mockResolvedValue({ id: "cycle-1", fiscalPeriodId: "period-1", status: "LOCKED" }) },
+      accountingCloseTask: { findFirst: jest.fn() },
+    };
+    Object.assign(prisma, { $transaction: jest.fn((callback) => callback(tx)) });
+    await expect(service.completeTask("org-1", "user-1", "cycle-1", "task-1", 1)).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("rejects completion when the authoritative fiscal period is closed or locked", async () => {
+    const { service, prisma } = createService();
+    const tx = {
+      accountingCloseCycle: { findFirst: jest.fn().mockResolvedValue({ id: "cycle-1", fiscalPeriodId: "period-1", status: "IN_PROGRESS" }) },
+      fiscalPeriod: { findFirst: jest.fn().mockResolvedValue({ id: "period-1", status: FiscalPeriodStatus.CLOSED }) },
+      accountingCloseTask: { findFirst: jest.fn() },
+    };
+    Object.assign(prisma, { $transaction: jest.fn((callback) => callback(tx)) });
+    await expect(service.completeTask("org-1", "user-1", "cycle-1", "task-1", 1)).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("requires reopening before a completed task can be completed again", async () => {
+    const { service, prisma } = createService();
+    const tx = {
+      accountingCloseCycle: { findFirst: jest.fn().mockResolvedValue({ id: "cycle-1", fiscalPeriodId: "period-1", status: "IN_PROGRESS" }) },
+      fiscalPeriod: { findFirst: jest.fn().mockResolvedValue({ id: "period-1", status: FiscalPeriodStatus.OPEN }) },
+      accountingCloseTask: { findFirst: jest.fn().mockResolvedValue({ id: "task-1", organizationId: "org-1", closeCycleId: "cycle-1", source: "STANDARD_TEMPLATE", status: "COMPLETED" }) },
+    };
+    Object.assign(prisma, { $transaction: jest.fn((callback) => callback(tx)) });
+    await expect(service.completeTask("org-1", "user-1", "cycle-1", "task-1", 1)).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("maps a serializable completion conflict to a safe conflict response", async () => {
+    const { service, prisma } = createService();
+    Object.assign(prisma, { $transaction: jest.fn().mockRejectedValue({ code: "P2034" }) });
+    await expect(service.completeTask("org-1", "user-1", "cycle-1", "task-1", 1)).rejects.toMatchObject({ status: 409 });
+  });
 });

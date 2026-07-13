@@ -55,6 +55,55 @@ export class AccountingCloseService {
     }
   }
 
+  async completeTask(organizationId: string, actorUserId: string, cycleId: string, taskId: string, expectedVersion: number, completionNote?: string) {
+    if (!Number.isInteger(expectedVersion) || expectedVersion < 1) throw new BadRequestException("expectedVersion must be a positive integer.");
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const cycle = await tx.accountingCloseCycle.findFirst({ where: { id: cycleId, organizationId }, select: { id: true, fiscalPeriodId: true, status: true } });
+        if (!cycle) throw new NotFoundException("Close cycle not found.");
+        if (!["IN_PROGRESS", "READY_FOR_REVIEW"].includes(cycle.status)) {
+          throw new BadRequestException("Close tasks cannot be completed after review, close, or lock.");
+        }
+        const fiscalPeriod = await tx.fiscalPeriod.findFirst({
+          where: { id: cycle.fiscalPeriodId, organizationId },
+          select: { id: true, status: true },
+        });
+        if (!fiscalPeriod) throw new NotFoundException("Fiscal period not found.");
+        if (fiscalPeriod.status !== FiscalPeriodStatus.OPEN) {
+          throw new BadRequestException("Close tasks cannot be completed after the fiscal period is closed or locked.");
+        }
+
+        const task = await tx.accountingCloseTask.findFirst({ where: { id: taskId, closeCycleId: cycleId, organizationId } });
+        if (!task) throw new NotFoundException("Close task not found.");
+        if (task.source === "SYSTEM") throw new BadRequestException("System-generated checks cannot be manually completed.");
+        if (!["OPEN", "IN_PROGRESS", "BLOCKED"].includes(task.status)) {
+          throw new BadRequestException("Close task must be reopened before it can be completed again.");
+        }
+
+        const claimed = await tx.accountingCloseCycle.updateMany({
+          where: {
+            id: cycleId,
+            organizationId,
+            version: expectedVersion,
+            status: { in: ["IN_PROGRESS", "READY_FOR_REVIEW"] },
+            fiscalPeriod: { is: { organizationId, status: FiscalPeriodStatus.OPEN } },
+          },
+          data: { version: { increment: 1 } },
+        });
+        if (claimed.count !== 1) throw new ConflictException("Close cycle changed. Reload and retry.");
+        const completed = await tx.accountingCloseTask.update({
+          where: { id: task.id },
+          data: { status: "COMPLETED", completedAt: new Date(), completedByUserId: actorUserId, completionNote: completionNote?.trim() || null },
+        });
+        await this.auditLogService.log({ organizationId, actorUserId, action: "COMPLETE", entityType: "AccountingCloseTask", entityId: task.id, before: task, after: completed }, tx);
+        return completed;
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    } catch (error) {
+      if (prismaErrorCode(error) === "P2034") throw new ConflictException("Close task changed. Reload and retry.");
+      throw error;
+    }
+  }
+
   async readiness(organizationId: string, fiscalPeriodId: string) {
     const fiscalPeriod = await this.prisma.fiscalPeriod.findFirst({ where: { id: fiscalPeriodId, organizationId } });
     if (!fiscalPeriod) throw new NotFoundException("Fiscal period not found.");
