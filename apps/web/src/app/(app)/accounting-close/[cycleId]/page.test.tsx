@@ -134,4 +134,21 @@ describe("accountant close cycle detail", () => {
     expect(await screen.findByText("older-hash")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Previous snapshot page" })).toBeInTheDocument();
   });
+
+  it("compares two frozen snapshots and shows only the changed safe checks", async () => {
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/accounting-close/cycles/cycle-1") return Promise.resolve({ id: "cycle-1", fiscalPeriodId: "period-1", status: "REVIEWED", version: 6, readinessHash: "current", fiscalPeriod: { name: "June 2026", status: "OPEN" }, taskCount: 2, evidenceCount: 1, snapshotCount: 2 });
+      if (path === "/accounting-close/cycles/cycle-1/tasks?page=1&pageSize=100") return Promise.resolve({ items: [], meta: { totalItems: 0 } });
+      if (path === "/accounting-close/cycles/cycle-1/snapshots?page=1&pageSize=100") return Promise.resolve({ items: [{ id: "11111111-1111-4111-8111-111111111111", status: "REVIEWED", capturedAt: "2026-07-01T10:00:00.000Z", blockerCount: 0, warningCount: 1, informationCount: 0, checkCount: 2, canonicalHash: "current-hash", sourceVersion: 6 }, { id: "22222222-2222-4222-8222-222222222222", status: "REVIEWED", capturedAt: "2026-06-30T10:00:00.000Z", blockerCount: 0, warningCount: 0, informationCount: 0, checkCount: 1, canonicalHash: "baseline-hash", sourceVersion: 5 }], meta: { page: 1, pageSize: 100, totalItems: 2, totalPages: 1 } });
+      if (path.includes("/compare?baselineSnapshotId=22222222-2222-4222-8222-222222222222")) return Promise.resolve({ changeCount: 1, changes: [{ checkKey: "fx.rates", changeType: "MODIFIED", before: { safeMessage: "No exception." }, after: { safeMessage: "Capture a closing rate." } }] });
+      return Promise.resolve(null);
+    });
+    render(<AccountingCloseCyclePage />);
+    expect(await screen.findByText("Compare frozen snapshots")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Baseline snapshot"), { target: { value: "22222222-2222-4222-8222-222222222222" } });
+    fireEvent.change(screen.getByLabelText("Comparison snapshot"), { target: { value: "11111111-1111-4111-8111-111111111111" } });
+    fireEvent.click(screen.getByRole("button", { name: "Compare snapshots" }));
+    await waitFor(() => expect(apiRequestMock).toHaveBeenCalledWith("/accounting-close/cycles/cycle-1/snapshots/11111111-1111-4111-8111-111111111111/compare?baselineSnapshotId=22222222-2222-4222-8222-222222222222"));
+    expect(await screen.findByText("Capture a closing rate.")).toBeInTheDocument();
+  });
 });
