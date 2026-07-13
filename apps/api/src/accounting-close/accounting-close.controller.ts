@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Post, Query, UseGuards } from "@nestjs/common";
 import { PERMISSIONS } from "@ledgerbyte/shared";
 import { CurrentOrganizationId } from "../auth/decorators/current-organization.decorator";
 import { RequirePermissions } from "../auth/decorators/require-permissions.decorator";
@@ -6,6 +6,9 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
 import { PermissionGuard } from "../auth/guards/permission.guard";
 import { AccountingCloseReadinessQueryDto } from "./dto/accounting-close-readiness-query.dto";
+import { CreateAccountingCloseCycleDto } from "./dto/create-accounting-close-cycle.dto";
+import { CurrentUser } from "../auth/decorators/current-user.decorator";
+import type { AuthenticatedUser } from "../auth/auth.types";
 import { AccountingCloseService } from "./accounting-close.service";
 
 @Controller("accounting-close")
@@ -17,5 +20,11 @@ export class AccountingCloseController {
   @RequirePermissions(PERMISSIONS.accountingClose.read)
   readiness(@CurrentOrganizationId() organizationId: string, @Query() query: AccountingCloseReadinessQueryDto) {
     return this.accountingCloseService.readiness(organizationId, query.fiscalPeriodId);
+  }
+
+  @Post("cycles")
+  @RequirePermissions(PERMISSIONS.accountingClose.manage)
+  createCycle(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Body() dto: CreateAccountingCloseCycleDto) {
+    return this.accountingCloseService.createCycle(organizationId, user.id, dto.fiscalPeriodId);
   }
 }

@@ -1,4 +1,4 @@
-import { NotFoundException } from "@nestjs/common";
+import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { FiscalPeriodStatus } from "@prisma/client";
 import { AccountingCloseService } from "./accounting-close.service";
 
@@ -20,7 +20,8 @@ describe("AccountingCloseService", () => {
         runsScheduledInsideLockedPeriods: 0, blocksFiscalClose: false, asOf: "2026-07-13T00:00:00.000Z",
       }),
     };
-    return { service: new AccountingCloseService(prisma as never, fx as never, recurring as never), prisma, fx, recurring };
+    const auditLog = { log: jest.fn().mockResolvedValue(undefined) };
+    return { service: new AccountingCloseService(prisma as never, fx as never, recurring as never, auditLog as never), prisma, fx, recurring, auditLog };
   }
 
   it("uses tenant-scoped fiscal dates and existing domain readiness without reclassifying policy", async () => {
@@ -59,5 +60,61 @@ describe("AccountingCloseService", () => {
         expect.objectContaining({ key: "fx.error", severity: "BLOCKER", status: "ERROR", code: "FX_READINESS_UNAVAILABLE", canAcknowledge: false }),
       ]),
     });
+  });
+
+  it("creates one tenant-scoped cycle with the standard required manual tasks and an audit event", async () => {
+    const { service, prisma, auditLog } = createService();
+    const tx = {
+      fiscalPeriod: { findFirst: jest.fn().mockResolvedValue(period) },
+      accountingCloseCycle: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({ id: "cycle-1", organizationId: "org-1", fiscalPeriodId: "period-1", status: "IN_PROGRESS" }),
+      },
+    };
+    Object.assign(prisma, { $transaction: jest.fn((callback) => callback(tx)) });
+
+    await expect(service.createCycle("org-1", "user-1", "period-1")).resolves.toMatchObject({ id: "cycle-1" });
+
+    expect(tx.accountingCloseCycle.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        organizationId: "org-1",
+        fiscalPeriodId: "period-1",
+        startedByUserId: "user-1",
+        tasks: { create: expect.arrayContaining([
+          expect.objectContaining({ taskType: "BANK_RECONCILIATION", isRequired: true, source: "STANDARD_TEMPLATE" }),
+          expect.objectContaining({ taskType: "REVIEWER_SIGN_OFF", isRequired: true, source: "STANDARD_TEMPLATE" }),
+        ]) },
+      }),
+    }));
+    expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({ organizationId: "org-1", actorUserId: "user-1", action: "START", entityType: "AccountingCloseCycle", entityId: "cycle-1" }), tx);
+  });
+
+  it("rejects a cycle for a closed or locked fiscal period", async () => {
+    const { service, prisma } = createService();
+    Object.assign(prisma, { $transaction: jest.fn((callback) => callback({ fiscalPeriod: { findFirst: jest.fn().mockResolvedValue({ ...period, status: FiscalPeriodStatus.LOCKED }) } })) });
+
+    await expect(service.createCycle("org-1", "user-1", "period-1")).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("replays the existing cycle when a concurrent unique claim wins", async () => {
+    const { service, prisma } = createService();
+    const existing = { id: "cycle-existing", organizationId: "org-1", fiscalPeriodId: "period-1", status: "IN_PROGRESS" };
+    Object.assign(prisma, {
+      $transaction: jest.fn().mockRejectedValue({ code: "P2002" }),
+      accountingCloseCycle: { findFirst: jest.fn().mockResolvedValue(existing) },
+    });
+
+    await expect(service.createCycle("org-1", "user-1", "period-1")).resolves.toEqual(existing);
+  });
+
+  it("replays the existing cycle when serializable retries are exhausted", async () => {
+    const { service, prisma } = createService();
+    const existing = { id: "cycle-existing", organizationId: "org-1", fiscalPeriodId: "period-1", status: "IN_PROGRESS" };
+    Object.assign(prisma, {
+      $transaction: jest.fn().mockRejectedValue({ code: "P2034" }),
+      accountingCloseCycle: { findFirst: jest.fn().mockResolvedValue(existing) },
+    });
+
+    await expect(service.createCycle("org-1", "user-1", "period-1")).resolves.toEqual(existing);
   });
 });
