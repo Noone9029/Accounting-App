@@ -4,6 +4,11 @@ import type { Response } from "express";
 import type { AuthenticatedRequest } from "../auth/auth.types";
 import { redactForDiagnostics, redactText } from "./redaction";
 
+const SAFE_DOMAIN_ERROR_CODES = new Set([
+  "ACCOUNTING_CLOSE_REVIEW_INVALIDATED",
+  "ACCOUNTING_CLOSE_LOCK_REVALIDATION_FAILED",
+]);
+
 @Catch()
 @Injectable()
 export class SafeExceptionFilter implements ExceptionFilter {
@@ -18,10 +23,11 @@ export class SafeExceptionFilter implements ExceptionFilter {
     const errorResponse = exception instanceof HttpException ? exception.getResponse() : undefined;
     const message = readSafeMessage(exception, errorResponse, localSafe);
     const details = localSafe ? readSafeDetails(errorResponse) : undefined;
+    const domainCode = readSafeDomainCode(errorResponse);
 
     response.status(statusCode).json({
       error: {
-        code: statusCodeToCode(statusCode),
+        code: domainCode ?? statusCodeToCode(statusCode),
         message,
         statusCode,
         requestId: request.requestId ?? response.getHeader("x-request-id") ?? "unavailable",
@@ -70,6 +76,13 @@ function readSafeDetails(response: string | object | undefined): unknown {
     return redactForDiagnostics(message);
   }
   return undefined;
+}
+
+function readSafeDomainCode(response: string | object | undefined): string | undefined {
+  if (!isRecord(response) || typeof response.code !== "string") {
+    return undefined;
+  }
+  return SAFE_DOMAIN_ERROR_CODES.has(response.code) ? response.code : undefined;
 }
 
 function statusCodeToCode(statusCode: number): string {

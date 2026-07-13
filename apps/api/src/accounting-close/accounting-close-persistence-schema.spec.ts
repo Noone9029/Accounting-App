@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 const schemaPath = resolve(__dirname, "../../prisma/schema.prisma");
 const migrationPath = resolve(__dirname, "../../prisma/migrations/20260713073000_add_accounting_close_workspace_foundation/migration.sql");
 const taskPolicyMigrationPath = resolve(__dirname, "../../prisma/migrations/20260713080000_add_accounting_close_task_policy_fields/migration.sql");
+const reviewedSnapshotMigrationPath = resolve(__dirname, "../../prisma/migrations/20260713100000_allow_reviewed_close_snapshot_status/migration.sql");
 
 function modelBlock(name: string) {
   const schema = readFileSync(schemaPath, "utf8");
@@ -101,5 +102,21 @@ describe("accounting close persistence schema", () => {
     expect(migration).toContain('ADD COLUMN "isRequired" BOOLEAN NOT NULL DEFAULT true');
     expect(migration).toContain('ADD COLUMN "completionNote" TEXT');
     expect(migration).not.toMatch(/UPDATE\s+"AccountingCloseTask"/i);
+  });
+
+  it("allows only the reviewed-status finalization required by immutable close snapshots", () => {
+    expect(existsSync(reviewedSnapshotMigrationPath)).toBe(true);
+    if (!existsSync(reviewedSnapshotMigrationPath)) return;
+    const migration = readFileSync(reviewedSnapshotMigrationPath, "utf8");
+
+    expect(migration.trimStart().startsWith("BEGIN;")).toBe(true);
+    expect(migration.trimEnd().endsWith("COMMIT;")).toBe(true);
+    expect(migration).toContain('CREATE OR REPLACE FUNCTION "prevent_accounting_close_snapshot_mutation"()');
+    expect(migration).toContain("TG_TABLE_NAME = 'AccountingCloseReadinessSnapshot'");
+    expect(migration).toContain("TG_OP = 'UPDATE'");
+    expect(migration).toContain("OLD.status = 'DRAFT'");
+    expect(migration).toContain("NEW.status = 'REVIEWED'");
+    expect(migration).toContain("to_jsonb(NEW) - 'status' = to_jsonb(OLD) - 'status'");
+    expect(migration).not.toContain('DROP TRIGGER "AccountingCloseReadinessSnapshotItem_immutable"');
   });
 });

@@ -12,28 +12,31 @@ const contracts = [
       "FiscalPeriodService.lock",
       "canonical hash",
       "historical-state-unproven",
+      "returned to `IN_PROGRESS`",
+      "authorized fiscal-period reopen workflow",
     ],
   },
   {
     path: "accounting/CLOSE_READINESS_POLICY.md",
     phrases: [
       "`BLOCKER`", "`WARNING`", "`INFORMATION`", "`NOT_APPLICABLE`",
-        "cannot be manually completed", "default to `WARNING`", "Manual draft journals", "Draft sales invoices", "Draft credit notes", "Unapplied customer payments", "Draft purchase bills", "Draft purchase debit notes", "Unapplied supplier payments", "Draft cash expenses", "Document inbox review", "known document date", "extraction-disabled", "Unreconciled bank statement transactions", "Incomplete bank reconciliations", "Draft bank deposit batches", "draft card settlements", "Open cheque instruments", "currently `RECEIVED`, `ISSUED`, or `DEPOSITED`", "Draft inventory adjustments", "Inventory variance proposals awaiting posting", "Failed report packs", "scheduled local date", "fail closed",
+        "cannot be manually completed", "default to `WARNING`", "Manual draft journals", "Draft sales invoices", "Draft credit notes", "Unapplied customer payments", "Draft purchase bills", "Draft purchase debit notes", "Unapplied supplier payments", "Draft cash expenses", "Document inbox review", "known document date", "extraction-disabled", "Unreconciled bank statement transactions", "Incomplete bank reconciliations", "Draft bank deposit batches", "draft card settlements", "Open cheque instruments", "currently `RECEIVED`, `ISSUED`, or `DEPOSITED`", "Draft inventory adjustments", "Inventory variance proposals awaiting posting", "Failed report packs", "scheduled local date", "post-close drift", "fail closed",
     ],
   },
   {
     path: "accounting/CLOSE_CHECKLIST_AND_SIGNOFF.md",
     phrases: [
       "preparer and reviewer must be distinct", "single-user demonstration",
-      "assigned, completed, reopened, and evidenced", "stale review",
+      "assigned, completed, reopened, and evidenced", "stale review", "returns the cycle to `IN_PROGRESS`",
     ],
   },
   {
     path: "accounting/FISCAL_PERIOD_CLOSE_AND_LOCK.md",
     phrases: [
-      "same serializable transaction", "Lock is idempotent", "Close currently requires `REVIEWED`",
+      "same serializable transaction", "Close is idempotent", "Lock is idempotent",
       "does not update `FiscalPeriod.status` directly",
-      "no automatic accounting corrections",
+      "no automatic accounting corrections", "`Idempotency-Key`", "8-128 safe characters",
+      "post-close drift", "`LOCK_BLOCKED`",
     ],
   },
   {
@@ -41,6 +44,7 @@ const contracts = [
     phrases: [
       "does not include tasks, evidence, or current readiness",
       "`/accounting-close/readiness`", "`/accounting-close/cycles/:id/tasks`",
+      "`/accounting-close/cycles/:id/close`", "`Idempotency-Key`",
     ],
   },
   {

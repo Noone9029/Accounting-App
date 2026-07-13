@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query, Res, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Headers, Param, ParseUUIDPipe, Post, Query, Res, UseGuards } from "@nestjs/common";
 import type { Response } from "express";
 import { PERMISSIONS } from "@ledgerbyte/shared";
 import { CurrentOrganizationId } from "../auth/decorators/current-organization.decorator";
@@ -18,6 +18,7 @@ import { AssignAccountingCloseTaskDto } from "./dto/assign-accounting-close-task
 import { AddAccountingCloseEvidenceDto } from "./dto/add-accounting-close-evidence.dto";
 import { PrepareAccountingCloseCycleDto } from "./dto/prepare-accounting-close-cycle.dto";
 import { ReviewAccountingCloseCycleDto } from "./dto/review-accounting-close-cycle.dto";
+import { ReturnAccountingCloseCycleToPreparerDto } from "./dto/return-accounting-close-cycle-to-preparer.dto";
 import { CloseAccountingCloseCycleDto } from "./dto/close-accounting-close-cycle.dto";
 import { LockAccountingCloseCycleDto } from "./dto/lock-accounting-close-cycle.dto";
 import { FindAccountingCloseCycleDto } from "./dto/find-accounting-close-cycle.dto";
@@ -127,16 +128,22 @@ export class AccountingCloseController {
     return this.accountingCloseService.reviewCycle(organizationId, user.id, cycleId, dto.expectedVersion);
   }
 
+  @Post("cycles/:id/return-to-preparer")
+  @RequirePermissions(PERMISSIONS.accountingClose.review)
+  returnCycleToPreparer(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") cycleId: string, @Body() dto: ReturnAccountingCloseCycleToPreparerDto) {
+    return this.accountingCloseService.returnCycleToPreparer(organizationId, user.id, cycleId, dto.expectedVersion, dto.returnReason);
+  }
+
   @Post("cycles/:id/close")
   @RequirePermissions(PERMISSIONS.accountingClose.close)
-  closeCycle(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") cycleId: string, @Body() dto: CloseAccountingCloseCycleDto) {
-    return this.accountingCloseService.closeCycle(organizationId, user.id, cycleId, dto.expectedVersion);
+  closeCycle(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") cycleId: string, @Headers("idempotency-key") idempotencyKey: string | undefined, @Body() dto: CloseAccountingCloseCycleDto) {
+    return this.accountingCloseService.closeCycle(organizationId, user.id, cycleId, dto.expectedVersion, idempotencyKey);
   }
 
   @Post("cycles/:id/lock")
   @RequirePermissions(PERMISSIONS.accountingClose.lock)
-  lockCycle(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") cycleId: string, @Body() dto: LockAccountingCloseCycleDto) {
-    return this.accountingCloseService.lockCycle(organizationId, user.id, cycleId, dto.expectedVersion);
+  lockCycle(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") cycleId: string, @Headers("idempotency-key") idempotencyKey: string | undefined, @Body() dto: LockAccountingCloseCycleDto) {
+    return this.accountingCloseService.lockCycle(organizationId, user.id, cycleId, dto.expectedVersion, idempotencyKey);
   }
 
   @Post("cycles/:id/tasks/:taskId/complete")

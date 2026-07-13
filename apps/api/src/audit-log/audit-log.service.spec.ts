@@ -49,6 +49,9 @@ describe("FX audit event catalogue", () => {
     ["FxRevaluationRun", "POST", "FX_REVALUATION_POSTED"],
     ["FxRevaluationRun", "REVERSE", "FX_REVALUATION_REVERSED"],
     ["FxRevaluationRun", "SUPERSEDE", "FX_REVALUATION_SUPERSEDED"],
+    ["AccountingCloseCycle", "RETURN_TO_PREPARER", "ACCOUNTING_CLOSE_RETURNED_TO_PREPARER"],
+    ["AccountingCloseCycle", "INVALIDATE_REVIEW", "ACCOUNTING_CLOSE_REVIEW_INVALIDATED"],
+    ["AccountingCloseCycle", "LOCK_BLOCKED", "ACCOUNTING_CLOSE_LOCK_BLOCKED"],
   ])("maps %s:%s to %s", (entityType, action, expected) => {
     expect(standardizeAuditAction(action, entityType)).toBe(expected);
   });

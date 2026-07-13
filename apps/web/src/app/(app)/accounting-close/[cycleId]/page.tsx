@@ -18,6 +18,9 @@ type SnapshotPage = { items: Snapshot[]; meta: { page: number; pageSize: number;
 type SnapshotDetail = Snapshot & { items: Array<{ checkKey: string; severity: string; status: string; code: string; safeMessage: string; count: number | null; currencyCode: string | null; sourceUpdatedAt: string | null; metadataSafe: { title?: string } | null }> };
 type SnapshotComparison = { changeCount: number; changes: Array<{ checkKey: string; changeType: string; before: { safeMessage: string } | null; after: { safeMessage: string } | null }> };
 
+const ACCOUNTING_CLOSE_REVIEW_INVALIDATED = "ACCOUNTING_CLOSE_REVIEW_INVALIDATED";
+const ACCOUNTING_CLOSE_LOCK_REVALIDATION_FAILED = "ACCOUNTING_CLOSE_LOCK_REVALIDATION_FAILED";
+
 export default function AccountingCloseCyclePage() {
   const { cycleId } = useParams<{ cycleId: string }>();
   const organizationId = useActiveOrganizationId();
@@ -39,6 +42,8 @@ export default function AccountingCloseCyclePage() {
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [reviewInvalidatedWarning, setReviewInvalidatedWarning] = useState("");
+  const [postCloseDriftWarning, setPostCloseDriftWarning] = useState("");
   const [evidenceLabel, setEvidenceLabel] = useState("");
   const [evidenceReportType, setEvidenceReportType] = useState("TRIAL_BALANCE");
   const [evidenceTaskId, setEvidenceTaskId] = useState("");
@@ -46,6 +51,7 @@ export default function AccountingCloseCyclePage() {
   const snapshotRequestId = useRef(0);
   const comparisonRequestId = useRef(0);
   const evidenceExportRequestId = useRef(0);
+  const terminalMutationIdempotencyKeys = useRef(new Map<string, string>());
   const canManage = canAny(PERMISSIONS.accountingClose.manage);
   const canRead = canAny(PERMISSIONS.accountingClose.read);
 
@@ -54,7 +60,8 @@ export default function AccountingCloseCyclePage() {
     evidenceExportRequestId.current += 1;
     snapshotRequestId.current += 1;
     comparisonRequestId.current += 1;
-    setCycle(null); setTasks([]); setSnapshots([]); setSnapshotMeta(null); setSelectedSnapshot(null); setSnapshotDetail(null); setSnapshotLoading(false); setSnapshotPageLoading(false); setBaselineSnapshotId(""); setComparisonSnapshotId(""); setSnapshotComparison(null); setComparisonLoading(false); setEvidenceExporting(""); setEvidenceExportError(""); setError(""); setRunning(null); setEvidenceLabel(""); setEvidenceTaskId("");
+    terminalMutationIdempotencyKeys.current.clear();
+    setCycle(null); setTasks([]); setSnapshots([]); setSnapshotMeta(null); setSelectedSnapshot(null); setSnapshotDetail(null); setSnapshotLoading(false); setSnapshotPageLoading(false); setBaselineSnapshotId(""); setComparisonSnapshotId(""); setSnapshotComparison(null); setComparisonLoading(false); setEvidenceExporting(""); setEvidenceExportError(""); setError(""); setReviewInvalidatedWarning(""); setPostCloseDriftWarning(""); setRunning(null); setEvidenceLabel(""); setEvidenceTaskId("");
     if (organizationId && cycleId) void load(); else setLoading(false);
   }, [organizationId, cycleId]);
 
@@ -109,16 +116,40 @@ export default function AccountingCloseCyclePage() {
     finally { if (context === comparisonRequestId.current) setComparisonLoading(false); }
   }
 
-  async function transition(action: "refresh" | "prepare" | "review" | "close" | "lock") {
+  async function transition(action: "refresh" | "prepare" | "review" | "return-to-preparer" | "close" | "lock") {
     if (!cycle) return;
+    const returnReason = action === "return-to-preparer" ? window.prompt("Why is this close cycle being returned to preparation?")?.trim() : undefined;
+    if (action === "return-to-preparer" && !returnReason) return;
     if ((action === "close" || action === "lock") && !window.confirm(`${action === "lock" ? "Locking" : "Closing"} ${cycle.fiscalPeriod.name} changes the fiscal period through the authoritative accounting workflow. Continue?`)) return;
     const expectedVersion = cycle.version;
+    const idempotencyKey = action === "close" || action === "lock"
+      ? terminalMutationIdempotencyKey(terminalMutationIdempotencyKeys.current, action, cycle.id, expectedVersion)
+      : undefined;
     const context = requestId.current;
     setRunning(action); setError("");
     try {
-      await apiRequest(`/accounting-close/cycles/${cycle.id}/${action}`, { method: "POST", body: { expectedVersion } });
+      await apiRequest(`/accounting-close/cycles/${cycle.id}/${action}`, {
+        method: "POST",
+        body: action === "return-to-preparer" ? { expectedVersion, returnReason } : { expectedVersion },
+        ...(idempotencyKey ? { headers: { "idempotency-key": idempotencyKey } } : {}),
+      });
       if (context === requestId.current) { setRunning(null); await load(); }
-    } catch (cause) { if (context === requestId.current) setError(cause instanceof Error ? cause.message : `Unable to ${action} this close cycle.`); }
+    } catch (cause) {
+      if (context !== requestId.current) return;
+      if (action === "close" && isReviewInvalidationConflict(cause)) {
+        setRunning(null);
+        setReviewInvalidatedWarning("The review was invalidated because readiness changed. Refresh readiness and record a new review before closing this period.");
+        await load();
+        return;
+      }
+      if (action === "lock" && isLockRevalidationConflict(cause)) {
+        setRunning(null);
+        setPostCloseDriftWarning("Close readiness changed after the fiscal period was closed. No lock was applied. Use the authorized fiscal-period reopen workflow, then return this close cycle to preparation before a fresh review and lock attempt.");
+        await load();
+        return;
+      }
+      setError(cause instanceof Error ? cause.message : `Unable to ${action} this close cycle.`);
+    }
     finally { if (context === requestId.current) setRunning(null); }
   }
 
@@ -164,15 +195,22 @@ export default function AccountingCloseCyclePage() {
 
   const statusTone = cycle?.status === "LOCKED" ? "danger" : cycle?.status === "REVIEWED" ? "success" : cycle?.status === "READY_FOR_REVIEW" ? "warning" : "info";
   const tasksMutable = cycle?.fiscalPeriod.status === "OPEN" && ["IN_PROGRESS", "READY_FOR_REVIEW"].includes(cycle.status);
+  const canRefreshReadiness = canManage && cycle?.fiscalPeriod.status === "OPEN" && ["IN_PROGRESS", "READY_FOR_REVIEW"].includes(cycle.status);
+  const canReturnToPreparation = canAny(PERMISSIONS.accountingClose.review) && (cycle?.status === "REVIEWED" || (cycle?.status === "CLOSED" && cycle.fiscalPeriod.status === "OPEN"));
+  const canClosePeriod = canAny(PERMISSIONS.accountingClose.close) && cycle?.status === "REVIEWED" && cycle.fiscalPeriod.status === "OPEN";
+  const canLockPeriod = canAny(PERMISSIONS.accountingClose.lock) && cycle?.status === "CLOSED" && cycle.fiscalPeriod.status === "CLOSED";
   return <LedgerPage>
     <LedgerPageHeader eyebrow="Accounting controls" title={cycle ? `${cycle.fiscalPeriod.name} close cycle` : "Close cycle"} description="Checklist, readiness snapshots, and fiscal-period actions remain guarded by the authoritative close workflow." badge={cycle ? <LedgerStatusBadge tone={statusTone}>{cycle.status.replaceAll("_", " ")}</LedgerStatusBadge> : undefined} actions={<div className="flex flex-wrap gap-2">{cycle && canRead ? <><LedgerButton size="sm" variant="quiet" onClick={() => void downloadEvidenceExport("json")} disabled={evidenceExporting !== ""}>{evidenceExporting === "json" ? "Downloading JSON..." : "Download evidence JSON"}</LedgerButton><LedgerButton size="sm" variant="quiet" onClick={() => void downloadEvidenceExport("csv")} disabled={evidenceExporting !== ""}>{evidenceExporting === "csv" ? "Downloading CSV..." : "Download evidence CSV"}</LedgerButton></> : null}<LedgerButton href="/accounting-close" variant="quiet">All close cycles</LedgerButton></div>} />
     <LedgerPageBody>
-      {loading ? <LedgerLoadingState title="Loading close cycle" /> : null}
-      {error ? <LedgerErrorState title="Unable to load close cycle" description={error} action={<LedgerButton onClick={() => void load()}>Try again</LedgerButton>} /> : null}
-      {evidenceExportError ? <LedgerAlert tone="warning">{evidenceExportError}</LedgerAlert> : null}
-      {cycle ? <>
+       {loading ? <LedgerLoadingState title="Loading close cycle" /> : null}
+       {error ? <LedgerErrorState title="Unable to load close cycle" description={error} action={<LedgerButton onClick={() => void load()}>Try again</LedgerButton>} /> : null}
+       {reviewInvalidatedWarning ? <LedgerAlert tone="warning">{reviewInvalidatedWarning}</LedgerAlert> : null}
+       {postCloseDriftWarning ? <LedgerAlert tone="warning">{postCloseDriftWarning}</LedgerAlert> : null}
+       {evidenceExportError ? <LedgerAlert tone="warning">{evidenceExportError}</LedgerAlert> : null}
+       {cycle?.status === "CLOSED" && cycle.fiscalPeriod.status === "OPEN" ? <LedgerAlert tone="warning">The fiscal period is open while this close cycle remains closed. Return the close cycle to preparation before starting a fresh readiness and review workflow.</LedgerAlert> : null}
+       {cycle ? <>
         <LedgerPanel>
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div className="min-w-0"><h2 className="text-base font-semibold text-ink">Readiness control</h2><p className="mt-1 break-all text-sm text-steel">Current hash: {cycle.readinessHash ?? "Not captured yet"}</p></div><div className="flex flex-wrap gap-2">{canManage ? <LedgerButton onClick={() => void transition("refresh")} disabled={running !== null}>{running === "refresh" ? "Refreshing..." : "Refresh readiness"}</LedgerButton> : null}{cycle.status === "IN_PROGRESS" && canAny(PERMISSIONS.accountingClose.prepare) ? <LedgerButton variant="primary" onClick={() => void transition("prepare")} disabled={running !== null}>Prepare for review</LedgerButton> : null}{cycle.status === "READY_FOR_REVIEW" && canAny(PERMISSIONS.accountingClose.review) ? <LedgerButton variant="primary" onClick={() => void transition("review")} disabled={running !== null}>Record review</LedgerButton> : null}{cycle.status === "REVIEWED" && canAny(PERMISSIONS.accountingClose.close) ? <LedgerButton variant="danger" onClick={() => void transition("close")} disabled={running !== null}>Close period</LedgerButton> : null}{cycle.status === "CLOSED" && canAny(PERMISSIONS.accountingClose.lock) ? <LedgerButton variant="danger" onClick={() => void transition("lock")} disabled={running !== null}>Lock period</LedgerButton> : null}</div></div>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div className="min-w-0"><h2 className="text-base font-semibold text-ink">Readiness control</h2><p className="mt-1 break-all text-sm text-steel">Current hash: {cycle.readinessHash ?? "Not captured yet"}</p></div><div className="flex flex-wrap gap-2">{canRefreshReadiness ? <LedgerButton onClick={() => void transition("refresh")} disabled={running !== null}>{running === "refresh" ? "Refreshing..." : "Refresh readiness"}</LedgerButton> : null}{cycle.status === "IN_PROGRESS" && cycle.fiscalPeriod.status === "OPEN" && canAny(PERMISSIONS.accountingClose.prepare) ? <LedgerButton variant="primary" onClick={() => void transition("prepare")} disabled={running !== null}>Prepare for review</LedgerButton> : null}{cycle.status === "READY_FOR_REVIEW" && cycle.fiscalPeriod.status === "OPEN" && canAny(PERMISSIONS.accountingClose.review) ? <LedgerButton variant="primary" onClick={() => void transition("review")} disabled={running !== null}>Record review</LedgerButton> : null}{canReturnToPreparation ? <LedgerButton variant="quiet" onClick={() => void transition("return-to-preparer")} disabled={running !== null}>Return to preparer</LedgerButton> : null}{canClosePeriod ? <LedgerButton variant="danger" onClick={() => void transition("close")} disabled={running !== null}>Close period</LedgerButton> : null}{canLockPeriod ? <LedgerButton variant="danger" onClick={() => void transition("lock")} disabled={running !== null}>Lock period</LedgerButton> : null}</div></div>
         </LedgerPanel>
         <LedgerPanel><dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4"><Metric label="Tasks" value={cycle.taskCount} /><Metric label="Evidence links" value={cycle.evidenceCount} /><Metric label="Snapshots" value={cycle.snapshotCount} /><Metric label="Fiscal period" value={cycle.fiscalPeriod.status} /></dl></LedgerPanel>
         <LedgerPanel>
@@ -194,3 +232,33 @@ export default function AccountingCloseCyclePage() {
 }
 
 function Metric({ label, value }: { label: string; value: string | number }) { return <div className="rounded-md bg-mist px-3 py-2"><dt className="text-xs font-semibold uppercase tracking-wide text-steel">{label}</dt><dd className="mt-1 font-medium text-ink">{value}</dd></div>; }
+
+function terminalMutationIdempotencyKey(keys: Map<string, string>, action: "close" | "lock", cycleId: string, expectedVersion: number): string {
+  const identity = `${action}:${cycleId}:${expectedVersion}`;
+  const existing = keys.get(identity);
+  if (existing) return existing;
+  const random = typeof globalThis.crypto?.randomUUID === "function"
+    ? globalThis.crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  const next = `acct-close-${action}-${random}`;
+  keys.set(identity, next);
+  return next;
+}
+
+function isReviewInvalidationConflict(cause: unknown) {
+  return isAccountingCloseConflict(cause, ACCOUNTING_CLOSE_REVIEW_INVALIDATED);
+}
+
+function isLockRevalidationConflict(cause: unknown) {
+  return isAccountingCloseConflict(cause, ACCOUNTING_CLOSE_LOCK_REVALIDATION_FAILED);
+}
+
+function isAccountingCloseConflict(cause: unknown, code: string) {
+  if (!isRecord(cause) || cause.status !== 409 || !isRecord(cause.details)) return false;
+  const error = isRecord(cause.details.error) ? cause.details.error : cause.details;
+  return error.code === code;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}

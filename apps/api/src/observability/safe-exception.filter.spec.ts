@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, NotFoundException, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, NotFoundException, UnauthorizedException } from "@nestjs/common";
 import { SafeExceptionFilter } from "./safe-exception.filter";
 
 describe("SafeExceptionFilter", () => {
@@ -53,6 +53,46 @@ describe("SafeExceptionFilter", () => {
         statusCode: 400,
         requestId: "req-local",
         details: ["[REDACTED]"],
+      },
+    });
+  });
+
+  it("preserves the explicitly whitelisted close-review invalidation code in production", () => {
+    const { filter, response } = makeFilter("production", "req-close-invalidated");
+    filter.catch(
+      new ConflictException({
+        code: "ACCOUNTING_CLOSE_REVIEW_INVALIDATED",
+        message: "Close readiness changed and the review was invalidated.",
+      }),
+      makeHost(response, { requestId: "req-close-invalidated" }),
+    );
+
+    expect(response.json).toHaveBeenCalledWith({
+      error: {
+        code: "ACCOUNTING_CLOSE_REVIEW_INVALIDATED",
+        message: "Close readiness changed and the review was invalidated.",
+        statusCode: 409,
+        requestId: "req-close-invalidated",
+      },
+    });
+  });
+
+  it("preserves the explicitly whitelisted post-close lock-revalidation code in production", () => {
+    const { filter, response } = makeFilter("production", "req-lock-drift");
+    filter.catch(
+      new ConflictException({
+        code: "ACCOUNTING_CLOSE_LOCK_REVALIDATION_FAILED",
+        message: "Readiness changed after the period was closed.",
+      }),
+      makeHost(response, { requestId: "req-lock-drift" }),
+    );
+
+    expect(response.json).toHaveBeenCalledWith({
+      error: {
+        code: "ACCOUNTING_CLOSE_LOCK_REVALIDATION_FAILED",
+        message: "Readiness changed after the period was closed.",
+        statusCode: 409,
+        requestId: "req-lock-drift",
       },
     });
   });
