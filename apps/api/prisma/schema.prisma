@@ -6458,6 +6458,7 @@ model AccountingCloseTask {
   completionNote String?
   reopenedAt DateTime?
   reopenedByUserId String? @db.Uuid
+  reopenReason String?
   acknowledgementReason String?
   sortOrder Int @default(0)
   systemCheckKey String?

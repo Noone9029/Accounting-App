@@ -174,4 +174,21 @@ describe("AccountingCloseService", () => {
     Object.assign(prisma, { $transaction: jest.fn().mockRejectedValue({ code: "P2034" }) });
     await expect(service.completeTask("org-1", "user-1", "cycle-1", "task-1", 1)).rejects.toMatchObject({ status: 409 });
   });
+
+  it("reopens a completed manual task with a reason and preserves the completion history in audit", async () => {
+    const { service, prisma, auditLog } = createService();
+    const task = { id: "task-1", organizationId: "org-1", closeCycleId: "cycle-1", source: "STANDARD_TEMPLATE", status: "COMPLETED", completedByUserId: "user-2", completionNote: "Prior review." };
+    const reopened = { ...task, status: "OPEN", completedAt: null, completedByUserId: null, completionNote: null, reopenedByUserId: "user-1", reopenReason: "Supporting report changed." };
+    const tx = {
+      accountingCloseCycle: { findFirst: jest.fn().mockResolvedValue({ id: "cycle-1", fiscalPeriodId: "period-1", status: "IN_PROGRESS" }), updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      fiscalPeriod: { findFirst: jest.fn().mockResolvedValue({ id: "period-1", status: FiscalPeriodStatus.OPEN }) },
+      accountingCloseTask: { findFirst: jest.fn().mockResolvedValue(task), update: jest.fn().mockResolvedValue(reopened) },
+    };
+    Object.assign(prisma, { $transaction: jest.fn((callback) => callback(tx)) });
+
+    await expect(service.reopenTask("org-1", "user-1", "cycle-1", "task-1", 4, "Supporting report changed.")).resolves.toMatchObject({ status: "OPEN", reopenedByUserId: "user-1" });
+    expect(tx.accountingCloseCycle.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ version: 4 }) }));
+    expect(tx.accountingCloseTask.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "OPEN", completedAt: null, completedByUserId: null, completionNote: null, reopenedByUserId: "user-1", reopenReason: "Supporting report changed." }) }));
+    expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({ action: "REOPEN", before: task, after: reopened }), tx);
+  });
 });

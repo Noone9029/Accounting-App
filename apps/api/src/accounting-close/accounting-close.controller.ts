@@ -8,6 +8,7 @@ import { PermissionGuard } from "../auth/guards/permission.guard";
 import { AccountingCloseReadinessQueryDto } from "./dto/accounting-close-readiness-query.dto";
 import { CreateAccountingCloseCycleDto } from "./dto/create-accounting-close-cycle.dto";
 import { CompleteAccountingCloseTaskDto } from "./dto/complete-accounting-close-task.dto";
+import { ReopenAccountingCloseTaskDto } from "./dto/reopen-accounting-close-task.dto";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import type { AuthenticatedUser } from "../auth/auth.types";
 import { AccountingCloseService } from "./accounting-close.service";
@@ -39,5 +40,17 @@ export class AccountingCloseController {
     @Body() dto: CompleteAccountingCloseTaskDto,
   ) {
     return this.accountingCloseService.completeTask(organizationId, user.id, cycleId, taskId, dto.expectedVersion, dto.completionNote);
+  }
+
+  @Post("cycles/:id/tasks/:taskId/reopen")
+  @RequirePermissions(PERMISSIONS.accountingClose.manage)
+  reopenTask(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") cycleId: string,
+    @Param("taskId") taskId: string,
+    @Body() dto: ReopenAccountingCloseTaskDto,
+  ) {
+    return this.accountingCloseService.reopenTask(organizationId, user.id, cycleId, taskId, dto.expectedVersion, dto.reopenReason);
   }
 }
