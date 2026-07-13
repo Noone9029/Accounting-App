@@ -113,6 +113,54 @@ describe("AccountingCloseService", () => {
     expect(prisma.accountingCloseTask.findMany).not.toHaveBeenCalled();
   });
 
+  it("lists immutable readiness snapshot summaries through a bounded tenant-scoped page", async () => {
+    const { service, prisma } = createService();
+    const snapshots = [{
+      id: "snapshot-1", organizationId: "org-1", closeCycleId: "cycle-1", fiscalPeriodId: "period-1", capturedAt: new Date("2026-07-01T00:00:00.000Z"),
+      capturedByUserId: "user-1", status: "REVIEWED", blockerCount: 0, warningCount: 2, informationCount: 3, checkCount: 5,
+      canonicalHash: "canonical-hash", sourceVersion: 4, requestId: "internal-request-id",
+    }];
+    Object.assign(prisma, {
+      accountingCloseCycle: { findFirst: jest.fn().mockResolvedValue({ id: "cycle-1" }) },
+      accountingCloseReadinessSnapshot: { findMany: jest.fn().mockResolvedValue(snapshots), count: jest.fn().mockResolvedValue(17) },
+    });
+
+    const result = await service.listSnapshots("org-1", "cycle-1", 2, 10);
+    expect(result).toMatchObject({ items: [expect.objectContaining({ id: "snapshot-1", status: "REVIEWED", canonicalHash: "canonical-hash" })], meta: { page: 2, pageSize: 10, totalItems: 17, totalPages: 2 } });
+    expect(result.items[0]).not.toHaveProperty("organizationId");
+    expect(result.items[0]).not.toHaveProperty("requestId");
+    expect(prisma.accountingCloseReadinessSnapshot.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { organizationId: "org-1", closeCycleId: "cycle-1" }, skip: 10, take: 10 }));
+  });
+
+  it("returns only safe immutable snapshot items scoped to the requested tenant and cycle", async () => {
+    const { service, prisma } = createService();
+    Object.assign(prisma, {
+      accountingCloseReadinessSnapshot: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: "snapshot-1", organizationId: "org-1", closeCycleId: "cycle-1", fiscalPeriodId: "period-1", capturedAt: new Date("2026-07-01T00:00:00.000Z"),
+          capturedByUserId: "user-1", status: "REVIEWED", blockerCount: 0, warningCount: 2, informationCount: 3, checkCount: 5,
+          canonicalHash: "canonical-hash", sourceVersion: 4, requestId: "internal-request-id",
+          items: [{ checkKey: "fx.rates", severity: "WARNING", status: "OPEN", code: "MISSING_RATE", safeMessage: "Capture a closing rate.", count: 1, currencyCode: "AED", sourceUpdatedAt: null, metadataSafe: { title: "FX rates" }, sourceEntityId: "internal-entity-id" }],
+        }),
+      },
+    });
+
+    const result = await service.getSnapshot("org-1", "cycle-1", "snapshot-1");
+    expect(result).toMatchObject({ id: "snapshot-1", status: "REVIEWED", items: [expect.objectContaining({ checkKey: "fx.rates", metadataSafe: { title: "FX rates" } })] });
+    expect(result).not.toHaveProperty("organizationId");
+    expect(result).not.toHaveProperty("requestId");
+    expect(result.items[0]).not.toHaveProperty("sourceEntityId");
+    expect(prisma.accountingCloseReadinessSnapshot.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "snapshot-1", closeCycleId: "cycle-1", organizationId: "org-1" } }));
+  });
+
+  it("rejects a pathological readiness snapshot page before querying tenant data", async () => {
+    const { service, prisma } = createService();
+    Object.assign(prisma, { accountingCloseCycle: { findFirst: jest.fn() }, accountingCloseReadinessSnapshot: { findMany: jest.fn() } });
+    await expect(service.listSnapshots("org-1", "cycle-1", 10001, 100)).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.accountingCloseCycle.findFirst).not.toHaveBeenCalled();
+    expect(prisma.accountingCloseReadinessSnapshot.findMany).not.toHaveBeenCalled();
+  });
+
   it("attaches tenant-owned generated-document evidence to a mutable close task with safe fields only", async () => {
     const { service, prisma, auditLog } = createService();
     const evidence = { id: "evidence-1", organizationId: "org-1", closeCycleId: "cycle-1", closeTaskId: "task-1", evidenceType: "REPORT", reportType: "TRIAL_BALANCE", generatedDocumentId: "document-1", safeLabel: "June trial balance" };

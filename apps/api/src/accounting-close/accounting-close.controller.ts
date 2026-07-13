@@ -11,6 +11,7 @@ import { CompleteAccountingCloseTaskDto } from "./dto/complete-accounting-close-
 import { ReopenAccountingCloseTaskDto } from "./dto/reopen-accounting-close-task.dto";
 import { RefreshAccountingCloseCycleDto } from "./dto/refresh-accounting-close-cycle.dto";
 import { ListAccountingCloseTasksDto } from "./dto/list-accounting-close-tasks.dto";
+import { ListAccountingCloseSnapshotsDto } from "./dto/list-accounting-close-snapshots.dto";
 import { AssignAccountingCloseTaskDto } from "./dto/assign-accounting-close-task.dto";
 import { AddAccountingCloseEvidenceDto } from "./dto/add-accounting-close-evidence.dto";
 import { PrepareAccountingCloseCycleDto } from "./dto/prepare-accounting-close-cycle.dto";
@@ -55,6 +56,18 @@ export class AccountingCloseController {
   @RequirePermissions(PERMISSIONS.accountingClose.read)
   listTasks(@CurrentOrganizationId() organizationId: string, @Param("id") cycleId: string, @Query() query: ListAccountingCloseTasksDto) {
     return this.accountingCloseService.listTasks(organizationId, cycleId, query.page, query.pageSize);
+  }
+
+  @Get("cycles/:id/snapshots")
+  @RequirePermissions(PERMISSIONS.accountingClose.read)
+  listSnapshots(@CurrentOrganizationId() organizationId: string, @Param("id") cycleId: string, @Query() query: ListAccountingCloseSnapshotsDto) {
+    return this.accountingCloseService.listSnapshots(organizationId, cycleId, query.page, query.pageSize);
+  }
+
+  @Get("cycles/:id/snapshots/:snapshotId")
+  @RequirePermissions(PERMISSIONS.accountingClose.read)
+  getSnapshot(@CurrentOrganizationId() organizationId: string, @Param("id") cycleId: string, @Param("snapshotId") snapshotId: string) {
+    return this.accountingCloseService.getSnapshot(organizationId, cycleId, snapshotId);
   }
 
   @Post("cycles/:id/tasks/:taskId/assign")

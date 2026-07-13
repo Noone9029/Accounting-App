@@ -54,6 +54,50 @@ export class AccountingCloseService {
     return { items: tasks.map(taskResponse), meta: { page: safePage, pageSize: safePageSize, totalItems, totalPages: Math.max(1, Math.ceil(totalItems / safePageSize)) } };
   }
 
+  async listSnapshots(organizationId: string, cycleId: string, page = 1, pageSize = 50) {
+    if (!Number.isInteger(page) || page < 1 || page > 10000) throw new BadRequestException("page must be an integer between 1 and 10000.");
+    if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100) throw new BadRequestException("pageSize must be an integer between 1 and 100.");
+    const cycle = await this.prisma.accountingCloseCycle.findFirst({ where: { id: cycleId, organizationId }, select: { id: true } });
+    if (!cycle) throw new NotFoundException("Close cycle not found.");
+    const where = { organizationId, closeCycleId: cycleId };
+    const [snapshots, totalItems] = await Promise.all([
+      this.prisma.accountingCloseReadinessSnapshot.findMany({
+        where,
+        select: snapshotSummarySelect,
+        orderBy: [{ capturedAt: "desc" }, { id: "desc" }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.accountingCloseReadinessSnapshot.count({ where }),
+    ]);
+    return { items: snapshots.map(snapshotSummary), meta: { page, pageSize, totalItems, totalPages: Math.max(1, Math.ceil(totalItems / pageSize)) } };
+  }
+
+  async getSnapshot(organizationId: string, cycleId: string, snapshotId: string) {
+    const snapshot = await this.prisma.accountingCloseReadinessSnapshot.findFirst({
+      where: { id: snapshotId, closeCycleId: cycleId, organizationId },
+      select: {
+        ...snapshotSummarySelect,
+        items: {
+          select: {
+            checkKey: true,
+            severity: true,
+            status: true,
+            code: true,
+            safeMessage: true,
+            count: true,
+            currencyCode: true,
+            sourceUpdatedAt: true,
+            metadataSafe: true,
+          },
+          orderBy: { checkKey: "asc" },
+        },
+      },
+    });
+    if (!snapshot) throw new NotFoundException("Close readiness snapshot not found.");
+    return snapshotResponse(snapshot);
+  }
+
   async addEvidence(organizationId: string, actorUserId: string, cycleId: string, expectedVersion: number, input: { closeTaskId?: string; evidenceType: string; reportType?: string; generatedDocumentId?: string; safeLabel: string }) {
     if (!Number.isInteger(expectedVersion) || expectedVersion < 1) throw new BadRequestException("expectedVersion must be a positive integer.");
     const safeLabel = input.safeLabel.trim();
@@ -557,6 +601,51 @@ function taskResponse(task: any) {
 
 function evidenceResponse(evidence: any) {
   return { id: evidence.id, closeTaskId: evidence.closeTaskId, evidenceType: evidence.evidenceType, reportType: evidence.reportType, generatedDocumentId: evidence.generatedDocumentId, safeLabel: evidence.safeLabel, addedAt: evidence.addedAt };
+}
+
+const snapshotSummarySelect = {
+  id: true,
+  closeCycleId: true,
+  fiscalPeriodId: true,
+  capturedAt: true,
+  capturedByUserId: true,
+  status: true,
+  blockerCount: true,
+  warningCount: true,
+  informationCount: true,
+  checkCount: true,
+  canonicalHash: true,
+  sourceVersion: true,
+} as const;
+
+function snapshotSummary(snapshot: {
+  id: string;
+  closeCycleId: string;
+  fiscalPeriodId: string;
+  capturedAt: Date;
+  capturedByUserId: string | null;
+  status: string;
+  blockerCount: number;
+  warningCount: number;
+  informationCount: number;
+  checkCount: number;
+  canonicalHash: string;
+  sourceVersion: number;
+}) {
+  return {
+    id: snapshot.id,
+    closeCycleId: snapshot.closeCycleId,
+    fiscalPeriodId: snapshot.fiscalPeriodId,
+    capturedAt: snapshot.capturedAt,
+    capturedByUserId: snapshot.capturedByUserId,
+    status: snapshot.status,
+    blockerCount: snapshot.blockerCount,
+    warningCount: snapshot.warningCount,
+    informationCount: snapshot.informationCount,
+    checkCount: snapshot.checkCount,
+    canonicalHash: snapshot.canonicalHash,
+    sourceVersion: snapshot.sourceVersion,
+  };
 }
 
 function snapshotResponse(snapshot: {
