@@ -13,6 +13,7 @@ import { RefreshAccountingCloseCycleDto } from "./dto/refresh-accounting-close-c
 import { ListAccountingCloseTasksDto } from "./dto/list-accounting-close-tasks.dto";
 import { AssignAccountingCloseTaskDto } from "./dto/assign-accounting-close-task.dto";
 import { AddAccountingCloseEvidenceDto } from "./dto/add-accounting-close-evidence.dto";
+import { PrepareAccountingCloseCycleDto } from "./dto/prepare-accounting-close-cycle.dto";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import type { AuthenticatedUser } from "../auth/auth.types";
 import { AccountingCloseService } from "./accounting-close.service";
@@ -62,6 +63,12 @@ export class AccountingCloseController {
   @RequirePermissions(PERMISSIONS.accountingClose.manage)
   addEvidence(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") cycleId: string, @Body() dto: AddAccountingCloseEvidenceDto) {
     return this.accountingCloseService.addEvidence(organizationId, user.id, cycleId, dto.expectedVersion, dto);
+  }
+
+  @Post("cycles/:id/prepare")
+  @RequirePermissions(PERMISSIONS.accountingClose.prepare)
+  prepareCycle(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") cycleId: string, @Body() dto: PrepareAccountingCloseCycleDto) {
+    return this.accountingCloseService.prepareCycle(organizationId, user.id, cycleId, dto.expectedVersion);
   }
 
   @Post("cycles/:id/tasks/:taskId/complete")
