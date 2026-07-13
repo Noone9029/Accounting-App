@@ -96,6 +96,11 @@ export type InventoryVarianceProposalReadiness = {
   sourceUpdatedAt?: string;
 };
 
+export type ReportPackReadiness = {
+  failedCount: number;
+  sourceUpdatedAt?: string;
+};
+
 export function normalizeFxReadiness(readiness: FxReadiness): AccountingCloseCheck[] {
   if (readiness.status === "NOT_APPLICABLE") {
     return [{ ...check("fx.notApplicable", "Foreign exchange close readiness", "NOT_APPLICABLE", "NOT_APPLICABLE", "FX_NOT_APPLICABLE", "No foreign-currency close activity requires review for this period.", 0, "/fx-close", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
@@ -202,6 +207,13 @@ export function normalizeInventoryVarianceProposalReadiness(readiness: Inventory
     return [{ ...check("inventory.pendingVarianceProposals", "Inventory variance proposals awaiting posting", "INFORMATION", "READY", "NO_PENDING_INVENTORY_VARIANCE_PROPOSALS", "No inventory variance proposals awaiting posting are dated in this fiscal period.", 0, "/inventory/reports/clearing-reconciliation", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
   }
   return [{ ...check("inventory.pendingVarianceProposals", "Inventory variance proposals awaiting posting", "WARNING", "OPEN", "PENDING_INVENTORY_VARIANCE_PROPOSALS", "Inventory variance proposals awaiting posting in this fiscal period require accountant review.", readiness.pendingCount, "/inventory/reports/clearing-reconciliation", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
+}
+
+export function normalizeReportPackReadiness(readiness: ReportPackReadiness): AccountingCloseCheck[] {
+  if (readiness.failedCount === 0) {
+    return [{ ...check("reports.failedPacks", "Failed report packs", "INFORMATION", "READY", "NO_FAILED_REPORT_PACKS", "No failed report packs overlap this fiscal period.", 0, "/reports", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
+  }
+  return [{ ...check("reports.failedPacks", "Failed report packs", "WARNING", "OPEN", "FAILED_REPORT_PACKS", "Failed report packs overlapping this fiscal period require accountant review.", readiness.failedCount, "/reports", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
 }
 
 export function canonicalReadinessHash(checks: Array<Omit<AccountingCloseCheck, "canAcknowledge"> & Partial<Pick<AccountingCloseCheck, "canAcknowledge">>>): string {

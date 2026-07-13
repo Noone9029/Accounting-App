@@ -1,5 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
-import { BankReconciliationStatus, BankStatementTransactionStatus, CreditNoteStatus, CustomerPaymentStatus, FiscalPeriodStatus, GeneratedDocumentStatus, InventoryAdjustmentStatus, InventoryVarianceProposalStatus, JournalEntryStatus, Prisma, PurchaseBillStatus, PurchaseDebitNoteStatus, SalesInvoiceStatus, SupplierPaymentStatus } from "@prisma/client";
+import { BankReconciliationStatus, BankStatementTransactionStatus, CreditNoteStatus, CustomerPaymentStatus, FiscalPeriodStatus, GeneratedDocumentStatus, InventoryAdjustmentStatus, InventoryVarianceProposalStatus, JournalEntryStatus, Prisma, PurchaseBillStatus, PurchaseDebitNoteStatus, ReportPackStatus, SalesInvoiceStatus, SupplierPaymentStatus } from "@prisma/client";
 import { FxCloseReadinessService } from "../foreign-exchange/fx-close-readiness.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -13,6 +13,7 @@ import {
   normalizeBankStatementReadiness,
   normalizeInventoryAdjustmentReadiness,
   normalizeInventoryVarianceProposalReadiness,
+  normalizeReportPackReadiness,
   normalizeCreditNoteReadiness,
   normalizeCustomerPaymentReadiness,
   normalizeFxReadiness,
@@ -690,6 +691,11 @@ export class AccountingCloseService {
       checks.push(unavailableCheck("inventory.varianceProposals.error", "Inventory variance proposals awaiting posting", "INVENTORY_VARIANCE_PROPOSAL_READINESS_UNAVAILABLE"));
     }
     try {
+      checks.push(...await this.reportPackReadiness(organizationId, fiscalPeriod, executor));
+    } catch {
+      checks.push(unavailableCheck("reports.packs.error", "Failed report packs", "REPORT_PACK_READINESS_UNAVAILABLE"));
+    }
+    try {
       checks.push(...normalizeFxReadiness(executor
         ? await this.fxCloseReadinessService.readiness(organizationId, fiscalPeriod.endsOn, executor)
         : await this.fxCloseReadinessService.readiness(organizationId, fiscalPeriod.endsOn)));
@@ -945,6 +951,20 @@ export class AccountingCloseService {
       client.inventoryVarianceProposal.findFirst({ where, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
     ]);
     return normalizeInventoryVarianceProposalReadiness({ pendingCount, sourceUpdatedAt: latestProposal?.updatedAt.toISOString() });
+  }
+
+  private async reportPackReadiness(
+    organizationId: string,
+    fiscalPeriod: { startsOn: Date; endsOn: Date },
+    executor?: Prisma.TransactionClient,
+  ) {
+    const client = executor ?? this.prisma;
+    const where = { organizationId, status: ReportPackStatus.FAILED, periodFrom: { lte: fiscalPeriod.endsOn.toISOString().slice(0, 10) }, periodTo: { gte: fiscalPeriod.startsOn.toISOString().slice(0, 10) } };
+    const [failedCount, latestPack] = await Promise.all([
+      client.reportPack.count({ where }),
+      client.reportPack.findFirst({ where, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
+    ]);
+    return normalizeReportPackReadiness({ failedCount, sourceUpdatedAt: latestPack?.updatedAt.toISOString() });
   }
 }
 
