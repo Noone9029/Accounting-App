@@ -34,6 +34,7 @@ The inventory is checked from the filesystem and the authoritative `APP_ROUTES` 
 | Role coverage contract | Owner, Admin, Accountant, Sales, Purchases, Viewer fixtures are available to route and create-menu tests | `tests/visual/visual-fixtures.ts`, `tests/visual/role-filtered-route-polish.visual.spec.ts` |
 | Viewport coverage contract | Desktop 1440x1000, tablet 1024x768, mobile 390x844 for the role-filtered route matrix | `tests/visual/role-filtered-route-polish.visual.spec.ts` |
 | Locale coverage contract | English/LTR and Arabic/RTL route checks are maintained; the Arabic suite covers 59 authenticated routes at desktop, tablet, and mobile sizes | `tests/visual/arabic-locale.visual.spec.ts` |
+| All-active-route structural matrix | 92 active routes are exercised per role/viewport cell; bounded local evidence currently passes Owner/desktop and Viewer/mobile cells (the full 18-cell matrix remains available for low-concurrency CI or operator-approved runs) | `tests/visual/all-active-routes.visual.spec.ts`; `UI_ROUTE_AUDIT_ROLE=Viewer UI_ROUTE_AUDIT_VIEWPORT=mobile pnpm exec playwright test -c playwright.visual.config.ts tests/visual/all-active-routes.visual.spec.ts --workers=1` |
 
 Every future route/page finding must link back to this inventory and record the required role, viewport, locale, state, reproduction, classification, and verification fields from the coverage contract above. The inventory command is a merge gate so new page modules or route definitions cannot silently bypass the audit ledger.
 
