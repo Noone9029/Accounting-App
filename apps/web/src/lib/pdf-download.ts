@@ -56,7 +56,7 @@ export function bankReconciliationReportCsvPath(reconciliationId: string): strin
   return `/bank-reconciliations/${encodeURIComponent(reconciliationId)}/report.csv`;
 }
 
-export function accountingCloseEvidenceExportPath(cycleId: string, format: "json" | "csv"): string {
+export function accountingCloseEvidenceExportPath(cycleId: string, format: "json" | "csv" | "pdf"): string {
   return `/accounting-close/cycles/${encodeURIComponent(cycleId)}/export?format=${format}`;
 }
 

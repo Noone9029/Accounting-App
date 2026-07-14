@@ -42,7 +42,7 @@ export default function AccountingCloseCyclePage() {
   const [comparisonSnapshotId, setComparisonSnapshotId] = useState("");
   const [snapshotComparison, setSnapshotComparison] = useState<SnapshotComparison | null>(null);
   const [comparisonLoading, setComparisonLoading] = useState(false);
-  const [evidenceExporting, setEvidenceExporting] = useState<"" | "json" | "csv">("");
+  const [evidenceExporting, setEvidenceExporting] = useState<"" | "json" | "csv" | "pdf">("");
   const [evidenceExportError, setEvidenceExportError] = useState("");
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState<string | null>(null);
@@ -211,7 +211,7 @@ export default function AccountingCloseCyclePage() {
     finally { if (context === requestId.current) setRunning(null); }
   }
 
-  async function downloadEvidenceExport(format: "json" | "csv") {
+  async function downloadEvidenceExport(format: "json" | "csv" | "pdf") {
     if (!cycle) return;
     const context = ++evidenceExportRequestId.current;
     const cycleContext = cycleId;
@@ -233,7 +233,7 @@ export default function AccountingCloseCyclePage() {
   const canClosePeriod = canAny(PERMISSIONS.accountingClose.close) && cycle?.status === "REVIEWED" && cycle.fiscalPeriod.status === "OPEN";
   const canLockPeriod = canAny(PERMISSIONS.accountingClose.lock) && cycle?.status === "CLOSED" && cycle.fiscalPeriod.status === "CLOSED";
   return <LedgerPage>
-    <LedgerPageHeader eyebrow="Accounting controls" title={cycle ? `${cycle.fiscalPeriod.name} close cycle` : "Close cycle"} description="Checklist, readiness snapshots, and fiscal-period actions remain guarded by the authoritative close workflow." badge={cycle ? <LedgerStatusBadge tone={statusTone}>{cycle.status.replaceAll("_", " ")}</LedgerStatusBadge> : undefined} actions={<div className="flex flex-wrap gap-2">{cycle && canRead ? <><LedgerButton size="sm" variant="quiet" onClick={() => void downloadEvidenceExport("json")} disabled={evidenceExporting !== ""}>{evidenceExporting === "json" ? "Downloading JSON..." : "Download evidence JSON"}</LedgerButton><LedgerButton size="sm" variant="quiet" onClick={() => void downloadEvidenceExport("csv")} disabled={evidenceExporting !== ""}>{evidenceExporting === "csv" ? "Downloading CSV..." : "Download evidence CSV"}</LedgerButton></> : null}<LedgerButton href="/accounting-close" variant="quiet">All close cycles</LedgerButton></div>} />
+    <LedgerPageHeader eyebrow="Accounting controls" title={cycle ? `${cycle.fiscalPeriod.name} close cycle` : "Close cycle"} description="Checklist, readiness snapshots, and fiscal-period actions remain guarded by the authoritative close workflow." badge={cycle ? <LedgerStatusBadge tone={statusTone}>{cycle.status.replaceAll("_", " ")}</LedgerStatusBadge> : undefined} actions={<div className="flex flex-wrap gap-2">{cycle && canRead ? <><LedgerButton size="sm" variant="quiet" onClick={() => void downloadEvidenceExport("json")} disabled={evidenceExporting !== ""}>{evidenceExporting === "json" ? "Downloading JSON..." : "Download evidence JSON"}</LedgerButton><LedgerButton size="sm" variant="quiet" onClick={() => void downloadEvidenceExport("csv")} disabled={evidenceExporting !== ""}>{evidenceExporting === "csv" ? "Downloading CSV..." : "Download evidence CSV"}</LedgerButton><LedgerButton size="sm" variant="quiet" onClick={() => void downloadEvidenceExport("pdf")} disabled={evidenceExporting !== ""}>{evidenceExporting === "pdf" ? "Downloading PDF..." : "Download evidence PDF"}</LedgerButton></> : null}<LedgerButton href="/accounting-close" variant="quiet">All close cycles</LedgerButton></div>} />
     <LedgerPageBody>
        {loading ? <LedgerLoadingState title="Loading close cycle" /> : null}
        {error ? <LedgerErrorState title="Unable to load close cycle" description={error} action={<LedgerButton onClick={() => void load()}>Try again</LedgerButton>} /> : null}
