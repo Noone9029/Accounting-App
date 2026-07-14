@@ -14,6 +14,8 @@
     "verify:local:api": "node scripts/verify-gate.cjs verify:local:api",
     "verify:local:guards": "node scripts/verify-gate.cjs verify:local:guards",
     "verify:repo": "node scripts/verify-gate.cjs verify:repo",
+    "verify:ui:inventory": "node scripts/verify-ui-route-inventory.cjs",
+    "test:verify:ui:inventory": "node --test scripts/verify-ui-route-inventory.test.cjs",
     "verify:ci:local": "node scripts/verify-gate.cjs verify:ci:local",
     "verify:openbooks-clean-room": "node scripts/openbooks-clean-room-validate.cjs --strict",
     "verify:openbook-adoption": "node scripts/openbooks-clean-room-validate.cjs --strict",

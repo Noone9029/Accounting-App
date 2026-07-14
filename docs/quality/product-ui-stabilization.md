@@ -21,6 +21,22 @@ The audit covers every shipped page module under `apps/web/src/app/**/page.tsx` 
 
 Planned route entries and provider/production/compliance proof boundaries remain explicit readiness states; they are not converted into new features during this stabilization program.
 
+## Route/page inventory audit
+
+The inventory is checked from the filesystem and the authoritative `APP_ROUTES` registry rather than maintained as a hand-counted list:
+
+| Inventory | Result | Evidence |
+| --- | --- | --- |
+| Shipped page modules | 205 total; 188 signed-in `(app)` modules and 17 public/auth modules | `pnpm run verify:ui:inventory` |
+| Canonical route definitions | 96 total; 92 active and 4 planned | `pnpm run verify:ui:inventory` |
+| Active route-to-page mapping | 92 of 92 active routes resolve to a page module | `pnpm run verify:ui:inventory` |
+| Planned capability gaps | `/inbox`, `/ai/proposals`, and `/integrations/health` intentionally have no page module; `/report-packs` remains an explicit planned placeholder | `pnpm run verify:ui:inventory` |
+| Role coverage contract | Owner, Admin, Accountant, Sales, Purchases, Viewer fixtures are available to route and create-menu tests | `tests/visual/visual-fixtures.ts`, `tests/visual/role-filtered-route-polish.visual.spec.ts` |
+| Viewport coverage contract | Desktop 1440x1000, tablet 1024x768, mobile 390x844 for the role-filtered route matrix | `tests/visual/role-filtered-route-polish.visual.spec.ts` |
+| Locale coverage contract | English/LTR and Arabic/RTL route checks are maintained; the Arabic suite covers 59 authenticated routes at desktop, tablet, and mobile sizes | `tests/visual/arabic-locale.visual.spec.ts` |
+
+Every future route/page finding must link back to this inventory and record the required role, viewport, locale, state, reproduction, classification, and verification fields from the coverage contract above. The inventory command is a merge gate so new page modules or route definitions cannot silently bypass the audit ledger.
+
 ## Baseline verification
 
 | Gate | Result |
