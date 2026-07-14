@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, NotFoundException } from "@nestjs/common";
 import { PERMISSIONS } from "@ledgerbyte/shared";
 import { createHash } from "node:crypto";
-import { BankDepositBatchStatus, BankReconciliationStatus, BankStatementTransactionStatus, CardSettlementStatus, CashExpenseStatus, ChequeInstrumentStatus, CreditNoteStatus, CustomerPaymentStatus, DocumentInboxStatus, FiscalPeriodStatus, InventoryAdjustmentStatus, InventoryVarianceProposalStatus, JournalEntryStatus, PurchaseBillStatus, PurchaseDebitNoteStatus, ReportPackStatus, SalesInvoiceStatus, SupplierPaymentStatus } from "@prisma/client";
+import { BankDepositBatchStatus, BankReconciliationStatus, BankStatementTransactionStatus, CardSettlementStatus, CashExpenseStatus, ChequeInstrumentStatus, CreditNoteStatus, CustomerPaymentStatus, DocumentInboxStatus, FiscalPeriodStatus, InventoryAdjustmentStatus, InventoryVarianceProposalStatus, JournalEntryStatus, Prisma, PurchaseBillStatus, PurchaseDebitNoteStatus, ReportPackStatus, SalesInvoiceStatus, SupplierPaymentStatus } from "@prisma/client";
 import { AccountingCloseService, closeEvidencePdfData } from "./accounting-close.service";
 
 describe("AccountingCloseService", () => {
@@ -1013,6 +1013,11 @@ describe("AccountingCloseService", () => {
     expect(tx.accountingCloseReadinessSnapshot.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ closeCycleId: "cycle-1", status: "DRAFT", blockerCount: 0, canonicalHash: expect.any(String), sourceVersion: 5 }) }));
     expect(tx.accountingCloseReadinessSnapshot.create.mock.calls[0][0].data.items.create.every((item: Record<string, unknown>) => !("organizationId" in item))).toBe(true);
     expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({ action: "PREPARE", entityType: "AccountingCloseCycle", entityId: "cycle-1" }), tx);
+    expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      maxWait: 5_000,
+      timeout: 45_000,
+    });
   });
 
   it("rejects preparation before claiming the cycle when current readiness has a blocker", async () => {
@@ -1069,6 +1074,11 @@ describe("AccountingCloseService", () => {
     expect(tx.accountingCloseReadinessSnapshot.updateMany).toHaveBeenCalledWith({ where: { id: "snapshot-1", organizationId: "org-1", status: "DRAFT" }, data: { status: "REVIEWED" } });
     expect(tx.accountingCloseCycle.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ id: "cycle-1", version: 5, status: "READY_FOR_REVIEW" }), data: expect.objectContaining({ status: "REVIEWED", reviewedByUserId: "user-2", readinessHash }) }));
     expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({ action: "REVIEW", entityType: "AccountingCloseCycle", entityId: "cycle-1", after: expect.objectContaining({ snapshotId: "snapshot-1", readinessHash }) }), tx);
+    expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      maxWait: 5_000,
+      timeout: 45_000,
+    });
   });
 
   it("rejects reviewer self-approval before reading or claiming a prepared cycle", async () => {
@@ -1184,6 +1194,11 @@ describe("AccountingCloseService", () => {
     expect(result).toMatchObject({ id: "snapshot-1", closeCycleId: "cycle-1", fiscalPeriodId: "period-1", canonicalHash: "readiness-hash" });
     expect(result).not.toHaveProperty("organizationId");
     expect(result).not.toHaveProperty("requestId");
+    expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      maxWait: 5_000,
+      timeout: 45_000,
+    });
     expect(fx.readiness).toHaveBeenCalledWith("org-1", period.endsOn, tx);
     expect(recurring.get).toHaveBeenCalledWith("org-1", { startsOn: period.startsOn, endsOn: period.endsOn }, tx);
     expect(tx.accountingCloseCycle.updateMany).toHaveBeenCalledWith(expect.objectContaining({
@@ -1324,6 +1339,11 @@ describe("AccountingCloseService", () => {
       }),
     }));
     expect(JSON.stringify(tx.apiIdempotencyRecord.create.mock.calls[0][0].data)).not.toContain("close-cycle-0006");
+    expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      maxWait: 5_000,
+      timeout: 45_000,
+    });
   });
 
   it("replays an already closed tenant-scoped close cycle without another fiscal close, snapshot, or audit event", async () => {
@@ -1604,6 +1624,11 @@ describe("AccountingCloseService", () => {
     expect(tx.accountingCloseReadinessSnapshot.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "LOCKED", canonicalHash: readinessHash }) }));
     expect(tx.accountingCloseReadinessSnapshot.create.mock.calls[0][0].data.items.create.every((item: Record<string, unknown>) => !("organizationId" in item))).toBe(true);
     expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({ action: "LOCK", entityType: "AccountingCloseCycle", entityId: "cycle-1" }), tx);
+    expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
+      isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+      maxWait: 5_000,
+      timeout: 45_000,
+    });
   });
 
   it("replays an already locked tenant-scoped close cycle without another snapshot or audit event", async () => {

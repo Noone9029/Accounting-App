@@ -34,6 +34,7 @@ import {
   normalizeSalesInvoiceReadiness,
   normalizeSupplierPaymentReadiness,
 } from "./close-readiness";
+import { ACCOUNTING_CLOSE_REVALIDATION_TRANSACTION_OPTIONS } from "./accounting-close-revalidation-transaction";
 
 const ACCOUNTING_CLOSE_REVIEW_INVALIDATED = "ACCOUNTING_CLOSE_REVIEW_INVALIDATED";
 const ACCOUNTING_CLOSE_REVIEW_INVALIDATION_MESSAGE = "Close readiness changed and the review was invalidated. Reload, refresh, prepare, and review the cycle again.";
@@ -41,7 +42,6 @@ const ACCOUNTING_CLOSE_LOCK_REVALIDATION_FAILED = "ACCOUNTING_CLOSE_LOCK_REVALID
 const ACCOUNTING_CLOSE_LOCK_REVALIDATION_MESSAGE = "Readiness changed. Use the authorized fiscal-period reopen workflow, then return the close cycle to preparation, refresh readiness, and record a new review before locking.";
 const ACCOUNTING_CLOSE_CLOSE_IDEMPOTENCY_ROUTE = "POST /accounting-close/cycles/:id/close";
 const ACCOUNTING_CLOSE_LOCK_IDEMPOTENCY_ROUTE = "POST /accounting-close/cycles/:id/lock";
-
 type AccountingCloseIdempotencyContext = {
   route: string;
   keyHash: string;
@@ -588,7 +588,7 @@ export class AccountingCloseService {
           after: { closeCycleId: cycle.id, canonicalHash: snapshot.canonicalHash, blockerCount: snapshot.blockerCount, warningCount: snapshot.warningCount },
         }, tx);
         return snapshotResponse(snapshot);
-      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+      }, ACCOUNTING_CLOSE_REVALIDATION_TRANSACTION_OPTIONS);
     } catch (error) {
       if (prismaErrorCode(error) === "P2034") throw new ConflictException("Close cycle changed. Reload and retry.");
       throw error;
@@ -651,7 +651,7 @@ export class AccountingCloseService {
           after: { status: "READY_FOR_REVIEW", preparedAt, readinessHash: readiness.canonicalHash, snapshotId: snapshot.id },
         }, tx);
         return { id: cycle.id, fiscalPeriodId: cycle.fiscalPeriodId, status: "READY_FOR_REVIEW", version: expectedVersion + 1, preparedAt, readinessHash: readiness.canonicalHash };
-      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+      }, ACCOUNTING_CLOSE_REVALIDATION_TRANSACTION_OPTIONS);
     } catch (error) {
       if (prismaErrorCode(error) === "P2034") throw new ConflictException("Close cycle changed. Reload and retry.");
       throw error;
@@ -715,7 +715,7 @@ export class AccountingCloseService {
         if (frozen.count !== 1) throw new ConflictException("Close readiness snapshot changed. Reload and retry.");
         await this.auditLogService.log({ organizationId, actorUserId, action: "REVIEW", entityType: "AccountingCloseCycle", entityId: cycle.id, after: { status: "REVIEWED", reviewedAt, readinessHash: readiness.canonicalHash, snapshotId: snapshot.id, signoffMode } }, tx);
         return { id: cycle.id, fiscalPeriodId: cycle.fiscalPeriodId, status: "REVIEWED", version: expectedVersion + 1, reviewedAt, reviewedByUserId: actorUserId, readinessHash: readiness.canonicalHash, signoffMode };
-      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+      }, ACCOUNTING_CLOSE_REVALIDATION_TRANSACTION_OPTIONS);
     } catch (error) {
       if (prismaErrorCode(error) === "P2034") throw new ConflictException("Close cycle changed. Reload and retry.");
       throw error;
@@ -842,7 +842,7 @@ export class AccountingCloseService {
         const snapshot = await tx.accountingCloseReadinessSnapshot.create({ data: { organizationId, closeCycleId: cycle.id, fiscalPeriodId: cycle.fiscalPeriodId, capturedByUserId: actorUserId, status: "CLOSED", blockerCount: readiness.blockerCount, warningCount: readiness.warningCount, informationCount: readiness.informationCount, checkCount: readiness.checkCount, canonicalHash: readiness.canonicalHash, sourceVersion: expectedVersion + 1, items: { create: readiness.checks.map((check) => ({ checkKey: check.key, severity: check.severity, status: check.status, code: check.code, safeMessage: check.safeMessage, count: check.count, sourceUpdatedAt: check.sourceUpdatedAt ? new Date(check.sourceUpdatedAt) : undefined, metadataSafe: { title: check.title, detailsHref: check.detailsHref ?? null, canAcknowledge: check.canAcknowledge } })) } } });
         await this.auditLogService.log({ organizationId, actorUserId, action: "CLOSE", entityType: "AccountingCloseCycle", entityId: cycle.id, after: { status: "CLOSED", closedAt, readinessHash: readiness.canonicalHash, snapshotId: snapshot.id } }, tx);
         return this.persistAccountingCloseMutation(tx, organizationId, idempotency, { id: cycle.id, fiscalPeriodId: cycle.fiscalPeriodId, status: "CLOSED", version: expectedVersion + 1, closedAt, closedByUserId: actorUserId, readinessHash: readiness.canonicalHash });
-      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+      }, ACCOUNTING_CLOSE_REVALIDATION_TRANSACTION_OPTIONS);
       if ("invalidated" in outcome) throw new ConflictException({ code: ACCOUNTING_CLOSE_REVIEW_INVALIDATED, message: ACCOUNTING_CLOSE_REVIEW_INVALIDATION_MESSAGE });
       return outcome;
     } catch (error) {
@@ -926,7 +926,7 @@ export class AccountingCloseService {
         const snapshot = await tx.accountingCloseReadinessSnapshot.create({ data: { organizationId, closeCycleId: cycle.id, fiscalPeriodId: cycle.fiscalPeriodId, capturedByUserId: actorUserId, status: "LOCKED", blockerCount: readiness.blockerCount, warningCount: readiness.warningCount, informationCount: readiness.informationCount, checkCount: readiness.checkCount, canonicalHash: readiness.canonicalHash, sourceVersion: expectedVersion + 1, items: { create: readiness.checks.map((check) => ({ checkKey: check.key, severity: check.severity, status: check.status, code: check.code, safeMessage: check.safeMessage, count: check.count, sourceUpdatedAt: check.sourceUpdatedAt ? new Date(check.sourceUpdatedAt) : undefined, metadataSafe: { title: check.title, detailsHref: check.detailsHref ?? null, canAcknowledge: check.canAcknowledge } })) } } });
         await this.auditLogService.log({ organizationId, actorUserId, action: "LOCK", entityType: "AccountingCloseCycle", entityId: cycle.id, after: { status: "LOCKED", lockedAt, readinessHash: readiness.canonicalHash, snapshotId: snapshot.id } }, tx);
         return this.persistAccountingCloseMutation(tx, organizationId, idempotency, { id: cycle.id, fiscalPeriodId: cycle.fiscalPeriodId, status: "LOCKED", version: expectedVersion + 1, lockedAt, lockedByUserId: actorUserId, readinessHash: readiness.canonicalHash });
-      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+      }, ACCOUNTING_CLOSE_REVALIDATION_TRANSACTION_OPTIONS);
       if ("lockBlocked" in outcome) throw new ConflictException({ code: ACCOUNTING_CLOSE_LOCK_REVALIDATION_FAILED, message: ACCOUNTING_CLOSE_LOCK_REVALIDATION_MESSAGE });
       return outcome;
     } catch (error) {
