@@ -6,6 +6,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import { LedgerActionDialog } from "@/components/ui-ledger/action-dialog";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatAppDateTime } from "@/lib/app-i18n";
@@ -42,6 +43,7 @@ export default function SalesInventoryReturnDetailPage() {
   const [movementActionLoading, setMovementActionLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [pendingAction, setPendingAction] = useState<"cancel" | "void" | "post-movement" | null>(null);
   const canManage = can(PERMISSIONS.salesInvoices.update);
   const canViewInventory = can(PERMISSIONS.inventory.view);
   const canPostMovement = can(PERMISSIONS.stockMovements.create);
@@ -88,11 +90,8 @@ export default function SalesInventoryReturnDetailPage() {
     };
   }, [canViewInventory, organizationId, params.id, salesReturn?.status, salesReturn?.inventoryReturnPostedAt]);
 
-  async function runAction(action: SalesInventoryReturnAction) {
-    if (!salesReturn) return;
-    if ((action === "void" || action === "cancel") && !window.confirm(tc("{action} sales inventory return {number}?", { action: tc(action === "void" ? "Void" : "Cancel"), number: salesReturn.salesReturnNumber }))) {
-      return;
-    }
+  async function runAction(action: SalesInventoryReturnAction): Promise<boolean> {
+    if (!salesReturn) return false;
     setActionLoading(true);
     setError("");
     setSuccess("");
@@ -101,18 +100,17 @@ export default function SalesInventoryReturnDetailPage() {
       const updated = await apiRequest<SalesInventoryReturn>(`/sales-inventory-returns/${salesReturn.id}/${action}`, { method: "POST" });
       setSalesReturn(updated);
       setSuccess(tc("Sales inventory return {number} {status}.", { number: updated.salesReturnNumber, status: tc(actionLabel(action)).toLowerCase() }));
+      return true;
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : tc("Unable to {action} sales inventory return.", { action: tc(action) }));
+      return false;
     } finally {
       setActionLoading(false);
     }
   }
 
-  async function postInventoryReturnMovement() {
-    if (!salesReturn) return;
-    if (!window.confirm(`${tc(SALES_INVENTORY_RETURN_SAFE_HELPER_TEXT)}\n\n${tc("Post operational stock-in movement for {number}?", { number: salesReturn.salesReturnNumber })}`)) {
-      return;
-    }
+  async function postInventoryReturnMovement(): Promise<boolean> {
+    if (!salesReturn) return false;
     setMovementActionLoading(true);
     setError("");
     setSuccess("");
@@ -125,8 +123,10 @@ export default function SalesInventoryReturnDetailPage() {
         const preview = await apiRequest<SalesInventoryReturnInventoryMovementPreview>(`/sales-inventory-returns/${salesReturn.id}/inventory-return-preview`);
         setInventoryPreview(preview);
       }
+      return true;
     } catch (postError) {
       setError(postError instanceof Error ? postError.message : tc("Unable to post inventory return movement."));
+      return false;
     } finally {
       setMovementActionLoading(false);
     }
@@ -165,7 +165,18 @@ export default function SalesInventoryReturnDetailPage() {
 
       {salesReturn ? (
         <div className="mt-5 space-y-5">
-          <SalesInventoryReturnWorkflowGuidance salesReturn={salesReturn} canManage={canManage} actionLoading={actionLoading} onAction={runAction} />
+          <SalesInventoryReturnWorkflowGuidance
+            salesReturn={salesReturn}
+            canManage={canManage}
+            actionLoading={actionLoading}
+            onAction={(action) => {
+              if (action === "cancel" || action === "void") {
+                setPendingAction(action);
+              } else {
+                void runAction(action);
+              }
+            }}
+          />
 
           <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
             <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
@@ -189,7 +200,7 @@ export default function SalesInventoryReturnDetailPage() {
               preview={inventoryPreview}
               canPost={canPostMovement}
               actionLoading={movementActionLoading}
-              onPost={postInventoryReturnMovement}
+              onPost={() => setPendingAction("post-movement")}
             />
           ) : null}
 
@@ -232,6 +243,32 @@ export default function SalesInventoryReturnDetailPage() {
           </div>
         </div>
       ) : null}
+
+      <LedgerActionDialog
+        open={Boolean(pendingAction && salesReturn)}
+        onOpenChange={(open) => {
+          if (!open && !actionLoading && !movementActionLoading) {
+            setPendingAction(null);
+          }
+        }}
+        tone="danger"
+        title={pendingAction === "post-movement" ? tc("Post inventory return movement") : pendingAction === "void" ? tc("Void sales inventory return") : tc("Cancel sales inventory return")}
+        description={
+          salesReturn
+            ? pendingAction === "post-movement"
+              ? `${tc(SALES_INVENTORY_RETURN_SAFE_HELPER_TEXT)} ${tc("Post operational stock-in movement for {number}?", { number: salesReturn.salesReturnNumber })}`
+              : tc("{action} sales inventory return {number}?", { action: tc(pendingAction === "void" ? "Void" : "Cancel"), number: salesReturn.salesReturnNumber })
+            : ""
+        }
+        confirmLabel={pendingAction === "post-movement" ? tc("Post movement") : pendingAction === "void" ? tc("Void") : tc("Cancel")}
+        busy={actionLoading || movementActionLoading}
+        onConfirm={async () => {
+          const succeeded = pendingAction === "post-movement" ? await postInventoryReturnMovement() : pendingAction ? await runAction(pendingAction) : false;
+          if (succeeded) {
+            setPendingAction(null);
+          }
+        }}
+      />
     </section>
   );
 }
