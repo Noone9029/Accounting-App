@@ -12,11 +12,8 @@ jest.mock("@/components/permissions/permission-provider", () => ({ usePermission
 jest.mock("@/lib/api", () => ({ apiRequest: (...args: unknown[]) => apiRequestMock(...args) }));
 
 describe("RecurringTransactionDetailPage", () => {
-  let confirmSpy: jest.SpyInstance<boolean, [message?: string]>;
-
   beforeEach(() => {
     activeOrganizationId = "org-1";
-    confirmSpy = jest.spyOn(window, "confirm").mockReturnValue(true);
     apiRequestMock.mockReset();
     apiRequestMock.mockImplementation((path: string, options?: { method?: string }) => {
       if (path === "/recurring-transactions/template-1" && !options) return Promise.resolve(templateFixture());
@@ -29,7 +26,7 @@ describe("RecurringTransactionDetailPage", () => {
     });
   });
 
-  afterEach(() => confirmSpy.mockRestore());
+  afterEach(() => jest.restoreAllMocks());
 
   it("shows schedule, dimensions, failure evidence, and generated draft targets", async () => {
     render(<RecurringTransactionDetailPage />);
@@ -75,7 +72,8 @@ describe("RecurringTransactionDetailPage", () => {
     expect(screen.getByText("Immutable proposal lines (1)")).toBeInTheDocument();
     expect(screen.getByText(/gross 100.0000 - discount 10.0000 = taxable 90.0000 \+ tax 4.5000 = 94.5000 USD/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Review and post expense" }));
-    expect(confirmSpy).toHaveBeenCalledWith(expect.stringContaining("Post expense 94.5000 USD"));
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Review and post" }));
     await waitFor(() => expect(apiRequestMock).toHaveBeenCalledWith(
       "/recurring-transactions/expense-proposals/proposal-1/review",
       expect.objectContaining({ method: "POST", headers: expect.objectContaining({ "Idempotency-Key": expect.any(String) }) }),

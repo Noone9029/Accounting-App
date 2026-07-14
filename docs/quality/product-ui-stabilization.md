@@ -63,6 +63,7 @@ The initial fresh-worktree API typecheck failure was classified as a setup prere
 | UI-019 | Supplier-payment void and unapplied-allocation reversal | Product defect: AP payment actions used native confirm/prompt flows instead of controlled reason collection | P2 | Fixed in payables batch | Existing supplier-payment list/detail suites pass; reversal reason is now an optional controlled textarea |
 | UI-020 | Purchase-return cancel/void/stock-in actions | Product defect: supplier return lifecycle and operational stock posting used blocking browser confirmations | P2 | Fixed in payables batch | `apps/web/src/app/(app)/purchases/returns/[id]/page.test.tsx` passes with explicit dialog-backed actions |
 | UI-021 | Inventory-variance proposal workflow | Product defect: submit/approve/post/reverse/void actions used native confirm/prompt flows; the detail route has no pre-existing Jest suite | P2 | Fixed in banking/inventory batch | Web typecheck passes; all workflow actions now use controlled dialog notes/reasons (focused route test remains an explicit follow-up) |
+| UI-022 | Accounting-close cycle transitions and manual-task reopen | Product defect: cycle return/close/lock and task reopen used blocking browser prompt/confirm flows, preventing accessible reason capture and deterministic retry behavior | P2 | Fixed in accounting-close batch | `apps/web/src/app/(app)/accounting-close/[cycleId]/page.test.tsx` passes all 15 tests; cycle actions and reopen now use `LedgerActionDialog` |
 
 ## Foundation batch checklist
 
@@ -81,4 +82,4 @@ Generated visual evidence belongs under the ignored path `artifacts/visual-qa/pr
 
 ## Remaining native-dialog inventory
 
-The current branch has 10 native confirmation/prompt call sites remaining: accounting-close (3), variance-proposals (6), and recurring-expense review (1). These are intentionally left as the next focused batch because they require multi-field reason state and task-specific dialog context rather than a simple destructive-action swap.
+No native `window.confirm` or `window.prompt` call sites remain under `apps/web/src`. Future destructive or reasoned workflow actions must use `LedgerActionDialog` so keyboard, focus, busy, and validation behavior remain consistent.
