@@ -55,6 +55,28 @@ Every future route/page finding must link back to this inventory and record the 
 
 The initial fresh-worktree API typecheck failure was classified as a setup prerequisite because Prisma client artifacts were absent; it was resolved by the approved local generation step and is not a product defect.
 
+## Stabilization batch verification
+
+The final local gates were run sequentially with bounded workspace concurrency to preserve host capacity:
+
+| Gate | Result |
+| --- | --- |
+| `node node_modules/jest/bin/jest.js --config jest.config.cjs --runInBand` (from `apps/web`) | Passed: 187 suites, 860 tests |
+| `pnpm --filter @ledgerbyte/api exec jest --config jest.config.cjs --runInBand` | Passed: 248 suites, 2,531 tests passed, 35 skipped |
+| `pnpm --workspace-concurrency=1 typecheck` | Passed: all 8 checked workspace projects |
+| `pnpm --workspace-concurrency=1 build` | Passed: packages, API build, and Next production build (142 static pages generated) |
+| `pnpm run verify:local:web` | Passed |
+| `pnpm run verify:local:api` | Passed with a single 4 GB Node heap cap |
+| `pnpm run verify:local:guards` | Passed |
+| `pnpm run db:generate` | Passed; generated Prisma client only |
+| `pnpm run verify:ui:inventory` and `pnpm run test:verify:ui:inventory` | Passed |
+| `pnpm exec playwright test -c playwright.visual.config.ts tests/visual/arabic-locale.visual.spec.ts --workers=1` | Passed: 177 RTL route/viewport checks across 59 authenticated routes |
+| `pnpm exec playwright test -c playwright.visual.config.ts tests/visual/role-filtered-route-polish.visual.spec.ts --workers=1` | Passed: 171 role-filtered route and create-menu checks across Owner, Admin, Accountant, Sales, Purchases, and Viewer at desktop/tablet/mobile |
+| `pnpm exec playwright test -c playwright.visual.config.ts tests/visual/polished-workflows.visual.spec.ts --workers=1` | Passed: 31 polished workflow checks at desktop/tablet/mobile |
+| Bounded all-route visual cells | Owner/desktop and Viewer/mobile each passed all 92 active routes with one worker; the full 18-cell matrix remains available through the same harness and explicit role/viewport environment selectors |
+
+The repository-wide gate was decomposed into these equivalent sequential commands because its default recursive runner starts multiple package processes at once; this preserves the requested 20–30% CPU and 4–5 GB memory reserve without reducing coverage.
+
 ## Findings
 
 | ID | Surface | Classification | Severity | Status | Evidence / regression |
