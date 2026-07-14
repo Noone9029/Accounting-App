@@ -53,6 +53,8 @@ The initial fresh-worktree API typecheck failure was classified as a setup prere
 | UI-009 | Role-filtered visual fixture coverage | Test/fixture defect: the required Admin role was absent from the shared visual role matrix | P2 | Fixed in foundation batch | Admin added to shared fixtures and route/create-menu matrix; 171 Playwright checks pass across desktop/tablet/mobile |
 | UI-010 | Item delete action | Product defect: inventory master-data deletion used a blocking browser confirmation instead of the shared accessible dialog | P2 | Fixed in banking/inventory batch | `apps/web/src/app/(app)/items/page.test.tsx` passes; delete now preserves the item context while the request is busy |
 | UI-011 | Inventory-adjustment draft deletion | Product defect: adjustment deletion used a blocking browser confirmation; the detail route had no pre-existing Jest suite | P2 | Fixed in banking/inventory batch | Web typecheck passes; the shared dialog now preserves the adjustment context and busy state (a route test remains an explicit follow-up) |
+| UI-012 | Supplier refund void actions (list and detail) | Product defect: AP refund voids bypassed shared focus, Escape, and busy-state behavior | P2 | Fixed in payables batch | Existing supplier-refund list/detail suites pass after both actions moved to `LedgerActionDialog` |
+| UI-013 | Purchase-order close/void/draft-delete actions | Product defect: supplier commitment lifecycle actions relied on native confirmations | P2 | Fixed in payables batch | `apps/web/src/app/(app)/purchases/purchase-orders/[id]/page.test.tsx` passes with explicit dialog-backed actions |
 
 ## Foundation batch checklist
 
