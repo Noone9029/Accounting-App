@@ -9,7 +9,7 @@
   "buildCommand": "corepack pnpm --filter @ledgerbyte/api db:generate",
   "functions": {
     "api/index.ts": {
-      "maxDuration": 60,
+      "maxDuration": 70,
       "memory": 1024
     }
   },

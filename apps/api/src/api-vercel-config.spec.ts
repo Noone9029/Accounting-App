@@ -7,7 +7,7 @@ describe("API Vercel configuration", () => {
     const config = JSON.parse(readFileSync(resolve(__dirname, "..", "..", "..", "vercel.api.json"), "utf8"));
 
     expect(config.functions?.["api/index.js"]).toMatchObject({
-      maxDuration: 60,
+      maxDuration: 70,
     });
     expect(config.outputDirectory).toBe("apps/api/dist");
     expect(config).not.toHaveProperty("builds");
@@ -17,17 +17,17 @@ describe("API Vercel configuration", () => {
     const config = JSON.parse(readFileSync(resolve(__dirname, "..", "..", "..", "vercel.json"), "utf8"));
 
     expect(config.functions?.["api/index.js"]).toMatchObject({
-      maxDuration: 60,
+      maxDuration: 70,
     });
     expect(config.outputDirectory).toBe("apps/api/dist");
     expect(config).not.toHaveProperty("builds");
   });
 
-  it("reserves a bounded 60-second request budget for accountant-close revalidation", () => {
+  it("reserves a bounded 70-second request budget for accountant-close revalidation", () => {
     const config = JSON.parse(readFileSync(resolve(__dirname, "..", "vercel.json"), "utf8"));
 
     expect(config.functions?.["api/index.ts"]).toMatchObject({
-      maxDuration: 60,
+      maxDuration: 70,
       memory: 1024,
     });
   });
@@ -38,5 +38,6 @@ describe("API Vercel configuration", () => {
 
     expect(ACCOUNTING_CLOSE_REVALIDATION_TRANSACTION_OPTIONS.maxWait + ACCOUNTING_CLOSE_REVALIDATION_TRANSACTION_OPTIONS.timeout)
       .toBeLessThanOrEqual(functionBudgetMs - 10_000);
+    expect(ACCOUNTING_CLOSE_REVALIDATION_TRANSACTION_OPTIONS.timeout).toBe(50_000);
   });
 });
