@@ -1016,7 +1016,7 @@ describe("AccountingCloseService", () => {
     expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
       isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
       maxWait: 5_000,
-      timeout: 45_000,
+      timeout: 50_000,
     });
   });
 
@@ -1077,7 +1077,7 @@ describe("AccountingCloseService", () => {
     expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
       isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
       maxWait: 5_000,
-      timeout: 45_000,
+      timeout: 50_000,
     });
   });
 
@@ -1197,7 +1197,7 @@ describe("AccountingCloseService", () => {
     expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
       isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
       maxWait: 5_000,
-      timeout: 45_000,
+      timeout: 50_000,
     });
     expect(fx.readiness).toHaveBeenCalledWith("org-1", period.endsOn, tx);
     expect(recurring.get).toHaveBeenCalledWith("org-1", { startsOn: period.startsOn, endsOn: period.endsOn }, tx);
@@ -1342,7 +1342,7 @@ describe("AccountingCloseService", () => {
     expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
       isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
       maxWait: 5_000,
-      timeout: 45_000,
+      timeout: 50_000,
     });
   });
 
@@ -1627,7 +1627,7 @@ describe("AccountingCloseService", () => {
     expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), {
       isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
       maxWait: 5_000,
-      timeout: 45_000,
+      timeout: 50_000,
     });
   });
 

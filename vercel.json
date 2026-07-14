@@ -10,7 +10,7 @@
   "installCommand": "corepack enable && corepack pnpm install --frozen-lockfile",
   "functions": {
     "api/index.js": {
-      "maxDuration": 60
+      "maxDuration": 70
     }
   },
   "outputDirectory": "apps/api/dist",
