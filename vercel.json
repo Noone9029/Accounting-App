@@ -13,6 +13,7 @@
       "maxDuration": 60
     }
   },
+  "outputDirectory": "apps/api/dist",
   "routes": [
     {
       "src": "/(.*)",
