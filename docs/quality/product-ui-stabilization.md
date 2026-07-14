@@ -46,6 +46,7 @@ The initial fresh-worktree API typecheck failure was classified as a setup prere
 | UI-005 | Credit-note void/delete/allocation reversal actions | Product defect: native confirm/prompt flows prevented accessible reason collection and left destructive allocation reversal outside the shared dialog contract | P2 | Fixed in revenue batch | `apps/web/src/app/(app)/sales/credit-notes/[id]/page.test.tsx` passes; reversal reason is now an optional controlled textarea |
 | UI-006 | Sales inventory-return cancel/void/stock-in actions | Product defect: destructive workflow and operational stock posting relied on blocking browser confirmation | P2 | Fixed in revenue batch | `apps/web/src/app/(app)/sales/inventory-returns/[id]/page.test.tsx` passes with explicit dialog confirmation |
 | UI-007 | Purchase-bill void and draft-delete actions | Product defect: AP destructive actions bypassed the shared dialog and were inaccessible to route-level keyboard tests | P2 | Fixed in payables batch | `apps/web/src/app/(app)/purchases/bills/[id]/page.test.tsx` passes after both actions moved to `LedgerActionDialog` |
+| UI-008 | Fiscal-period lock action | Product defect: irreversible period lock used a blocking browser confirmation and had no product-level focus/escape semantics | P2 | Fixed in accounting batch | `pnpm --filter @ledgerbyte/web exec tsc --noEmit --pretty false` passes; lock now uses `LedgerActionDialog` with busy protection |
 
 ## Foundation batch checklist
 

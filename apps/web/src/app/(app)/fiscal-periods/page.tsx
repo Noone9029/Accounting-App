@@ -16,6 +16,7 @@ import {
   LedgerPageHeader,
   LedgerPanel,
 } from "@/components/ui/ledger-system";
+import { LedgerActionDialog } from "@/components/ui-ledger/action-dialog";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { fiscalPeriodLockWarning, fiscalPeriodStatusClass, fiscalPeriodStatusLabel, validateFiscalPeriodForm } from "@/lib/fiscal-periods";
@@ -31,6 +32,8 @@ export default function FiscalPeriodsPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [transitioning, setTransitioning] = useState(false);
+  const [pendingLockPeriod, setPendingLockPeriod] = useState<FiscalPeriod | null>(null);
   const canManagePeriods = canAny(PERMISSIONS.fiscalPeriods.manage);
   const canLockPeriods = canAny(PERMISSIONS.fiscalPeriods.lock, PERMISSIONS.fiscalPeriods.manage);
 
@@ -83,19 +86,20 @@ export default function FiscalPeriodsPage() {
     }
   }
 
-  async function transitionPeriod(period: FiscalPeriod, action: "close" | "reopen" | "lock") {
-    const confirmed = action !== "lock" || window.confirm("Locking is irreversible in this MVP. Continue?");
-    if (!confirmed) {
-      return;
-    }
+  async function transitionPeriod(period: FiscalPeriod, action: "close" | "reopen" | "lock"): Promise<boolean> {
     setError("");
     setSuccess("");
+    setTransitioning(true);
     try {
       const updated = await apiRequest<FiscalPeriod>(`/fiscal-periods/${period.id}/${action}`, { method: "POST" });
       setPeriods((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       setSuccess(`${updated.name} is now ${updated.status}.`);
+      return true;
     } catch (transitionError) {
       setError(transitionError instanceof Error ? transitionError.message : "Unable to update fiscal period.");
+      return false;
+    } finally {
+      setTransitioning(false);
     }
   }
 
@@ -173,7 +177,7 @@ export default function FiscalPeriodsPage() {
                         </LedgerButton>
                       ) : null}
                       {period.status !== "LOCKED" && canLockPeriods ? (
-                        <LedgerButton type="button" size="sm" variant="danger" onClick={() => transitionPeriod(period, "lock")}>
+                        <LedgerButton type="button" size="sm" variant="danger" onClick={() => setPendingLockPeriod(period)}>
                           Lock
                         </LedgerButton>
                       ) : null}
@@ -184,6 +188,25 @@ export default function FiscalPeriodsPage() {
             </tbody>
           </LedgerDataTable>
         ) : null}
+
+        <LedgerActionDialog
+          open={Boolean(pendingLockPeriod)}
+          onOpenChange={(open) => {
+            if (!open && !transitioning) {
+              setPendingLockPeriod(null);
+            }
+          }}
+          tone="danger"
+          title="Lock fiscal period"
+          description={pendingLockPeriod ? `Lock ${pendingLockPeriod.name}? Locking is irreversible in this MVP and will block posting in the period.` : ""}
+          confirmLabel="Lock"
+          busy={transitioning}
+          onConfirm={async () => {
+            if (pendingLockPeriod && (await transitionPeriod(pendingLockPeriod, "lock"))) {
+              setPendingLockPeriod(null);
+            }
+          }}
+        />
       </LedgerPageBody>
     </LedgerPage>
   );
