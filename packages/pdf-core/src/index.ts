@@ -838,6 +838,15 @@ export interface BankReconciliationReportPdfData {
   generatedAt: string | Date;
 }
 
+export interface AccountingCloseEvidencePdfData {
+  schemaVersion: number; organization: PdfOrganization; baseCurrency: string; generatedAt: string | Date;
+  fiscalPeriod: { id: string; name: string; startsOn: string | Date; endsOn: string | Date; status: string };
+  cycle: { id: string; status: string; version: number; signoffMode?: string | null; readinessHash?: string | null; preparedAt?: string | Date | null; preparerUserId?: string | null; reviewedAt?: string | Date | null; reviewerUserId?: string | null; closedAt?: string | Date | null; closedByUserId?: string | null; lockedAt?: string | Date | null; lockedByUserId?: string | null };
+  tasks: Array<{ id: string; title: string; status: string; severity: string; acknowledgementReason?: string | null }>;
+  checks: Array<{ checkKey: string; status: string; severity: string; safeMessage: string }>;
+  evidence: Array<{ id: string; evidenceType: string; reportType?: string | null; generatedDocumentId?: string | null; safeLabel: string; addedAt: string | Date }>;
+}
+
 export interface DocumentRenderSettings {
   title?: string;
   footerText?: string;
@@ -2056,6 +2065,27 @@ export async function renderBankReconciliationReportPdf(data: BankReconciliation
         renderSettings,
       );
     }
+  }, renderSettings);
+}
+
+export async function renderAccountingCloseEvidencePdf(data: AccountingCloseEvidencePdfData, settings?: DocumentRenderSettings): Promise<Buffer> {
+  const renderSettings = resolveSettings(settings, "Accounting Close Evidence");
+  return renderPdf((doc) => {
+    writeHeader(doc, data.organization, renderSettings, data.generatedAt);
+    writeTwoColumnBlocks(doc, "Fiscal Period", [data.fiscalPeriod.name, `Organization ID: ${data.organization.id ?? "-"}`, `Period ID: ${data.fiscalPeriod.id}`, `${formatDate(data.fiscalPeriod.startsOn)} to ${formatDate(data.fiscalPeriod.endsOn)}`, `Status: ${data.fiscalPeriod.status}`], "Close Cycle", [["Cycle ID", data.cycle.id], ["Status", data.cycle.status], ["Base currency", data.baseCurrency], ["Schema version", String(data.schemaVersion)], ["Version", String(data.cycle.version)], ["Sign-off", data.cycle.signoffMode ?? "-"], ["Readiness hash", data.cycle.readinessHash ?? "-"]], renderSettings);
+    const signoffLines = [
+      ["Preparer", data.cycle.preparerUserId ?? "-"],
+      ["Prepared", data.cycle.preparedAt ? formatDateTime(data.cycle.preparedAt) : "-"],
+      ["Reviewer", data.cycle.reviewerUserId ?? "-"],
+      ["Reviewed", data.cycle.reviewedAt ? formatDateTime(data.cycle.reviewedAt) : "-"],
+    ].map(([label, value]) => `${label}: ${value}`);
+    writeTwoColumnBlocks(doc, "Sign-off", signoffLines, "Lifecycle", [["Closed by", data.cycle.closedByUserId ?? "-"], ["Closed", data.cycle.closedAt ? formatDateTime(data.cycle.closedAt) : "-"], ["Locked by", data.cycle.lockedByUserId ?? "-"], ["Locked", data.cycle.lockedAt ? formatDateTime(data.cycle.lockedAt) : "-"]], renderSettings);
+    writeSectionTitle(doc, "Tasks", renderSettings);
+    drawTable(doc, [{ label: "Task", width: 170 }, { label: "Status", width: 70 }, { label: "Severity", width: 70 }, { label: "Acknowledgement", width: 170 }], data.tasks.length ? data.tasks.map((task) => [task.title, task.status, task.severity, task.acknowledgementReason ?? "-"]) : [["No tasks recorded.", "-", "-", "-"]], renderSettings);
+    writeSectionTitle(doc, "Frozen Readiness Checks", renderSettings);
+    drawTable(doc, [{ label: "Check", width: 130 }, { label: "Status", width: 75 }, { label: "Severity", width: 75 }, { label: "Safe message", width: 200 }], data.checks.length ? data.checks.map((check) => [check.checkKey, check.status, check.severity, check.safeMessage]) : [["No readiness snapshot recorded.", "-", "-", "-"]], renderSettings);
+    writeSectionTitle(doc, "Evidence", renderSettings);
+    drawTable(doc, [{ label: "Evidence ID", width: 80 }, { label: "Report reference", width: 120 }, { label: "Document ref", width: 100 }, { label: "Safe label", width: 180 }], data.evidence.length ? data.evidence.map((item) => [item.id, item.reportType ?? item.evidenceType, item.generatedDocumentId ?? "-", item.safeLabel]) : [["No evidence recorded.", "-", "-", "-"]], renderSettings);
   }, renderSettings);
 }
 

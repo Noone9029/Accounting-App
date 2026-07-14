@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, NotFoundException } from "@nest
 import { PERMISSIONS } from "@ledgerbyte/shared";
 import { createHash } from "node:crypto";
 import { BankDepositBatchStatus, BankReconciliationStatus, BankStatementTransactionStatus, CardSettlementStatus, CashExpenseStatus, ChequeInstrumentStatus, CreditNoteStatus, CustomerPaymentStatus, DocumentInboxStatus, FiscalPeriodStatus, InventoryAdjustmentStatus, InventoryVarianceProposalStatus, JournalEntryStatus, PurchaseBillStatus, PurchaseDebitNoteStatus, ReportPackStatus, SalesInvoiceStatus, SupplierPaymentStatus } from "@prisma/client";
-import { AccountingCloseService } from "./accounting-close.service";
+import { AccountingCloseService, closeEvidencePdfData } from "./accounting-close.service";
 
 describe("AccountingCloseService", () => {
   const period = { id: "period-1", organizationId: "org-1", name: "June 2026", startsOn: new Date("2026-06-01T00:00:00.000Z"), endsOn: new Date("2026-06-30T23:59:59.999Z"), status: FiscalPeriodStatus.OPEN };
@@ -639,7 +639,7 @@ describe("AccountingCloseService", () => {
         findFirst: jest.fn().mockResolvedValue({
           id: "cycle-1", organizationId: "org-1", fiscalPeriodId: "period-1", status: "REVIEWED", version: 7,
           startedAt: new Date("2026-07-01T00:00:00.000Z"), preparedAt: new Date("2026-07-02T00:00:00.000Z"), preparedByUserId: "user-preparer",
-          reviewedAt: new Date("2026-07-03T00:00:00.000Z"), reviewedByUserId: "user-reviewer", closedAt: null, lockedAt: null,
+          reviewedAt: new Date("2026-07-03T00:00:00.000Z"), reviewedByUserId: "user-reviewer", closedAt: null, closedByUserId: "user-closer", lockedAt: null, lockedByUserId: "user-locker",
           readinessHash: "current-hash", signoffMode: "SINGLE_USER_DEMO", requestId: "internal-request-id",
           organization: { id: "org-1", name: "LedgerByte Demo", baseCurrency: "AED", taxNumber: "private-tax-number" },
           fiscalPeriod: { id: "period-1", name: "June 2026", startsOn: period.startsOn, endsOn: period.endsOn, status: FiscalPeriodStatus.OPEN },
@@ -698,6 +698,11 @@ describe("AccountingCloseService", () => {
     expect(csv.content).toContain("'=June trial balance");
     expect(csv.content).not.toContain("private-source-id");
     expect(csv.content).not.toContain("user-preparer");
+    const pdf = await service.exportCycleEvidencePdf(manifest);
+    expect(pdf.filename).toBe("accounting-close-evidence-cycle-1.pdf");
+    expect(pdf.content.subarray(0, 4).toString()).toBe("%PDF");
+    expect(pdf.content.byteLength).toBeGreaterThan(1000);
+    expect(closeEvidencePdfData(manifest)).toMatchObject({ schemaVersion: 1, organization: { id: "org-1" }, fiscalPeriod: { id: "period-1" }, cycle: { preparerUserId: "user-preparer", reviewerUserId: "user-reviewer", closedByUserId: "user-closer", lockedByUserId: "user-locker" }, tasks: [expect.objectContaining({ acknowledgementReason: "Reviewed with controller" })], evidence: [expect.objectContaining({ id: "evidence-1", generatedDocumentId: "document-1" })] });
   });
 
   it("fails rather than silently truncating a close evidence export", async () => {
@@ -712,6 +717,19 @@ describe("AccountingCloseService", () => {
     await expect(service.exportCycleEvidence("org-1", "cycle-1")).rejects.toBeInstanceOf(BadRequestException);
     expect(prisma.accountingCloseEvidence.findMany).not.toHaveBeenCalled();
     expect(prisma.accountingCloseReadinessSnapshot.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("rejects an oversized close evidence PDF instead of materializing an unbounded document", async () => {
+    const { service } = createService();
+    const manifest = {
+      organization: { name: "LedgerByte Demo", baseCurrency: "AED" }, generatedAt: new Date(),
+      fiscalPeriod: { name: "June 2026", startsOn: period.startsOn, endsOn: period.endsOn, status: FiscalPeriodStatus.OPEN },
+      cycle: { id: "cycle-1", status: "REVIEWED", version: 7, signoffMode: "DISTINCT_USERS", readinessHash: "safe-hash" },
+      tasks: Array.from({ length: 1001 }, (_, index) => ({ title: `Task ${index}`, status: "COMPLETED", severity: "WARNING" })),
+      evidence: [], latestReadinessSnapshot: null,
+    };
+
+    await expect(service.exportCycleEvidencePdf(manifest as never)).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it("attaches tenant-owned generated-document evidence to a mutable close task with safe fields only", async () => {

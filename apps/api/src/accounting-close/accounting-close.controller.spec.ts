@@ -46,4 +46,23 @@ describe("AccountingCloseController permissions", () => {
     ]);
     expect(updateSignoffPolicy).toHaveBeenCalledWith("org-1", "user-1", true);
   });
+
+  it("streams the existing safe close-evidence manifest as a PDF attachment", async () => {
+    const manifest = { cycle: { id: "cycle-1" } };
+    const exportCycleEvidence = jest.fn().mockResolvedValue(manifest);
+    const exportCycleEvidencePdf = jest.fn().mockResolvedValue({
+      filename: "accounting-close-evidence-cycle-1.pdf",
+      content: Buffer.from("%PDF-safe-close-evidence"),
+    });
+    const controller = new AccountingCloseController({ exportCycleEvidence, exportCycleEvidencePdf } as never);
+    const setHeader = jest.fn();
+    const response = { setHeader } as never;
+
+    await expect(controller.exportCycleEvidence("org-1", "cycle-1", { format: "pdf" } as never, response)).resolves.toEqual(Buffer.from("%PDF-safe-close-evidence"));
+
+    expect(exportCycleEvidence).toHaveBeenCalledWith("org-1", "cycle-1");
+    expect(exportCycleEvidencePdf).toHaveBeenCalledWith(manifest);
+    expect(setHeader).toHaveBeenCalledWith("content-type", "application/pdf");
+    expect(setHeader).toHaveBeenCalledWith("content-disposition", 'attachment; filename="accounting-close-evidence-cycle-1.pdf"');
+  });
 });
