@@ -61,6 +61,7 @@ The initial fresh-worktree API typecheck failure was classified as a setup prere
 | UI-017 | Sales-stock-issue void/COGS-post/reversal actions | Product defect: inventory COGS actions used native confirmations; the detail route has no pre-existing Jest suite | P2 | Fixed in banking/inventory batch | Web typecheck passes; all three actions now use the shared dialog (a focused route test remains an explicit follow-up) |
 | UI-018 | FX-revaluation post/reversal actions | Product defect: accounting lifecycle controls used native confirmations and could not be asserted through the product dialog contract | P2 | Fixed in accounting batch | `apps/web/src/app/(app)/fx-revaluations/page.test.tsx` passes with explicit post/reverse dialog confirmation |
 | UI-019 | Supplier-payment void and unapplied-allocation reversal | Product defect: AP payment actions used native confirm/prompt flows instead of controlled reason collection | P2 | Fixed in payables batch | Existing supplier-payment list/detail suites pass; reversal reason is now an optional controlled textarea |
+| UI-020 | Purchase-return cancel/void/stock-in actions | Product defect: supplier return lifecycle and operational stock posting used blocking browser confirmations | P2 | Fixed in payables batch | `apps/web/src/app/(app)/purchases/returns/[id]/page.test.tsx` passes with explicit dialog-backed actions |
 
 ## Foundation batch checklist
 
