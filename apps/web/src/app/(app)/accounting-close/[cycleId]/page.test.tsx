@@ -70,6 +70,26 @@ describe("accountant close cycle detail", () => {
     await waitFor(() => expect(apiRequestMock).toHaveBeenCalledWith("/accounting-close/cycles/cycle-1/tasks/task-1/complete", { method: "POST", body: { expectedVersion: 4 } }));
   });
 
+  it("shows the current assignee and lets a close manager assign an eligible manual task", async () => {
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/accounting-close/cycles/cycle-1") return Promise.resolve({ id: "cycle-1", fiscalPeriodId: "period-1", status: "IN_PROGRESS", version: 4, readinessHash: "abc123", fiscalPeriod: { name: "June 2026", status: "OPEN" }, taskCount: 1, evidenceCount: 0, snapshotCount: 0 });
+      if (path === "/accounting-close/cycles/cycle-1/tasks?page=1&pageSize=100") return Promise.resolve({ items: [{ id: "task-1", title: "Review bank reconciliation", source: "STANDARD_TEMPLATE", severity: "INFORMATION", status: "OPEN", isRequired: true, assignedToUserId: "user-a", assignedToUser: { id: "user-a", name: "Alex Accountant" } }], meta: { totalItems: 1 } });
+      if (path === "/accounting-close/cycles/cycle-1/snapshots?page=1&pageSize=100") return Promise.resolve({ items: [], meta: { totalItems: 0 } });
+      if (path === "/accounting-close/cycles/cycle-1/assignees?query=Bea&page=1&pageSize=100") return Promise.resolve({ items: [{ id: "user-b", name: "Bea Reviewer" }], meta: { totalItems: 1 } });
+      if (path === "/accounting-close/cycles/cycle-1/tasks/task-1/assign") return Promise.resolve({ id: "task-1", assignedToUserId: "user-b", assignedToUser: { id: "user-b", name: "Bea Reviewer" } });
+      return Promise.resolve(null);
+    });
+
+    render(<AccountingCloseCyclePage />);
+    const assignee = await screen.findByRole("combobox", { name: "Assignee: Review bank reconciliation" });
+    expect(assignee).toHaveValue("user-a");
+    expect(screen.queryByRole("option", { name: "Unassigned" })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox", { name: "Search eligible assignees" }), { target: { value: "Bea" } });
+    await waitFor(() => expect(apiRequestMock).toHaveBeenCalledWith("/accounting-close/cycles/cycle-1/assignees?query=Bea&page=1&pageSize=100"));
+    fireEvent.change(assignee, { target: { value: "user-b" } });
+    await waitFor(() => expect(apiRequestMock).toHaveBeenCalledWith("/accounting-close/cycles/cycle-1/tasks/task-1/assign", { method: "POST", body: { expectedVersion: 4, assignedToUserId: "user-b" } }));
+  });
+
   it("links a safe report reference without uploading document content", async () => {
     apiRequestMock.mockImplementation((path: string) => {
       if (path === "/accounting-close/cycles/cycle-1") return Promise.resolve({ id: "cycle-1", fiscalPeriodId: "period-1", status: "IN_PROGRESS", version: 4, readinessHash: "abc123", fiscalPeriod: { name: "June 2026", status: "OPEN" }, taskCount: 2, evidenceCount: 1, snapshotCount: 1 });

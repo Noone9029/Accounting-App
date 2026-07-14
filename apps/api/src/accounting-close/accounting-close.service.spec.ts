@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, NotFoundException } from "@nestjs/common";
+import { PERMISSIONS } from "@ledgerbyte/shared";
 import { createHash } from "node:crypto";
 import { BankDepositBatchStatus, BankReconciliationStatus, BankStatementTransactionStatus, CardSettlementStatus, CashExpenseStatus, ChequeInstrumentStatus, CreditNoteStatus, CustomerPaymentStatus, DocumentInboxStatus, FiscalPeriodStatus, InventoryAdjustmentStatus, InventoryVarianceProposalStatus, JournalEntryStatus, PurchaseBillStatus, PurchaseDebitNoteStatus, ReportPackStatus, SalesInvoiceStatus, SupplierPaymentStatus } from "@prisma/client";
 import { AccountingCloseService } from "./accounting-close.service";
@@ -610,7 +611,7 @@ describe("AccountingCloseService", () => {
           id: "cycle-1", organizationId: "org-1", fiscalPeriodId: "period-1", status: "REVIEWED", version: 7,
           startedAt: new Date("2026-07-01T00:00:00.000Z"), preparedAt: new Date("2026-07-02T00:00:00.000Z"), preparedByUserId: "user-preparer",
           reviewedAt: new Date("2026-07-03T00:00:00.000Z"), reviewedByUserId: "user-reviewer", closedAt: null, lockedAt: null,
-          readinessHash: "current-hash", requestId: "internal-request-id",
+          readinessHash: "current-hash", signoffMode: "SINGLE_USER_DEMO", requestId: "internal-request-id",
           organization: { id: "org-1", name: "LedgerByte Demo", baseCurrency: "AED", taxNumber: "private-tax-number" },
           fiscalPeriod: { id: "period-1", name: "June 2026", startsOn: period.startsOn, endsOn: period.endsOn, status: FiscalPeriodStatus.OPEN },
         }),
@@ -645,7 +646,7 @@ describe("AccountingCloseService", () => {
     expect(manifest).toMatchObject({
       organization: { id: "org-1", name: "LedgerByte Demo", baseCurrency: "AED" },
       fiscalPeriod: { id: "period-1", name: "June 2026" },
-      cycle: { id: "cycle-1", status: "REVIEWED", preparerUserId: "user-preparer", reviewerUserId: "user-reviewer", readinessHash: "current-hash" },
+      cycle: { id: "cycle-1", status: "REVIEWED", preparerUserId: "user-preparer", reviewerUserId: "user-reviewer", readinessHash: "current-hash", signoffMode: "SINGLE_USER_DEMO" },
       tasks: [expect.objectContaining({ id: "task-1", acknowledgementReason: "Reviewed with controller" })],
       evidence: [expect.objectContaining({ id: "evidence-1", reportType: "TRIAL_BALANCE", generatedDocumentId: "document-1" })],
       latestReadinessSnapshot: expect.objectContaining({ id: "snapshot-1", canonicalHash: "frozen-hash", items: [expect.objectContaining({ checkKey: "ar.aging" })] }),
@@ -664,6 +665,7 @@ describe("AccountingCloseService", () => {
     expect(prisma.accountingCloseEvidence.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { organizationId: "org-1", closeCycleId: "cycle-1" }, take: 10001 }));
     const csv = service.exportCycleEvidenceCsv(manifest);
     expect(csv).toMatchObject({ filename: "accounting-close-evidence-cycle-1.csv" });
+    expect(csv.content).toContain("Sign-off Mode,SINGLE_USER_DEMO");
     expect(csv.content).toContain("'=June trial balance");
     expect(csv.content).not.toContain("private-source-id");
     expect(csv.content).not.toContain("user-preparer");
@@ -721,7 +723,7 @@ describe("AccountingCloseService", () => {
   it("assigns a manual close task only to an active member of the tenant and audits the change", async () => {
     const { service, prisma, auditLog } = createService();
     const task = { id: "task-1", organizationId: "org-1", closeCycleId: "cycle-1", source: "STANDARD_TEMPLATE", status: "OPEN", assignedToUserId: null };
-    const assigned = { ...task, assignedToUserId: "user-2" };
+    const assigned = { ...task, assignedToUserId: "user-2", assignedToUser: { id: "user-2", name: "Reviewer Two", email: "reviewer@example.test" } };
     const tx = {
       accountingCloseCycle: { findFirst: jest.fn().mockResolvedValue({ id: "cycle-1", fiscalPeriodId: "period-1", status: "IN_PROGRESS" }), updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
       fiscalPeriod: { findFirst: jest.fn().mockResolvedValue({ id: "period-1", status: FiscalPeriodStatus.OPEN }) },
@@ -731,12 +733,68 @@ describe("AccountingCloseService", () => {
     Object.assign(prisma, { $transaction: jest.fn((callback) => callback(tx)) });
 
     const result = await service.assignTask("org-1", "user-1", "cycle-1", "task-1", 3, "user-2");
-    expect(result).toMatchObject({ assignedToUserId: "user-2" });
+    expect(result).toMatchObject({ assignedToUserId: "user-2", assignedToUser: { id: "user-2", name: "Reviewer Two" } });
+    expect(result.assignedToUser).not.toHaveProperty("email");
     expect(result).not.toHaveProperty("organizationId");
     expect(result).not.toHaveProperty("closeCycleId");
     expect(tx.organizationMember.findFirst).toHaveBeenCalledWith({ where: { organizationId: "org-1", userId: "user-2", status: "ACTIVE" }, select: { id: true } });
     expect(tx.accountingCloseTask.update).toHaveBeenCalledWith(expect.objectContaining({ data: { assignedToUserId: "user-2" } }));
     expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({ action: "ASSIGN", before: task, after: assigned }), tx);
+  });
+
+  it("lists only bounded active tenant assignees with safe display fields", async () => {
+    const { service, prisma } = createService();
+    prisma.organizationMember = {
+      findMany: jest.fn().mockResolvedValue([
+        { user: { id: "user-2", name: "Reviewer Two", email: "reviewer@example.test" } },
+      ]),
+      count: jest.fn().mockResolvedValue(1),
+    };
+
+    prisma.accountingCloseCycle = { findFirst: jest.fn().mockResolvedValue({ id: "cycle-1" }) };
+
+    await expect(service.listAssignableMembers("org-1", "cycle-1", "review", 1, 25)).resolves.toEqual({
+      items: [{ id: "user-2", name: "Reviewer Two" }],
+      meta: { page: 1, pageSize: 25, totalItems: 1, totalPages: 1 },
+    });
+    expect(prisma.organizationMember.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ organizationId: "org-1", status: "ACTIVE" }),
+      take: 25,
+      select: { user: { select: { id: true, name: true } } },
+    }));
+    expect(prisma.accountingCloseCycle.findFirst).toHaveBeenCalledWith({ where: { id: "cycle-1", organizationId: "org-1" }, select: { id: true } });
+  });
+
+  it("records an explicit organization policy before single-user demo sign-off can be considered", async () => {
+    const { service, prisma, auditLog } = createService();
+    const before = { id: "org-1", accountingCloseSingleUserDemoSignoffEnabled: false };
+    const after = { id: "org-1", accountingCloseSingleUserDemoSignoffEnabled: true };
+    const tx = {
+      organization: {
+        findUnique: jest.fn().mockResolvedValue(before),
+        update: jest.fn().mockResolvedValue(after),
+      },
+    };
+    Object.assign(prisma, { $transaction: jest.fn((callback) => callback(tx)) });
+
+    await expect(service.updateSignoffPolicy("org-1", "user-1", true)).resolves.toEqual({
+      accountingCloseSingleUserDemoSignoffEnabled: true,
+    });
+    expect(tx.organization.findUnique).toHaveBeenCalledWith({ where: { id: "org-1" }, select: { id: true, accountingCloseSingleUserDemoSignoffEnabled: true } });
+    expect(tx.organization.update).toHaveBeenCalledWith({
+      where: { id: "org-1" },
+      data: { accountingCloseSingleUserDemoSignoffEnabled: true },
+      select: { id: true, accountingCloseSingleUserDemoSignoffEnabled: true },
+    });
+    expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({
+      organizationId: "org-1",
+      actorUserId: "user-1",
+      action: "UPDATE_SIGNOFF_POLICY",
+      entityType: "Organization",
+      entityId: "org-1",
+      before: { id: "org-1", accountingCloseSingleUserDemoSignoffEnabled: false },
+      after: { id: "org-1", accountingCloseSingleUserDemoSignoffEnabled: true },
+    }), tx);
   });
 
   it("creates one tenant-scoped cycle with the standard required manual tasks and an audit event", async () => {
@@ -968,11 +1026,64 @@ describe("AccountingCloseService", () => {
 
   it("rejects reviewer self-approval before reading or claiming a prepared cycle", async () => {
     const { service, prisma } = createService();
-    const tx = { accountingCloseCycle: { findFirst: jest.fn().mockResolvedValue({ id: "cycle-1", fiscalPeriodId: "period-1", status: "READY_FOR_REVIEW", preparedByUserId: "user-1", readinessHash: "clear-hash" }) } };
+    const tx = {
+      accountingCloseCycle: { findFirst: jest.fn().mockResolvedValue({ id: "cycle-1", fiscalPeriodId: "period-1", status: "READY_FOR_REVIEW", preparedByUserId: "user-1", readinessHash: "clear-hash", signoffMode: null }) },
+      organization: { findUnique: jest.fn().mockResolvedValue({ id: "org-1", accountingCloseSingleUserDemoSignoffEnabled: false }) },
+    };
     Object.assign(prisma, { $transaction: jest.fn((callback) => callback(tx)) });
 
     await expect(service.reviewCycle("org-1", "user-1", "cycle-1", 5)).rejects.toBeInstanceOf(BadRequestException);
 
+    expect((tx.accountingCloseCycle as any).updateMany).toBeUndefined();
+  });
+
+  it("permits a documented single-user demo review only when the enabled organization has one eligible full-access reviewer", async () => {
+    const { service, prisma, auditLog } = createService();
+    jest.spyOn(service as any, "readinessForFiscalPeriod").mockResolvedValue({ blockerCount: 0, canonicalHash: "demo-hash" });
+    const tx = {
+      accountingCloseCycle: {
+        findFirst: jest.fn().mockResolvedValue({ id: "cycle-1", fiscalPeriodId: "period-1", status: "READY_FOR_REVIEW", preparedByUserId: "user-1", readinessHash: "demo-hash", signoffMode: null }),
+        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+      },
+      organization: { findUnique: jest.fn().mockResolvedValue({ id: "org-1", accountingCloseSingleUserDemoSignoffEnabled: true }) },
+      organizationMember: { findMany: jest.fn().mockResolvedValue([{ role: { permissions: [PERMISSIONS.admin.fullAccess] } }]) },
+      fiscalPeriod: { findFirst: jest.fn().mockResolvedValue(period) },
+      accountingCloseReadinessSnapshot: { findFirst: jest.fn().mockResolvedValue({ id: "snapshot-1", canonicalHash: "demo-hash" }), updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+    };
+    Object.assign(prisma, { $transaction: jest.fn((callback) => callback(tx)) });
+
+    await expect(service.reviewCycle("org-1", "user-1", "cycle-1", 5)).resolves.toMatchObject({
+      status: "REVIEWED",
+      reviewedByUserId: "user-1",
+      signoffMode: "SINGLE_USER_DEMO",
+    });
+    expect(tx.organizationMember.findMany).toHaveBeenCalledWith({ where: { organizationId: "org-1", status: "ACTIVE" }, select: { role: { select: { permissions: true } } } });
+    expect(tx.accountingCloseCycle.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ signoffMode: "SINGLE_USER_DEMO" }) }));
+    expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({ after: expect.objectContaining({ signoffMode: "SINGLE_USER_DEMO" }) }), tx);
+  });
+
+  it("rejects the demo exception when full-access or legacy wildcard members create a second eligible reviewer", async () => {
+    const { service, prisma } = createService();
+    const tx = {
+      accountingCloseCycle: { findFirst: jest.fn().mockResolvedValue({ id: "cycle-1", fiscalPeriodId: "period-1", status: "READY_FOR_REVIEW", preparedByUserId: "user-1", readinessHash: "demo-hash", signoffMode: null }) },
+      organization: { findUnique: jest.fn().mockResolvedValue({ id: "org-1", accountingCloseSingleUserDemoSignoffEnabled: true }) },
+      organizationMember: { findMany: jest.fn().mockResolvedValue([{ role: { permissions: [PERMISSIONS.admin.fullAccess] } }, { role: { permissions: ["*"] } }]) },
+    };
+    Object.assign(prisma, { $transaction: jest.fn((callback) => callback(tx)) });
+
+    await expect(service.reviewCycle("org-1", "user-1", "cycle-1", 5)).rejects.toBeInstanceOf(BadRequestException);
+    expect((tx.accountingCloseCycle as any).updateMany).toBeUndefined();
+  });
+
+  it("does not allow a close cycle to switch its recorded sign-off mode", async () => {
+    const { service, prisma } = createService();
+    const tx = {
+      accountingCloseCycle: { findFirst: jest.fn().mockResolvedValue({ id: "cycle-1", fiscalPeriodId: "period-1", status: "READY_FOR_REVIEW", preparedByUserId: "user-1", readinessHash: "demo-hash", signoffMode: "SEPARATED" }) },
+      organization: { findUnique: jest.fn().mockResolvedValue({ id: "org-1", accountingCloseSingleUserDemoSignoffEnabled: true }) },
+    };
+    Object.assign(prisma, { $transaction: jest.fn((callback) => callback(tx)) });
+
+    await expect(service.reviewCycle("org-1", "user-1", "cycle-1", 5)).rejects.toBeInstanceOf(BadRequestException);
     expect((tx.accountingCloseCycle as any).updateMany).toBeUndefined();
   });
 

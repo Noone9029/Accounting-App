@@ -5,6 +5,7 @@ const schemaPath = resolve(__dirname, "../../prisma/schema.prisma");
 const migrationPath = resolve(__dirname, "../../prisma/migrations/20260713073000_add_accounting_close_workspace_foundation/migration.sql");
 const taskPolicyMigrationPath = resolve(__dirname, "../../prisma/migrations/20260713080000_add_accounting_close_task_policy_fields/migration.sql");
 const reviewedSnapshotMigrationPath = resolve(__dirname, "../../prisma/migrations/20260713100000_allow_reviewed_close_snapshot_status/migration.sql");
+const signoffPolicyMigrationPath = resolve(__dirname, "../../prisma/migrations/20260714090000_add_accounting_close_signoff_policy/migration.sql");
 
 function modelBlock(name: string) {
   const schema = readFileSync(schemaPath, "utf8");
@@ -118,5 +119,23 @@ describe("accounting close persistence schema", () => {
     expect(migration).toContain("NEW.status = 'REVIEWED'");
     expect(migration).toContain("to_jsonb(NEW) - 'status' = to_jsonb(OLD) - 'status'");
     expect(migration).not.toContain('DROP TRIGGER "AccountingCloseReadinessSnapshotItem_immutable"');
+  });
+
+  it("adds the default-off single-user demo policy and immutable sign-off mode without rewriting close data", () => {
+    const schema = readFileSync(schemaPath, "utf8");
+    expect(schema).toContain("enum AccountingCloseSignoffMode {");
+    expect(modelBlock("Organization")).toContain("accountingCloseSingleUserDemoSignoffEnabled Boolean @default(false)");
+    expect(modelBlock("AccountingCloseCycle")).toContain("signoffMode AccountingCloseSignoffMode?");
+    expect(existsSync(signoffPolicyMigrationPath)).toBe(true);
+    if (!existsSync(signoffPolicyMigrationPath)) return;
+    const migration = readFileSync(signoffPolicyMigrationPath, "utf8");
+
+    expect(migration.trimStart().startsWith("BEGIN;")).toBe(true);
+    expect(migration.trimEnd().endsWith("COMMIT;")).toBe(true);
+    expect(migration).toContain('CREATE TYPE "AccountingCloseSignoffMode" AS ENUM (\'SEPARATED\', \'SINGLE_USER_DEMO\')');
+    expect(migration).toContain('ADD COLUMN "accountingCloseSingleUserDemoSignoffEnabled" BOOLEAN NOT NULL DEFAULT false');
+    expect(migration).toContain('ADD COLUMN "signoffMode" "AccountingCloseSignoffMode"');
+    expect(migration).not.toMatch(/UPDATE\s+"(?:Organization|AccountingCloseCycle)"/i);
+    expect(migration).not.toMatch(/DELETE\s+FROM\s+"(?:Organization|AccountingCloseCycle)"/i);
   });
 });

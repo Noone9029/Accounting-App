@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from "@nestjs/common";
+import { hasPermission, PERMISSIONS } from "@ledgerbyte/shared";
 import { createHash } from "node:crypto";
 import { BankDepositBatchStatus, BankReconciliationStatus, BankStatementTransactionStatus, CardSettlementStatus, CashExpenseStatus, ChequeInstrumentStatus, CreditNoteStatus, CustomerPaymentStatus, DocumentInboxStatus, FiscalPeriodStatus, GeneratedDocumentStatus, InventoryAdjustmentStatus, InventoryVarianceProposalStatus, JournalEntryStatus, Prisma, PurchaseBillStatus, PurchaseDebitNoteStatus, ReportPackStatus, SalesInvoiceStatus, SupplierPaymentStatus } from "@prisma/client";
 import { FxCloseReadinessService } from "../foreign-exchange/fx-close-readiness.service";
@@ -81,10 +82,68 @@ export class AccountingCloseService {
     const safePageSize = pageSize;
     const where = { organizationId, closeCycleId: cycleId };
     const [tasks, totalItems] = await Promise.all([
-      this.prisma.accountingCloseTask.findMany({ where, orderBy: [{ sortOrder: "asc" }, { id: "asc" }], skip: (safePage - 1) * safePageSize, take: safePageSize }),
+      this.prisma.accountingCloseTask.findMany({
+        where,
+        include: { assignedToUser: { select: { id: true, name: true } } },
+        orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+        skip: (safePage - 1) * safePageSize,
+        take: safePageSize,
+      }),
       this.prisma.accountingCloseTask.count({ where }),
     ]);
     return { items: tasks.map(taskResponse), meta: { page: safePage, pageSize: safePageSize, totalItems, totalPages: Math.max(1, Math.ceil(totalItems / safePageSize)) } };
+  }
+
+  async listAssignableMembers(organizationId: string, cycleId: string, query = "", page = 1, pageSize = 25) {
+    if (!Number.isInteger(page) || page < 1 || page > 10000) throw new BadRequestException("page must be an integer between 1 and 10000.");
+    if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 100) throw new BadRequestException("pageSize must be an integer between 1 and 100.");
+    const cycle = await this.prisma.accountingCloseCycle.findFirst({ where: { id: cycleId, organizationId }, select: { id: true } });
+    if (!cycle) throw new NotFoundException("Close cycle not found.");
+    const normalizedQuery = query.trim();
+    const where = {
+      organizationId,
+      status: "ACTIVE" as const,
+      ...(normalizedQuery ? { user: { name: { contains: normalizedQuery, mode: "insensitive" as const } } } : {}),
+    };
+    const [memberships, totalItems] = await Promise.all([
+      this.prisma.organizationMember.findMany({
+        where,
+        select: { user: { select: { id: true, name: true } } },
+        orderBy: { user: { name: "asc" } },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+      this.prisma.organizationMember.count({ where }),
+    ]);
+    return {
+      items: memberships.map(({ user }) => ({ id: user.id, name: user.name })),
+      meta: { page, pageSize, totalItems, totalPages: Math.max(1, Math.ceil(totalItems / pageSize)) },
+    };
+  }
+
+  async updateSignoffPolicy(organizationId: string, actorUserId: string, enabled: boolean) {
+    return this.prisma.$transaction(async (tx) => {
+      const before = await tx.organization.findUnique({
+        where: { id: organizationId },
+        select: { id: true, accountingCloseSingleUserDemoSignoffEnabled: true },
+      });
+      if (!before) throw new NotFoundException("Organization not found.");
+      const after = await tx.organization.update({
+        where: { id: organizationId },
+        data: { accountingCloseSingleUserDemoSignoffEnabled: enabled },
+        select: { id: true, accountingCloseSingleUserDemoSignoffEnabled: true },
+      });
+      await this.auditLogService.log({
+        organizationId,
+        actorUserId,
+        action: "UPDATE_SIGNOFF_POLICY",
+        entityType: "Organization",
+        entityId: organizationId,
+        before,
+        after,
+      }, tx);
+      return { accountingCloseSingleUserDemoSignoffEnabled: after.accountingCloseSingleUserDemoSignoffEnabled };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
 
   async listSnapshots(organizationId: string, cycleId: string, page = 1, pageSize = 50) {
@@ -216,6 +275,7 @@ export class AccountingCloseService {
         lockedAt: cycle.lockedAt,
         lockedByUserId: cycle.lockedByUserId,
         readinessHash: cycle.readinessHash,
+        signoffMode: cycle.signoffMode,
       },
       tasks: tasks.map(closeEvidenceExportTask),
       evidence: evidence.map(closeEvidenceExportEvidence),
@@ -234,6 +294,7 @@ export class AccountingCloseService {
       ["Fiscal Period ID", manifest.fiscalPeriod.id],
       ["Cycle ID", manifest.cycle.id],
       ["Cycle Status", manifest.cycle.status],
+      ["Sign-off Mode", manifest.cycle.signoffMode ?? ""],
       ["Readiness Hash", manifest.cycle.readinessHash ?? ""],
       [],
       ["Record Type", "ID", "Task ID", "Snapshot ID", "Check Key", "Status", "Severity", "Safe Label or Message", "Report Type", "Generated Document ID", "Acknowledgement Reason", "Canonical Hash", "Recorded At"],
@@ -288,7 +349,7 @@ export class AccountingCloseService {
         if (!membership) throw new BadRequestException("Assigned user must be an active member of the organization.");
         const claimed = await tx.accountingCloseCycle.updateMany({ where: { id: cycleId, organizationId, version: expectedVersion, status: { in: ["IN_PROGRESS", "READY_FOR_REVIEW"] }, fiscalPeriod: { is: { organizationId, status: FiscalPeriodStatus.OPEN } } }, data: { version: { increment: 1 } } });
         if (claimed.count !== 1) throw new ConflictException("Close cycle changed. Reload and retry.");
-        const assigned = await tx.accountingCloseTask.update({ where: { id: task.id }, data: { assignedToUserId } });
+        const assigned = await tx.accountingCloseTask.update({ where: { id: task.id }, data: { assignedToUserId }, include: { assignedToUser: { select: { id: true, name: true } } } });
         await this.auditLogService.log({ organizationId, actorUserId, action: "ASSIGN", entityType: "AccountingCloseTask", entityId: task.id, before: task, after: assigned }, tx);
         return taskResponse(assigned);
       }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
@@ -590,12 +651,33 @@ export class AccountingCloseService {
       return await this.prisma.$transaction(async (tx) => {
         const cycle = await tx.accountingCloseCycle.findFirst({
           where: { id: cycleId, organizationId },
-          select: { id: true, fiscalPeriodId: true, status: true, preparedByUserId: true, readinessHash: true },
+          select: { id: true, fiscalPeriodId: true, status: true, preparedByUserId: true, readinessHash: true, signoffMode: true },
         });
         if (!cycle) throw new NotFoundException("Close cycle not found.");
         if (cycle.status !== "READY_FOR_REVIEW") throw new BadRequestException("Only a prepared close cycle can be reviewed.");
         if (!cycle.preparedByUserId || !cycle.readinessHash) throw new BadRequestException("Close cycle preparation is incomplete.");
-        if (cycle.preparedByUserId === actorUserId) throw new BadRequestException("A preparer cannot review the same close cycle without an explicit organization policy.");
+        const requestedSignoffMode = cycle.preparedByUserId === actorUserId ? "SINGLE_USER_DEMO" : "SEPARATED";
+        if (cycle.signoffMode && cycle.signoffMode !== requestedSignoffMode) {
+          throw new BadRequestException("Close cycle sign-off mode is immutable once recorded.");
+        }
+        if (requestedSignoffMode === "SINGLE_USER_DEMO") {
+          const organization = await tx.organization.findUnique({
+            where: { id: organizationId },
+            select: { accountingCloseSingleUserDemoSignoffEnabled: true },
+          });
+          if (!organization?.accountingCloseSingleUserDemoSignoffEnabled) {
+            throw new BadRequestException("A preparer cannot review the same close cycle without an explicit organization policy.");
+          }
+          const activeMembers = await tx.organizationMember.findMany({
+            where: { organizationId, status: "ACTIVE" },
+            select: { role: { select: { permissions: true } } },
+          });
+          const eligibleReviewerCount = activeMembers.filter((member) => hasPermission(member.role.permissions, PERMISSIONS.accountingClose.review)).length;
+          if (eligibleReviewerCount !== 1) {
+            throw new BadRequestException("Single-user demo sign-off requires exactly one active eligible reviewer.");
+          }
+        }
+        const signoffMode = cycle.signoffMode ?? requestedSignoffMode;
         const fiscalPeriod = await tx.fiscalPeriod.findFirst({
           where: { id: cycle.fiscalPeriodId, organizationId },
           select: { id: true, name: true, startsOn: true, endsOn: true, status: true },
@@ -613,13 +695,13 @@ export class AccountingCloseService {
         const reviewedAt = new Date();
         const claimed = await tx.accountingCloseCycle.updateMany({
           where: { id: cycleId, organizationId, version: expectedVersion, status: "READY_FOR_REVIEW", readinessHash: cycle.readinessHash, fiscalPeriod: { is: { organizationId, status: FiscalPeriodStatus.OPEN } } },
-          data: { status: "REVIEWED", version: { increment: 1 }, reviewedAt, reviewedByUserId: actorUserId, readinessHash: readiness.canonicalHash },
+          data: { status: "REVIEWED", version: { increment: 1 }, reviewedAt, reviewedByUserId: actorUserId, readinessHash: readiness.canonicalHash, signoffMode },
         });
         if (claimed.count !== 1) throw new ConflictException("Close cycle changed. Reload and retry.");
         const frozen = await tx.accountingCloseReadinessSnapshot.updateMany({ where: { id: snapshot.id, organizationId, status: "DRAFT" }, data: { status: "REVIEWED" } });
         if (frozen.count !== 1) throw new ConflictException("Close readiness snapshot changed. Reload and retry.");
-        await this.auditLogService.log({ organizationId, actorUserId, action: "REVIEW", entityType: "AccountingCloseCycle", entityId: cycle.id, after: { status: "REVIEWED", reviewedAt, readinessHash: readiness.canonicalHash, snapshotId: snapshot.id } }, tx);
-        return { id: cycle.id, fiscalPeriodId: cycle.fiscalPeriodId, status: "REVIEWED", version: expectedVersion + 1, reviewedAt, reviewedByUserId: actorUserId, readinessHash: readiness.canonicalHash };
+        await this.auditLogService.log({ organizationId, actorUserId, action: "REVIEW", entityType: "AccountingCloseCycle", entityId: cycle.id, after: { status: "REVIEWED", reviewedAt, readinessHash: readiness.canonicalHash, snapshotId: snapshot.id, signoffMode } }, tx);
+        return { id: cycle.id, fiscalPeriodId: cycle.fiscalPeriodId, status: "REVIEWED", version: expectedVersion + 1, reviewedAt, reviewedByUserId: actorUserId, readinessHash: readiness.canonicalHash, signoffMode };
       }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     } catch (error) {
       if (prismaErrorCode(error) === "P2034") throw new ConflictException("Close cycle changed. Reload and retry.");
@@ -1322,7 +1404,7 @@ function cycleSummary(cycle: any) {
   return {
     id: cycle.id, fiscalPeriodId: cycle.fiscalPeriodId, status: cycle.status, version: cycle.version, startedAt: cycle.startedAt,
     preparedAt: cycle.preparedAt, reviewedAt: cycle.reviewedAt, closedAt: cycle.closedAt, lockedAt: cycle.lockedAt,
-    lastRefreshedAt: cycle.lastRefreshedAt, readinessHash: cycle.readinessHash,
+    lastRefreshedAt: cycle.lastRefreshedAt, readinessHash: cycle.readinessHash, signoffMode: cycle.signoffMode,
     fiscalPeriod: cycle.fiscalPeriod,
     taskCount: cycle._count.tasks, evidenceCount: cycle._count.evidence, snapshotCount: cycle._count.readinessSnapshots,
   };
@@ -1332,6 +1414,7 @@ function taskResponse(task: any) {
   return {
     id: task.id, taskType: task.taskType, source: task.source, title: task.title, description: task.description,
     severity: task.severity, status: task.status, isRequired: task.isRequired, assignedToUserId: task.assignedToUserId,
+    assignedToUser: task.assignedToUser ? { id: task.assignedToUser.id, name: task.assignedToUser.name } : null,
     dueDate: task.dueDate, completedAt: task.completedAt, completedByUserId: task.completedByUserId, completionNote: task.completionNote,
     reopenedAt: task.reopenedAt, reopenedByUserId: task.reopenedByUserId, reopenReason: task.reopenReason,
     acknowledgementReason: task.acknowledgementReason, sortOrder: task.sortOrder, systemCheckKey: task.systemCheckKey,
@@ -1359,6 +1442,7 @@ const closeEvidenceExportCycleSelect = {
   lockedAt: true,
   lockedByUserId: true,
   readinessHash: true,
+  signoffMode: true,
   organization: { select: { id: true, name: true, baseCurrency: true } },
   fiscalPeriod: { select: { id: true, name: true, startsOn: true, endsOn: true, status: true } },
 } as const;

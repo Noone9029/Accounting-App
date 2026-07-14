@@ -1222,6 +1222,11 @@ enum AccountingCloseCycleStatus {
   LOCKED
 }
 
+enum AccountingCloseSignoffMode {
+  SEPARATED
+  SINGLE_USER_DEMO
+}
+
 enum AccountingCloseTaskSource {
   SYSTEM
   STANDARD_TEMPLATE
@@ -1464,6 +1469,7 @@ model Organization {
   peppolParticipantId                       String?
   uaeAspSelected                            String?
   uaeAspOnboardingStatus                    String?
+  accountingCloseSingleUserDemoSignoffEnabled Boolean @default(false)
   createdAt                                 DateTime                                    @default(now())
   updatedAt                                 DateTime                                    @updatedAt
   memberships                               OrganizationMember[]
@@ -6419,6 +6425,7 @@ model AccountingCloseCycle {
   lastRefreshedAt DateTime?
   readinessHash String?
   requestId String?
+  signoffMode AccountingCloseSignoffMode?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: NoAction)
