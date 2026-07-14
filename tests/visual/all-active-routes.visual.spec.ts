@@ -23,6 +23,9 @@ const selectedRoles = process.env.UI_ROUTE_AUDIT_ROLE
 const selectedViewports = process.env.UI_ROUTE_AUDIT_VIEWPORT
   ? viewports.filter((viewport) => viewport.name === process.env.UI_ROUTE_AUDIT_VIEWPORT)
   : viewports;
+const selectedRoutes = process.env.UI_ROUTE_AUDIT_HREF
+  ? activeRoutes.filter((route) => route.href === process.env.UI_ROUTE_AUDIT_HREF)
+  : activeRoutes;
 const report: Array<{ role: VisualRoleProfileName; viewport: string; routes: number }> = [];
 
 test.describe("all active canonical routes structural visual audit", () => {
@@ -37,9 +40,9 @@ test.describe("all active canonical routes structural visual audit", () => {
 
   for (const role of selectedRoles) {
     for (const viewport of selectedViewports) {
-      test(`${role} · ${viewport.name} · ${activeRoutes.length} active routes`, async ({ page }) => {
+      test(`${role} · ${viewport.name} · ${selectedRoutes.length} active routes`, async ({ page }) => {
         await setupRolePage(page, role, viewport);
-        for (const route of activeRoutes) {
+        for (const route of selectedRoutes) {
           await page.goto(route.href);
           await page.waitForLoadState("domcontentloaded");
           await expect(page.locator("main")).toBeVisible();
@@ -55,7 +58,7 @@ test.describe("all active canonical routes structural visual audit", () => {
             await expect(main.getByText("Access denied", { exact: true })).toBeVisible();
           }
         }
-        report.push({ role, viewport: viewport.name, routes: activeRoutes.length });
+        report.push({ role, viewport: viewport.name, routes: selectedRoutes.length });
       });
     }
   }
