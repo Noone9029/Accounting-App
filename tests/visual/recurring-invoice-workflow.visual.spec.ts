@@ -98,17 +98,17 @@ test("recurring invoice list create edit lifecycle generate and customer activit
   await expect(page.locator("form")).toContainText(/SAR\s*115\.00/);
 
   await expect(page.getByText("Schedule preview")).toBeVisible();
-  await expect(page.getByText("2026-06-15 to 2026-07-14")).toBeVisible();
-  await expect(page.getByText("2026-06-30")).toBeVisible();
-  await expect(page.getByText("2026-07-15")).toBeVisible();
+  await expect(page.getByText("Jun 15, 2026 to Jul 14, 2026")).toBeVisible();
+  await expect(page.getByText("Jun 30, 2026")).toBeVisible();
+  await expect(page.getByText("Jul 15, 2026")).toBeVisible();
 
   await page.getByLabel("Frequency").selectOption("WEEKLY");
-  await expect(page.getByText("2026-06-15 to 2026-06-21")).toBeVisible();
-  await expect(page.getByText("2026-06-22").first()).toBeVisible();
+  await expect(page.getByText("Jun 15, 2026 to Jun 21, 2026")).toBeVisible();
+  await expect(page.getByText("Jun 22, 2026").first()).toBeVisible();
   await page.getByLabel("Frequency").selectOption("QUARTERLY");
-  await expect(page.getByText("2026-09-15")).toBeVisible();
+  await expect(page.getByText("Sep 15, 2026")).toBeVisible();
   await page.getByLabel("Frequency").selectOption("YEARLY");
-  await expect(page.getByText("2026-06-15 to 2027-06-14")).toBeVisible();
+  await expect(page.getByText("Jun 15, 2026 to Jun 14, 2027")).toBeVisible();
   await page.getByLabel("Frequency").selectOption("MONTHLY");
 
   await page.getByLabel("Tax mode").selectOption("TAX_INCLUSIVE");
@@ -158,8 +158,8 @@ test("recurring invoice list create edit lifecycle generate and customer activit
   await page.getByRole("button", { name: "Generate invoice now" }).click();
   await expect(page.getByText(/Generated draft invoice INV-REC-BRW-001/i)).toBeVisible();
   await expect(page.getByRole("link", { name: "Open draft invoice INV-REC-BRW-001" })).toBeVisible();
-  await expect(page.getByText("Run date 6/15/2026")).toBeVisible();
-  await expect(page.getByText("7/15/2026").first()).toBeVisible();
+  await expect(page.getByText("Run date Jun 15, 2026")).toBeVisible();
+  await expect(page.getByText("Jul 15, 2026").first()).toBeVisible();
   expect(state.generateRequests).toBe(1);
   expect(state.invoice).toEqual(expect.objectContaining({ status: "DRAFT", journalEntryId: null, finalizedAt: null }));
 

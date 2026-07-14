@@ -326,7 +326,7 @@ export default function CreditNoteDetailPage() {
             </button>
           ) : null}
           {creditNote && creditNote.status !== "VOIDED" && canVoidCreditNote ? (
-            <button type="button" onClick={() => void runAction("void")} disabled={actionLoading} className="rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+            <button type="button" onClick={() => void runAction("void")} disabled={actionLoading} className="self-start rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
               {tc("Void")}
             </button>
           ) : null}

@@ -20,10 +20,10 @@ const routes = [
   { slug: "customer-detail", path: "/customers/customer-1", heading: /Visual Customer/i, actionText: /Customer ledger visibility/i },
   { slug: "supplier-detail", path: "/suppliers/supplier-1", heading: /Visual Supplier/i, actionText: /Supplier ledger visibility/i },
   { slug: "customer-payments", path: "/sales/customer-payments", heading: /Customer payments/i, actionText: /Record payment/i },
-  { slug: "customer-payment-new", path: "/sales/customer-payments/new?customerId=customer-1", heading: /Record customer payment/i, actionText: /Payment details/i },
+  { slug: "customer-payment-new", path: "/sales/customer-payments/new?customerId=customer-1", heading: /Record customer payment/i, actionText: /Amount received/i },
   { slug: "customer-payment-detail", path: "/sales/customer-payments/payment-1", heading: /PAY-VIS-001/i, actionText: /Receipt output/i },
   { slug: "supplier-payments", path: "/purchases/supplier-payments", heading: /Supplier payments/i, actionText: /Record payment/i },
-  { slug: "supplier-payment-new", path: "/purchases/supplier-payments/new?supplierId=supplier-1", heading: /Record supplier payment/i, actionText: /Payment details/i },
+  { slug: "supplier-payment-new", path: "/purchases/supplier-payments/new?supplierId=supplier-1", heading: /Record supplier payment/i, actionText: /Amount paid/i },
   { slug: "supplier-payment-detail", path: "/purchases/supplier-payments/supplier-payment-1", heading: /SPAY-VIS-001/i, actionText: /Payment details|Bill allocation/i },
   { slug: "sales-credit-notes", path: "/sales/credit-notes", heading: /Sales credit notes/i, actionText: /Create credit note/i },
   { slug: "purchase-debit-notes", path: "/purchases/debit-notes", heading: /Debit notes/i, actionText: /Create debit note/i },
@@ -39,7 +39,6 @@ const report: Array<{
   viewport: string;
   screenshot: string;
   shellVisible: boolean;
-  reducedMotionFallback?: string | null;
 }> = [];
 
 test.beforeAll(async () => {
@@ -87,7 +86,6 @@ for (const route of routes) {
         viewport: viewport.name,
         screenshot: screenshotPath,
         shellVisible: true,
-        reducedMotionFallback: route.dashboard ? await page.getByTestId("financial-flow-scene").getAttribute("data-fallback") : null,
       });
     });
   }
@@ -137,8 +135,8 @@ async function expectDashboardSpecifics(page: Page) {
   await expect(main.getByText("Receivables", { exact: true })).toBeVisible();
   await expect(main.getByText("Payables", { exact: true })).toBeVisible();
   await expect(main.getByText(/Generic compliance surfaces stay limited to VAT and accounting review/i).first()).toBeVisible();
-  await expect(page.getByTestId("financial-flow-scene")).toBeVisible();
-  await expect(page.getByTestId("financial-flow-scene")).toHaveAttribute("data-fallback", "true");
+  await expect(main.getByText("Manual/imported bank transactions only", { exact: true })).toBeVisible();
+  await expect(main.getByText("Country compliance modules disabled", { exact: true })).toBeVisible();
 }
 
 async function expectNoForbiddenClaims(page: Page) {

@@ -254,7 +254,7 @@ export default function PurchaseDebitNoteDetailPage() {
           <p className="mt-1 text-sm text-steel">{tc("Debit note detail, AP reversal posting, allocations, and PDF download.")}</p>
           {debitNote ? <p className="mt-1 text-xs text-steel">{tc("Local AP adjustment only. No real ZATCA network, CSID, clearance/reporting, PDF/A-3, or inventory return movement is enabled here.")}</p> : null}
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        <div className="flex flex-col items-start gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <Link href="/purchases/debit-notes" className="rounded-md border border-slate-300 px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
             {tc("Back")}
           </Link>

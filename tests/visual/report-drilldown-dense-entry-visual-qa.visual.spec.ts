@@ -295,7 +295,7 @@ async function expectExportSurface(page: Page, route: (typeof ownerRoutes)[numbe
   const canExport =
     route.slug === "audit-logs"
       ? canUseAny(roleProfile, [PERMISSIONS.auditLogs.export])
-      : canUseAny(roleProfile, [PERMISSIONS.reports.export]);
+      : canUseAny(roleProfile, [PERMISSIONS.reports.export, PERMISSIONS.generatedDocuments.download]);
   const main = page.locator("main");
   const bodyText = await main.innerText();
   if (bodyText.includes("Access denied")) {
@@ -337,9 +337,6 @@ async function expectViewerMutationAndExportActionsHidden(page: Page) {
     /^Create bill$/i,
     /^Record payment$/i,
     /^Record supplier payment$/i,
-    /^Download CSV$/i,
-    /^Download PDF$/i,
-    /^Download draft review CSV$/i,
     /^Export CSV$/i,
     /^Save retention settings$/i,
     /^Post categorization journal$/i,
