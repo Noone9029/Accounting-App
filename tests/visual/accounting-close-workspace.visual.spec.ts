@@ -45,6 +45,7 @@ test.describe("accounting close workspace visual QA", () => {
       await page.getByRole("link", { name: /Open close cycle/i }).click();
       await page.locator("main").waitFor({ state: "visible" });
       await expect(page.getByRole("heading", { name: "June 2026 close cycle" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Download evidence PDF" })).toBeVisible();
       await expect(page.getByRole("heading", { name: "Immutable snapshot history" })).toBeVisible();
       await expect(page.getByRole("heading", { name: "Manual close checklist" })).toBeVisible();
       await expect(page.getByText(`Current hash: ${visualAccountingCloseHashes.reviewed}`)).toBeVisible();

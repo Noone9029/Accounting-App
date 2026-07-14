@@ -226,13 +226,15 @@ describe("accountant close cycle detail", () => {
     confirm.mockRestore();
   });
 
-  it("downloads the safe close evidence manifest as JSON or CSV without mutating the cycle", async () => {
+  it("downloads the safe close evidence manifest as JSON, CSV, or PDF without mutating the cycle", async () => {
     render(<AccountingCloseCyclePage />);
     expect(await screen.findByRole("button", { name: "Download evidence JSON" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Download evidence JSON" }));
     await waitFor(() => expect(downloadAuthenticatedFileMock).toHaveBeenCalledWith("/accounting-close/cycles/cycle-1/export?format=json", "accounting-close-cycle-1-evidence.json"));
     fireEvent.click(screen.getByRole("button", { name: "Download evidence CSV" }));
     await waitFor(() => expect(downloadAuthenticatedFileMock).toHaveBeenCalledWith("/accounting-close/cycles/cycle-1/export?format=csv", "accounting-close-cycle-1-evidence.csv"));
+    fireEvent.click(screen.getByRole("button", { name: "Download evidence PDF" }));
+    await waitFor(() => expect(downloadAuthenticatedFileMock).toHaveBeenCalledWith("/accounting-close/cycles/cycle-1/export?format=pdf", "accounting-close-cycle-1-evidence.pdf"));
     expect(apiRequestMock).not.toHaveBeenCalledWith(expect.stringContaining("/export"), expect.anything());
   });
 
