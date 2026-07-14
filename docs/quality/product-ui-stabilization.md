@@ -77,3 +77,7 @@ The initial fresh-worktree API typecheck failure was classified as a setup prere
 ## Verification evidence policy
 
 Generated visual evidence belongs under the ignored path `artifacts/visual-qa/product-wide-stabilization/<batch>/`. Stable regression snapshots may be committed only when they represent a deliberate product contract. Every merged batch must update this ledger with exact commands and results; unresolved findings must retain their classification instead of being silently closed.
+
+## Remaining native-dialog inventory
+
+The current branch has 10 native confirmation/prompt call sites remaining: accounting-close (3), variance-proposals (6), and recurring-expense review (1). These are intentionally left as the next focused batch because they require multi-field reason state and task-specific dialog context rather than a simple destructive-action swap.
