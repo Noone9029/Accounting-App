@@ -184,7 +184,7 @@ export default function LandedCostPreviewPage() {
       >
         <div className="space-y-3">
           {costLines.map((line, index) => (
-            <div key={line.id} className="grid grid-cols-1 gap-3 lg:grid-cols-[180px_1fr_150px_110px_150px_auto] lg:items-end">
+            <div key={line.id} className="grid grid-cols-1 gap-3 xl:grid-cols-[180px_1fr_150px_110px_150px_auto] xl:items-end">
               <LedgerFieldLabel>
                 <LedgerFieldText>Category {index + 1}</LedgerFieldText>
                 <LedgerSelect

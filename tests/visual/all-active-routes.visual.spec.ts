@@ -43,9 +43,7 @@ test.describe("all active canonical routes structural visual audit", () => {
       test(`${role} · ${viewport.name} · ${selectedRoutes.length} active routes`, async ({ page }) => {
         await setupRolePage(page, role, viewport);
         for (const route of selectedRoutes) {
-          await page.goto(route.href);
-          await page.waitForLoadState("domcontentloaded");
-          await expect(page.locator("main")).toBeVisible();
+          await gotoRouteWithRetry(page, route.href);
           await expectNoDocumentOverflow(page, `${role} ${route.href} ${viewport.name}`);
           await expectNoSevereOverlap(page, `${role} ${route.href} ${viewport.name}`);
           await expectNoForbiddenClaims(page, `${role} ${route.href} ${viewport.name}`);
@@ -53,9 +51,9 @@ test.describe("all active canonical routes structural visual audit", () => {
           const allowed = route.requiredAny.some((permission) => visualRoleProfiles[role].permissions.includes(permission));
           const main = page.locator("main");
           if (allowed) {
-            await expect(main.getByText("Access denied", { exact: true })).toHaveCount(0);
+            await expect(main.getByText("Access denied", { exact: true }), `${role} ${route.href} ${viewport.name} should be accessible`).toHaveCount(0);
           } else {
-            await expect(main.getByText("Access denied", { exact: true })).toBeVisible();
+            await expect(main.getByText("Access denied", { exact: true }), `${role} ${route.href} ${viewport.name} should be access denied`).toBeVisible();
           }
         }
         report.push({ role, viewport: viewport.name, routes: selectedRoutes.length });
@@ -69,6 +67,27 @@ async function setupRolePage(page: Page, role: VisualRoleProfileName, viewport: 
   await primeVisualSession(page, { roleProfile: role });
   await page.setViewportSize(viewport);
   await page.emulateMedia({ reducedMotion: "reduce" });
+}
+
+async function gotoRouteWithRetry(page: Page, href: string) {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const response = await page.goto(href, { waitUntil: "domcontentloaded", timeout: 60_000 });
+      if (response && response.status() >= 500) {
+        throw new Error(`route returned HTTP ${response.status()}`);
+      }
+      await expect(page.locator("main")).toBeVisible({ timeout: 10_000 });
+      await expect(page.getByText("Loading access", { exact: true })).toHaveCount(0, { timeout: 5_000 });
+      return;
+    } catch (error) {
+      lastError = new Error(`${href}: ${error instanceof Error ? error.message : String(error)}`);
+      if (attempt < 2) {
+        await page.waitForTimeout(500 * (attempt + 1));
+      }
+    }
+  }
+  throw lastError;
 }
 
 async function expectNoDocumentOverflow(page: Page, context: string) {

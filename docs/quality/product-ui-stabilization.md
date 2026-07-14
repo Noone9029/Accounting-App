@@ -34,7 +34,7 @@ The inventory is checked from the filesystem and the authoritative `APP_ROUTES` 
 | Role coverage contract | Owner, Admin, Accountant, Sales, Purchases, Viewer fixtures are available to route and create-menu tests | `tests/visual/visual-fixtures.ts`, `tests/visual/role-filtered-route-polish.visual.spec.ts` |
 | Viewport coverage contract | Desktop 1440x1000, tablet 1024x768, mobile 390x844 for the role-filtered route matrix | `tests/visual/role-filtered-route-polish.visual.spec.ts` |
 | Locale coverage contract | English/LTR and Arabic/RTL route checks are maintained; the Arabic suite covers 59 authenticated routes at desktop, tablet, and mobile sizes | `tests/visual/arabic-locale.visual.spec.ts` |
-| All-active-route structural matrix | 92 active routes are exercised per role/viewport cell; the full 18-cell run found and fixed the landed-cost tablet overflow, then the corrected route passed all 18 role/viewport cells | `tests/visual/all-active-routes.visual.spec.ts`; `UI_ROUTE_AUDIT_HREF=/inventory/landed-cost pnpm exec playwright test -c playwright.visual.config.ts tests/visual/all-active-routes.visual.spec.ts --workers=1` |
+| All-active-route structural matrix | Passed: all 18 role/viewport cells (Owner, Admin, Accountant, Sales, Purchases, Viewer × desktop/tablet/mobile), each covering all 92 active routes; transient navigation retries remained clean | `tests/visual/all-active-routes.visual.spec.ts`; `LEDGERBYTE_VISUAL_WEB_URL=http://127.0.0.1:3030 pnpm exec playwright test -c playwright.visual.config.ts tests/visual/all-active-routes.visual.spec.ts --workers=1` |
 
 Every future route/page finding must link back to this inventory and record the required role, viewport, locale, state, reproduction, classification, and verification fields from the coverage contract above. The inventory command is a merge gate so new page modules or route definitions cannot silently bypass the audit ledger.
 
@@ -63,7 +63,7 @@ The final local gates were run sequentially with bounded workspace concurrency t
 
 | Gate | Result |
 | --- | --- |
-| `node node_modules/jest/bin/jest.js --config jest.config.cjs --runInBand` (from `apps/web`) | Passed: 187 suites, 860 tests |
+| `node node_modules/jest/bin/jest.js --config jest.config.cjs --runInBand` (from `apps/web`) | Passed: 187 suites, 861 tests |
 | `pnpm --filter @ledgerbyte/api exec jest --config jest.config.cjs --runInBand` | Passed: 248 suites, 2,531 tests passed, 35 skipped |
 | `pnpm --workspace-concurrency=1 typecheck` | Passed: all 8 checked workspace projects |
 | `pnpm --workspace-concurrency=1 build` | Passed: packages, API build, and Next production build (142 static pages generated) |
@@ -76,7 +76,7 @@ The final local gates were run sequentially with bounded workspace concurrency t
 | `pnpm exec playwright test -c playwright.visual.config.ts tests/visual/role-filtered-route-polish.visual.spec.ts --workers=1` | Passed: 171 role-filtered route and create-menu checks across Owner, Admin, Accountant, Sales, Purchases, and Viewer at desktop/tablet/mobile |
 | `pnpm exec playwright test -c playwright.visual.config.ts tests/visual/polished-workflows.visual.spec.ts --workers=1` | Passed: 31 polished workflow checks at desktop/tablet/mobile |
 | Accounting-close and recurring targeted visual workflows | Passed: 6 checks including English desktop/mobile and Arabic mobile RTL states | `tests/visual/accounting-close-workspace.visual.spec.ts`, `tests/visual/recurring-transactions-workspace.visual.spec.ts` |
-| Bounded all-route visual cells | Owner/desktop and Viewer/mobile each passed all 92 active routes with one worker; the full 18-cell matrix remains available through the same harness and explicit role/viewport environment selectors |
+| Bounded all-route visual cells | Passed: full 18-cell matrix, 1 worker, 92 active routes per cell; production bundle was built with the visual API URL and the harness retries transient navigation failures without masking persistent page failures |
 | `pnpm run test:tenant-isolation-proof` | Passed: 16 tests |
 | Permission/tenant focused API regression set | Passed: 7 suites, 148 tests (permission guards, organization context, roles, tenant proof, generated-document permissions) |
 | Accounting focused API regression set | Passed: 8 suites, 179 tests (close workflow, idempotency, tenant isolation, FX, inventory accounting) |
@@ -112,7 +112,8 @@ The repository-wide gate was decomposed into these equivalent sequential command
 | UI-021 | Inventory-variance proposal workflow | Product defect: submit/approve/post/reverse/void actions used native confirm/prompt flows; the detail route has no pre-existing Jest suite | P2 | Fixed in banking/inventory batch | Web typecheck passes; all workflow actions now use controlled dialog notes/reasons (focused route test remains an explicit follow-up) |
 | UI-022 | Accounting-close cycle transitions and manual-task reopen | Product defect: cycle return/close/lock and task reopen used blocking browser prompt/confirm flows, preventing accessible reason capture and deterministic retry behavior | P2 | Fixed in accounting-close batch | `apps/web/src/app/(app)/accounting-close/[cycleId]/page.test.tsx` passes all 15 tests; cycle actions and reopen now use `LedgerActionDialog` |
 | UI-023 | Failed workflow actions preserve their confirmation context | Product defect: failed variance and recurring-expense review requests dismissed the confirmation dialog, forcing users to reconstruct context before retrying | P2 | Fixed in stabilization follow-up | Recurring detail regression now passes 6 tests; variance workflow keeps its dialog open until the API action succeeds; web typecheck passes |
-| UI-024 | Landed-cost preview tablet layout | Product defect: the six-column cost-line grid activated at the tablet breakpoint and extended beyond the workspace, causing document-level horizontal overflow | P2 | Fixed in inventory layout batch | Moved the dense grid to the large-screen breakpoint; corrected landed-cost route passes all 18 role/viewport structural checks |
+| UI-024 | Landed-cost preview tablet layout | Product defect: the six-column cost-line grid activated at the tablet breakpoint and extended beyond the workspace, causing document-level horizontal overflow | P2 | Fixed in inventory layout batch | Moved the dense grid to the extra-large breakpoint so 1024px tablets remain stacked; corrected landed-cost route passes all 18 role/viewport structural checks |
+| UI-025 | Email outbox mobile containment and FX-close route authorization | Product defects: the email outbox table's min-content width could expand the mobile document, and `/fx-close` was missing from the client pathname permission map so unauthorized roles rendered the page | P2 | Fixed in stabilization follow-up | Email-outbox and FX-close targeted matrices each pass all 18 role/viewport structural checks; permission helper regression passes 10 tests |
 
 ## Foundation batch checklist
 
