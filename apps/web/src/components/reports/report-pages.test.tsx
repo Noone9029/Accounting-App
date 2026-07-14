@@ -19,6 +19,7 @@ import type { AgingReportRow } from "@/lib/types";
 
 const apiRequestMock = jest.fn();
 const downloadAuthenticatedFileMock = jest.fn();
+const canMock = jest.fn();
 let searchParams = new URLSearchParams();
 
 jest.mock("next/link", () => ({
@@ -45,6 +46,7 @@ jest.mock("@/hooks/use-active-organization", () => ({
 
 jest.mock("@/components/permissions/permission-provider", () => ({
   usePermissions: () => ({
+    can: (permission: string) => canMock(permission),
     canAny: () => true,
   }),
 }));
@@ -63,6 +65,8 @@ describe("reports index first-workflow guidance", () => {
     apiRequestMock.mockReset();
     downloadAuthenticatedFileMock.mockReset();
     downloadAuthenticatedFileMock.mockResolvedValue(undefined);
+    canMock.mockReset();
+    canMock.mockReturnValue(true);
     apiRequestMock.mockImplementation((path: string) => {
       if (path.startsWith("/reports/general-ledger")) {
         return Promise.resolve(generalLedgerReport());
@@ -251,6 +255,21 @@ describe("reports index first-workflow guidance", () => {
     expect(screen.getByRole("link", { name: "Record supplier payment" })).toHaveAttribute("href", "/purchases/supplier-payments/new?returnTo=%2Freports%2Faged-payables");
   });
 
+  it("hides aging mutation actions when the report reader cannot create source documents", () => {
+    canMock.mockReturnValue(false);
+    const { rerender } = render(<AgingReportGuide kind="receivables" />);
+
+    expect(screen.getByRole("link", { name: "View customers" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Create invoice" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Record payment" })).not.toBeInTheDocument();
+
+    rerender(<AgingReportGuide kind="payables" />);
+
+    expect(screen.getByRole("link", { name: "View suppliers" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Create bill" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Record supplier payment" })).not.toBeInTheDocument();
+  });
+
   it("links aged payables rows back to the supplier and bill", () => {
     render(
       <AgingTable
@@ -404,6 +423,28 @@ describe("reports index first-workflow guidance", () => {
     expect(screen.getByText(/Draft and voided documents are excluded/i)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Create invoice" })).toHaveAttribute("href", "/sales/invoices/new?returnTo=%2Freports%2Fvat-return");
     expect(screen.getByRole("link", { name: "Create bill" })).toHaveAttribute("href", "/purchases/bills/new?returnTo=%2Freports%2Fvat-return");
+  });
+
+  it("hides VAT mutation actions when the report reader cannot create source documents", async () => {
+    canMock.mockReturnValue(false);
+    apiRequestMock.mockResolvedValueOnce(
+      vatReturnReport({
+        sales: { documentCount: 0, taxableAmount: "0.0000", taxAmount: "0.0000", grossAmount: "0.0000", documents: [] },
+        purchases: { documentCount: 0, taxableAmount: "0.0000", taxAmount: "0.0000", grossAmount: "0.0000", documents: [] },
+        outputVat: "0.0000",
+        inputVat: "0.0000",
+        netVat: "0.0000",
+        netVatPayable: "0.0000",
+        netVatRefundable: "0.0000",
+      }),
+    );
+
+    render(<VatReturnReportPage />);
+
+    expect(await screen.findByText("No finalized VAT source documents found for this period.")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Create invoice" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Create bill" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Open VAT Summary" }).length).toBeGreaterThan(0);
   });
 });
 

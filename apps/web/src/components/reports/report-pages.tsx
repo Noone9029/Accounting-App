@@ -993,14 +993,21 @@ function VatReportReviewContext({ title, body, href, linkLabel }: { title: strin
 
 function VatReturnReviewActions() {
   const { tc } = useAppLocale();
+  const { can } = usePermissions();
+  const canCreateInvoice = can(PERMISSIONS.salesInvoices.create);
+  const canCreateBill = can(PERMISSIONS.purchaseBills.create);
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-      <Link href="/sales/invoices/new?returnTo=%2Freports%2Fvat-return" className="rounded-md bg-palm px-3 py-2 text-center text-sm font-medium text-white hover:bg-palm-dark">
-        {tc("Create invoice")}
-      </Link>
-      <Link href="/purchases/bills/new?returnTo=%2Freports%2Fvat-return" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
-        {tc("Create bill")}
-      </Link>
+      {canCreateInvoice ? (
+        <Link href="/sales/invoices/new?returnTo=%2Freports%2Fvat-return" className="rounded-md bg-palm px-3 py-2 text-center text-sm font-medium text-white hover:bg-palm-dark">
+          {tc("Create invoice")}
+        </Link>
+      ) : null}
+      {canCreateBill ? (
+        <Link href="/purchases/bills/new?returnTo=%2Freports%2Fvat-return" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
+          {tc("Create bill")}
+        </Link>
+      ) : null}
       <Link href="/reports/vat-summary" className="rounded-md border border-slate-300 bg-white px-3 py-2 text-center text-sm font-medium text-slate-700 hover:bg-slate-50">
         {tc("Open VAT Summary")}
       </Link>
@@ -1295,8 +1302,11 @@ export function AgingReportGuide({ kind, returnToHref }: { kind: AgingReportKind
 
 function ReportActionLinks({ kind, returnToHref }: { kind: AgingReportKind; returnToHref?: string }) {
   const { tc } = useAppLocale();
+  const { can } = usePermissions();
   const isReceivables = kind === "receivables";
   const returnTo = returnToHref || (isReceivables ? "/reports/aged-receivables" : "/reports/aged-payables");
+  const canCreateDocument = isReceivables ? can(PERMISSIONS.salesInvoices.create) : can(PERMISSIONS.purchaseBills.create);
+  const canRecordPayment = isReceivables ? can(PERMISSIONS.customerPayments.create) : can(PERMISSIONS.supplierPayments.create);
   return (
     <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
       <Link
@@ -1305,18 +1315,22 @@ function ReportActionLinks({ kind, returnToHref }: { kind: AgingReportKind; retu
       >
         {isReceivables ? tc("View customers") : tc("View suppliers")}
       </Link>
-      <Link
-        href={`${isReceivables ? "/sales/invoices/new" : "/purchases/bills/new"}?returnTo=${encodeURIComponent(returnTo)}`}
-        className="rounded-md bg-palm px-3 py-2 text-center text-sm font-medium text-white hover:bg-palm-dark"
-      >
-        {isReceivables ? tc("Create invoice") : tc("Create bill")}
-      </Link>
-      <Link
-        href={`${isReceivables ? "/sales/customer-payments/new" : "/purchases/supplier-payments/new"}?returnTo=${encodeURIComponent(returnTo)}`}
-        className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100"
-      >
-        {isReceivables ? tc("Record payment") : tc("Record supplier payment")}
-      </Link>
+      {canCreateDocument ? (
+        <Link
+          href={`${isReceivables ? "/sales/invoices/new" : "/purchases/bills/new"}?returnTo=${encodeURIComponent(returnTo)}`}
+          className="rounded-md bg-palm px-3 py-2 text-center text-sm font-medium text-white hover:bg-palm-dark"
+        >
+          {isReceivables ? tc("Create invoice") : tc("Create bill")}
+        </Link>
+      ) : null}
+      {canRecordPayment ? (
+        <Link
+          href={`${isReceivables ? "/sales/customer-payments/new" : "/purchases/supplier-payments/new"}?returnTo=${encodeURIComponent(returnTo)}`}
+          className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100"
+        >
+          {isReceivables ? tc("Record payment") : tc("Record supplier payment")}
+        </Link>
+      ) : null}
       <Link href="/dashboard" className="rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-medium text-emerald-900 hover:bg-emerald-100">
         {tc("Dashboard")}
       </Link>

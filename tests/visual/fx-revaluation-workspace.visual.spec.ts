@@ -21,7 +21,7 @@ for (const viewport of viewports) {
     await page.goto("/fx-revaluations");
     await page.waitForLoadState("domcontentloaded");
 
-    await expect(page.getByRole("heading", { name: "FX revaluation" })).toBeVisible();
+    await expect(page.locator("h1").getByText("FX revaluation", { exact: true })).toBeVisible();
     await expect(page.getByText("INV-VIS-FX-001")).toBeVisible();
     await expect(page.getByText(/Manual captured rates only.*Nothing posts silently/i)).toBeVisible();
     await expect(page.getByRole("button", { name: "Review run" })).toBeEnabled();

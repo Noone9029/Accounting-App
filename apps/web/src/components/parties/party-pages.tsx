@@ -56,12 +56,14 @@ const defaultFilters: PartyTransactionFilters = {
 
 export function PartyListPage({ kind }: { kind: PartyKind }) {
   const organizationId = useActiveOrganizationId();
+  const { can } = usePermissions();
   const { locale, tc } = useAppLocale();
   const [rows, setRows] = useState<PartySummary[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const copy = partyCopy(kind);
+  const canManageContacts = can(PERMISSIONS.contacts.manage);
   const filteredRows = useMemo(() => filterPartySummaries(rows, search), [rows, search]);
 
   useEffect(() => {
@@ -103,9 +105,11 @@ export function PartyListPage({ kind }: { kind: PartyKind }) {
           <h1 className="text-2xl font-semibold text-ink">{tc(copy.pluralTitle)}</h1>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-steel">{tc(copy.listDescription)}</p>
         </div>
-        <Link href={`/contacts?type=${copy.contactType}`} className="self-start rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
-          {tc(`Add ${copy.singularLower}`)}
-        </Link>
+        {canManageContacts ? (
+          <Link href={`/contacts?type=${copy.contactType}`} className="self-start rounded-md bg-palm px-3 py-2 text-sm font-semibold text-white hover:bg-teal-800">
+            {tc(`Add ${copy.singularLower}`)}
+          </Link>
+        ) : null}
       </div>
 
       <div className="space-y-3">
