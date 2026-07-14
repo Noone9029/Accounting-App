@@ -20,6 +20,7 @@ import {
   LedgerSection,
   LedgerStatusBadge,
 } from "@/components/ui/ledger-system";
+import { LedgerActionDialog } from "@/components/ui-ledger/action-dialog";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
@@ -55,6 +56,8 @@ export default function InventoryVarianceProposalDetailPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [reloadToken, setReloadToken] = useState(0);
+  const [pendingAction, setPendingAction] = useState<"submit" | "approve" | "post" | "reverse" | "void" | null>(null);
+  const [pendingNotes, setPendingNotes] = useState("");
 
   const canCreate = can(PERMISSIONS.inventory.varianceProposalsCreate);
   const canApprove = can(PERMISSIONS.inventory.varianceProposalsApprove);
@@ -99,23 +102,10 @@ export default function InventoryVarianceProposalDetailPage() {
     };
   }, [organizationId, params.id, reloadToken]);
 
-  async function runWorkflow(action: "submit" | "approve" | "post" | "reverse" | "void") {
+  async function runWorkflow(action: "submit" | "approve" | "post" | "reverse" | "void", notes = "") {
     if (!proposal) {
       return;
     }
-    if (action === "post" && !window.confirm(`${inventoryVarianceProposalFinancialReportWarning()} Post ${proposal.proposalNumber}?`)) {
-      return;
-    }
-    if (action === "reverse" && !window.confirm(`Reverse the posted journal for ${proposal.proposalNumber}?`)) {
-      return;
-    }
-    if (action === "void" && !window.confirm(`Void ${proposal.proposalNumber}?`)) {
-      return;
-    }
-
-    const notes = action === "submit" ? window.prompt("Submission notes", "") : null;
-    const approvalNotes = action === "approve" ? window.prompt("Approval notes", "") : null;
-    const reason = action === "reverse" || action === "void" ? window.prompt("Reason", "") : null;
 
     setActionLoading(action);
     setError("");
@@ -125,9 +115,9 @@ export default function InventoryVarianceProposalDetailPage() {
         action === "submit"
           ? { notes: notes || undefined }
           : action === "approve"
-            ? { approvalNotes: approvalNotes || undefined }
+            ? { approvalNotes: notes || undefined }
             : action === "reverse" || action === "void"
-              ? { reason: reason || undefined }
+              ? { reason: notes || undefined }
               : undefined;
       const updated = await apiRequest<InventoryVarianceProposal>(`/inventory/variance-proposals/${proposal.id}/${action}`, {
         method: "POST",
@@ -153,19 +143,19 @@ export default function InventoryVarianceProposalDetailPage() {
           <>
           <LedgerButton href="/inventory/variance-proposals">Back</LedgerButton>
           {proposal && canSubmitInventoryVarianceProposal(proposal.status, canCreate) ? (
-            <ActionButton label="Submit" loading={actionLoading === "submit"} onClick={() => void runWorkflow("submit")} />
+            <ActionButton label="Submit" loading={actionLoading === "submit"} onClick={() => { setPendingAction("submit"); setPendingNotes(""); }} />
           ) : null}
           {proposal && canApproveInventoryVarianceProposal(proposal.status, canApprove) ? (
-            <ActionButton label="Approve" loading={actionLoading === "approve"} onClick={() => void runWorkflow("approve")} />
+            <ActionButton label="Approve" loading={actionLoading === "approve"} onClick={() => { setPendingAction("approve"); setPendingNotes(""); }} />
           ) : null}
           {canPostInventoryVarianceProposal(preview, canPost) ? (
-            <ActionButton label="Post journal" loading={actionLoading === "post"} onClick={() => void runWorkflow("post")} primary />
+            <ActionButton label="Post journal" loading={actionLoading === "post"} onClick={() => { setPendingAction("post"); setPendingNotes(""); }} primary />
           ) : null}
           {proposal && canReverseInventoryVarianceProposal(proposal.status, canReverse) ? (
-            <ActionButton label="Reverse" loading={actionLoading === "reverse"} onClick={() => void runWorkflow("reverse")} danger />
+            <ActionButton label="Reverse" loading={actionLoading === "reverse"} onClick={() => { setPendingAction("reverse"); setPendingNotes(""); }} danger />
           ) : null}
           {proposal && canVoidInventoryVarianceProposal(proposal.status, canVoid) ? (
-            <ActionButton label="Void" loading={actionLoading === "void"} onClick={() => void runWorkflow("void")} danger />
+            <ActionButton label="Void" loading={actionLoading === "void"} onClick={() => { setPendingAction("void"); setPendingNotes(""); }} danger />
           ) : null}
           </>
         }
@@ -206,6 +196,21 @@ export default function InventoryVarianceProposalDetailPage() {
           <EventsPanel events={events} />
         </div>
       ) : null}
+        <LedgerActionDialog
+          open={Boolean(pendingAction && proposal)}
+          onOpenChange={(open) => { if (!open && !actionLoading) { setPendingAction(null); setPendingNotes(""); } }}
+          tone={pendingAction === "post" || pendingAction === "reverse" || pendingAction === "void" ? "danger" : "default"}
+          title={pendingAction === "submit" ? "Submit variance proposal" : pendingAction === "approve" ? "Approve variance proposal" : pendingAction === "post" ? "Post variance journal" : pendingAction === "reverse" ? "Reverse variance journal" : "Void variance proposal"}
+          description={proposal ? pendingAction === "post" ? `${inventoryVarianceProposalFinancialReportWarning()} Post ${proposal.proposalNumber}?` : pendingAction === "reverse" ? `Reverse the posted journal for ${proposal.proposalNumber}?` : pendingAction === "void" ? `Void ${proposal.proposalNumber}?` : pendingAction === "submit" ? "Add optional submission notes before sending this proposal for approval." : "Add optional approval notes before approving this proposal." : ""}
+          confirmLabel={pendingAction === "submit" ? "Submit" : pendingAction === "approve" ? "Approve" : pendingAction === "post" ? "Post journal" : pendingAction === "reverse" ? "Reverse" : "Void"}
+          busy={Boolean(actionLoading)}
+          reason={pendingAction === "submit" || pendingAction === "approve" || pendingAction === "reverse" || pendingAction === "void" ? { id: "variance-proposal-notes", label: pendingAction === "reverse" || pendingAction === "void" ? "Reason (optional)" : pendingAction === "submit" ? "Submission notes (optional)" : "Approval notes (optional)", value: pendingNotes, onChange: setPendingNotes, placeholder: "Optional context" } : undefined}
+          onConfirm={async () => {
+            if (pendingAction) await runWorkflow(pendingAction, pendingNotes);
+            setPendingAction(null);
+            setPendingNotes("");
+          }}
+        />
       </LedgerPageBody>
     </LedgerPage>
   );
