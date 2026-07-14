@@ -51,7 +51,7 @@ The per-page disposition register is checked in at [`ui-route-page-dispositions.
 | `pnpm run verify:local:guards` | Passed |
 | `pnpm run verify:repo` | Passed: package typechecks, 2,531 API tests, package tests, and web/API builds |
 | `pnpm run test:visual -- tests/visual/polished-workflows.visual.spec.ts` | Passed: 31 desktop/tablet/mobile route checks with no overflow or React key warnings |
-| `node node_modules/jest/bin/jest.js --config jest.config.cjs --runInBand` (from `apps/web`) | Passed: 187 suites, 860 tests |
+| `node node_modules/jest/bin/jest.js --config jest.config.cjs --runInBand` (from `apps/web`) | Passed: 187 suites, 861 tests |
 | `pnpm run verify:local:web` | Passed: diff check and web typecheck |
 | `pnpm run test:visual -- tests/visual/role-filtered-route-polish.visual.spec.ts` | Passed: 171 role/viewport checks after adding the Admin fixture profile |
 
@@ -76,6 +76,11 @@ The final local gates were run sequentially with bounded workspace concurrency t
 | `pnpm exec playwright test -c playwright.visual.config.ts tests/visual/role-filtered-route-polish.visual.spec.ts --workers=1` | Passed: 171 role-filtered route and create-menu checks across Owner, Admin, Accountant, Sales, Purchases, and Viewer at desktop/tablet/mobile |
 | `pnpm exec playwright test -c playwright.visual.config.ts tests/visual/polished-workflows.visual.spec.ts --workers=1` | Passed: 31 polished workflow checks at desktop/tablet/mobile |
 | Bounded all-route visual cells | Owner/desktop and Viewer/mobile each passed all 92 active routes with one worker; the full 18-cell matrix remains available through the same harness and explicit role/viewport environment selectors |
+| `pnpm run test:tenant-isolation-proof` | Passed: 16 tests |
+| Permission/tenant focused API regression set | Passed: 7 suites, 148 tests (permission guards, organization context, roles, tenant proof, generated-document permissions) |
+| Accounting focused API regression set | Passed: 8 suites, 179 tests (close workflow, idempotency, tenant isolation, FX, inventory accounting) |
+| Tenant static audits | Passed: tenant scope, relationship graph, index review, API route tenancy, and API query scope test suites |
+| Accounting smoke HTTP scripts | Not executed: no local API service/approved smoke credentials were present; local API unit/regression proof above passed and the smoke prerequisite remains an external/local-runtime blocker |
 
 The repository-wide gate was decomposed into these equivalent sequential commands because its default recursive runner starts multiple package processes at once; this preserves the requested 20–30% CPU and 4–5 GB memory reserve without reducing coverage.
 
@@ -105,6 +110,7 @@ The repository-wide gate was decomposed into these equivalent sequential command
 | UI-020 | Purchase-return cancel/void/stock-in actions | Product defect: supplier return lifecycle and operational stock posting used blocking browser confirmations | P2 | Fixed in payables batch | `apps/web/src/app/(app)/purchases/returns/[id]/page.test.tsx` passes with explicit dialog-backed actions |
 | UI-021 | Inventory-variance proposal workflow | Product defect: submit/approve/post/reverse/void actions used native confirm/prompt flows; the detail route has no pre-existing Jest suite | P2 | Fixed in banking/inventory batch | Web typecheck passes; all workflow actions now use controlled dialog notes/reasons (focused route test remains an explicit follow-up) |
 | UI-022 | Accounting-close cycle transitions and manual-task reopen | Product defect: cycle return/close/lock and task reopen used blocking browser prompt/confirm flows, preventing accessible reason capture and deterministic retry behavior | P2 | Fixed in accounting-close batch | `apps/web/src/app/(app)/accounting-close/[cycleId]/page.test.tsx` passes all 15 tests; cycle actions and reopen now use `LedgerActionDialog` |
+| UI-023 | Failed workflow actions preserve their confirmation context | Product defect: failed variance and recurring-expense review requests dismissed the confirmation dialog, forcing users to reconstruct context before retrying | P2 | Fixed in stabilization follow-up | Recurring detail regression now passes 6 tests; variance workflow keeps its dialog open until the API action succeeds; web typecheck passes |
 
 ## Foundation batch checklist
 

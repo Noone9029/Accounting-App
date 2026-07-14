@@ -102,9 +102,9 @@ export default function InventoryVarianceProposalDetailPage() {
     };
   }, [organizationId, params.id, reloadToken]);
 
-  async function runWorkflow(action: "submit" | "approve" | "post" | "reverse" | "void", notes = "") {
+  async function runWorkflow(action: "submit" | "approve" | "post" | "reverse" | "void", notes = ""): Promise<boolean> {
     if (!proposal) {
-      return;
+      return false;
     }
 
     setActionLoading(action);
@@ -126,8 +126,10 @@ export default function InventoryVarianceProposalDetailPage() {
       setProposal(updated);
       setSuccess(`${updated.proposalNumber} ${actionLabel(action)}.`);
       setReloadToken((current) => current + 1);
+      return true;
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : `Unable to ${action} variance proposal.`);
+      return false;
     } finally {
       setActionLoading("");
     }
@@ -206,9 +208,11 @@ export default function InventoryVarianceProposalDetailPage() {
           busy={Boolean(actionLoading)}
           reason={pendingAction === "submit" || pendingAction === "approve" || pendingAction === "reverse" || pendingAction === "void" ? { id: "variance-proposal-notes", label: pendingAction === "reverse" || pendingAction === "void" ? "Reason (optional)" : pendingAction === "submit" ? "Submission notes (optional)" : "Approval notes (optional)", value: pendingNotes, onChange: setPendingNotes, placeholder: "Optional context" } : undefined}
           onConfirm={async () => {
-            if (pendingAction) await runWorkflow(pendingAction, pendingNotes);
-            setPendingAction(null);
-            setPendingNotes("");
+            const succeeded = pendingAction ? await runWorkflow(pendingAction, pendingNotes) : false;
+            if (succeeded) {
+              setPendingAction(null);
+              setPendingNotes("");
+            }
           }}
         />
       </LedgerPageBody>

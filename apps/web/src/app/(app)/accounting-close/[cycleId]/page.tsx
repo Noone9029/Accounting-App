@@ -125,9 +125,9 @@ export default function AccountingCloseCyclePage() {
     finally { if (context === comparisonRequestId.current) setComparisonLoading(false); }
   }
 
-  async function transition(action: "refresh" | "prepare" | "review" | "return-to-preparer" | "close" | "lock", returnReason?: string) {
-    if (!cycle) return;
-    if (action === "return-to-preparer" && !returnReason) return;
+  async function transition(action: "refresh" | "prepare" | "review" | "return-to-preparer" | "close" | "lock", returnReason?: string): Promise<boolean> {
+    if (!cycle) return false;
+    if (action === "return-to-preparer" && !returnReason) return false;
     const expectedVersion = cycle.version;
     const idempotencyKey = action === "close" || action === "lock"
       ? terminalMutationIdempotencyKey(terminalMutationIdempotencyKeys.current, action, cycle.id, expectedVersion)
@@ -142,33 +142,36 @@ export default function AccountingCloseCyclePage() {
       });
       if (context === requestId.current) { setRunning(null); await load(); }
     } catch (cause) {
-      if (context !== requestId.current) return;
+      if (context !== requestId.current) return false;
       if (action === "close" && isReviewInvalidationConflict(cause)) {
         setRunning(null);
         setReviewInvalidatedWarning("The review was invalidated because readiness changed. Refresh readiness and record a new review before closing this period.");
         await load();
-        return;
+        return false;
       }
       if (action === "lock" && isLockRevalidationConflict(cause)) {
         setRunning(null);
         setPostCloseDriftWarning("Close readiness changed after the fiscal period was closed. No lock was applied. Use the authorized fiscal-period reopen workflow, then return this close cycle to preparation before a fresh review and lock attempt.");
         await load();
-        return;
+        return false;
       }
       setError(cause instanceof Error ? cause.message : `Unable to ${action} this close cycle.`);
+      return false;
     }
     finally { if (context === requestId.current) setRunning(null); }
+    return true;
   }
 
-  async function mutateTask(task: Task, action: "complete" | "reopen", reopenReason?: string) {
-    if (!cycle) return;
-    if (action === "reopen" && !reopenReason) return;
+  async function mutateTask(task: Task, action: "complete" | "reopen", reopenReason?: string): Promise<boolean> {
+    if (!cycle) return false;
+    if (action === "reopen" && !reopenReason) return false;
     const context = requestId.current;
     setRunning(`${action}:${task.id}`); setError("");
     try {
       await apiRequest(`/accounting-close/cycles/${cycle.id}/tasks/${task.id}/${action}`, { method: "POST", body: action === "complete" ? { expectedVersion: cycle.version } : { expectedVersion: cycle.version, reopenReason } });
       if (context === requestId.current) { setRunning(null); await load(); }
-    } catch (cause) { if (context === requestId.current) setError(cause instanceof Error ? cause.message : `Unable to ${action} this task.`); }
+      return true;
+    } catch (cause) { if (context === requestId.current) setError(cause instanceof Error ? cause.message : `Unable to ${action} this task.`); return false; }
     finally { if (context === requestId.current) setRunning(null); }
   }
 
@@ -277,10 +280,15 @@ export default function AccountingCloseCyclePage() {
         busy={Boolean(running)}
         reason={pendingAction?.kind === "task" || pendingAction?.action === "return-to-preparer" ? { id: "accounting-close-reason", label: pendingAction?.kind === "task" ? "Reopen reason" : "Return reason", value: pendingReason, onChange: setPendingReason, required: true, placeholder: "Enter a reason" } : undefined}
         onConfirm={async () => {
-          if (pendingAction?.kind === "task") await mutateTask(pendingAction.task, "reopen", pendingReason);
-          else if (pendingAction) await transition(pendingAction.action, pendingReason);
-          setPendingAction(null);
-          setPendingReason("");
+          const succeeded = pendingAction?.kind === "task"
+            ? await mutateTask(pendingAction.task, "reopen", pendingReason)
+            : pendingAction
+              ? await transition(pendingAction.action, pendingReason)
+              : false;
+          if (succeeded) {
+            setPendingAction(null);
+            setPendingReason("");
+          }
         }}
       />
     </LedgerPageBody>

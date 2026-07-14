@@ -99,6 +99,21 @@ describe("RecurringTransactionDetailPage", () => {
     expect(screen.getByText("Run page 2 of 2")).toBeInTheDocument();
   });
 
+  it("keeps the review dialog open when posting the expense proposal fails", async () => {
+    apiRequestMock.mockImplementation((path: string, options?: { method?: string }) => {
+      if (path === "/recurring-transactions/template-1" && !options) return Promise.resolve({ ...templateFixture(), transactionType: "EXPENSE" });
+      if (path === "/recurring-transactions/template-1/runs?page=1&limit=25") return Promise.resolve({ items: [{ ...runFixture(), generatedSalesInvoice: undefined, generatedExpenseProposal: proposalFixture() }], page: 1, limit: 25, total: 1, totalPages: 1 });
+      if (path === "/recurring-transactions/expense-proposals/proposal-1/review" && options?.method === "POST") return Promise.reject(new Error("Review service unavailable."));
+      return Promise.reject(new Error(`Unexpected ${path}`));
+    });
+
+    render(<RecurringTransactionDetailPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Review and post expense" }));
+    fireEvent.click(screen.getByRole("button", { name: "Review and post" }));
+    expect(await screen.findByText("Review service unavailable.")).toBeInTheDocument();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
   it("does not render a late response from the previously active organization", async () => {
     let resolveOldTemplate!: (value: ReturnType<typeof templateFixture>) => void;
     let resolveOldRuns!: (value: unknown) => void;

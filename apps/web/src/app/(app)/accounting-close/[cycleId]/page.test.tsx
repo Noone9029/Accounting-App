@@ -173,6 +173,7 @@ describe("accountant close cycle detail", () => {
     ));
     expect(await screen.findByText("IN PROGRESS")).toBeInTheDocument();
     expect(screen.getByText("The review was invalidated because readiness changed. Refresh readiness and record a new review before closing this period.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.getByRole("button", { name: "Refresh readiness" })).toBeEnabled();
   });
 
@@ -221,6 +222,7 @@ describe("accountant close cycle detail", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Close period" }));
     await confirmDialog("Close");
     expect(await screen.findByText("Close cycle changed. Reload and retry.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Close period" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "Close period" }));
     await confirmDialog("Close");
