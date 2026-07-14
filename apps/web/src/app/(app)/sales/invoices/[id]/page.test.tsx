@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { AnchorHTMLAttributes, ReactNode } from "react";
 import { AppLocaleProvider } from "@/components/app-locale-provider";
 import SalesInvoiceDetailPage, { InvoiceWorkflowGuidance } from "./page";
@@ -222,6 +222,23 @@ describe("SalesInvoiceDetailPage delivery-note source visibility", () => {
     expect(screen.getByText(/do not post journals, allocate payments, send email or reminders, create payment links, file VAT, call ZATCA, or change invoice balances/i)).toBeInTheDocument();
     expect(screen.queryByText(/tax invoice/i)).not.toBeInTheDocument();
     expect(apiRequestMock).not.toHaveBeenCalledWith(expect.stringMatching(/finalize|void/), expect.anything());
+  });
+
+  it("opens an in-app confirmation dialog before voiding a finalized invoice", async () => {
+    mockAllowedPermissions = new Set(["salesInvoices.view", "salesInvoices.void"]);
+    apiRequestMock.mockImplementation((path: string) => {
+      if (path === "/sales-invoices/invoice-1") return Promise.resolve(invoiceFixture({ status: "FINALIZED" }));
+      if (path.startsWith("/delivery-notes") || path === "/collections/invoice/invoice-1") return Promise.resolve([]);
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(<SalesInvoiceDetailPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Void" }));
+
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText("Void invoice INV-001?")).toBeInTheDocument();
+    expect(apiRequestMock).not.toHaveBeenCalledWith("/sales-invoices/invoice-1/void", expect.anything());
   });
 
   it("keeps ZATCA invoice actions framed as local readiness rather than production clearance or reporting", async () => {
