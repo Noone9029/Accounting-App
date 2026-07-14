@@ -42,6 +42,7 @@ The initial fresh-worktree API typecheck failure was classified as a setup prere
 | UI-001 | Shared `AttachmentPanel` delete action | Product defect: native browser confirmation was inaccessible and untestable in the app UI | P2 | Fixed in foundation batch | `apps/web/src/components/attachments/attachment-panel.test.tsx`; uses `LedgerActionDialog` with cancel, confirm, and busy behavior |
 | UI-002 | Mobile workspace navigation drawer | Product defect: Escape did not close the open drawer, leaving keyboard users without a predictable dismissal path | P2 | Fixed in foundation batch | `apps/web/src/components/app-shell/sidebar.test.tsx`; Escape closes the drawer and the drawer exposes `aria-modal` |
 | UI-003 | Sales invoice void and draft-delete actions | Product defect: native browser confirmations bypassed the product dialog system and could not be asserted in route tests | P2 | Fixed in revenue batch | `apps/web/src/app/(app)/sales/invoices/[id]/page.test.tsx`; void and delete now use `LedgerActionDialog` with busy/error-preserving behavior |
+| UI-004 | Customer payment and refund void actions (list and detail) | Product defect: native confirmations blocked keyboard/test workflows and duplicated destructive-action behavior across revenue surfaces | P2 | Fixed in revenue batch | Existing payment/refund route suites pass after migrating all four actions to `LedgerActionDialog` |
 
 ## Foundation batch checklist
 

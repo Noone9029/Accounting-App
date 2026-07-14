@@ -8,6 +8,7 @@ import { StatusMessage } from "@/components/common/status-message";
 import { SourceDocumentGuidance } from "@/components/documents/document-guidance";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import { LedgerActionDialog } from "@/components/ui-ledger/action-dialog";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { auditActionLabel, auditEntityTypeLabel, buildAuditLogQuery } from "@/lib/audit-logs";
@@ -72,6 +73,7 @@ export default function CustomerPaymentDetailPage() {
   const [error, setError] = useState("");
   const [receiptDocumentError, setReceiptDocumentError] = useState("");
   const [auditLogError, setAuditLogError] = useState("");
+  const [voidDialogOpen, setVoidDialogOpen] = useState(false);
   const [reverseAllocationId, setReverseAllocationId] = useState("");
   const [reverseReason, setReverseReason] = useState("");
   const [success, setSuccess] = useState("");
@@ -323,9 +325,9 @@ export default function CustomerPaymentDetailPage() {
     }
   }
 
-  async function voidPayment() {
-    if (!payment || !window.confirm(tc("Void customer payment {number}?", { number: payment.paymentNumber }))) {
-      return;
+  async function voidPayment(): Promise<boolean> {
+    if (!payment) {
+      return false;
     }
 
     setActionLoading(true);
@@ -337,8 +339,10 @@ export default function CustomerPaymentDetailPage() {
       setPayment(updated);
       await refreshPayment();
       setSuccess(tc("Voided payment {number}.", { number: updated.paymentNumber }));
+      return true;
     } catch (voidError) {
       setError(voidError instanceof Error ? voidError.message : tc("Unable to void payment."));
+      return false;
     } finally {
       setActionLoading(false);
     }
@@ -407,7 +411,7 @@ export default function CustomerPaymentDetailPage() {
             {tc("Back")}
           </Link>
           {payment?.status === "POSTED" && canVoidPaymentPermission ? (
-            <button type="button" onClick={() => void voidPayment()} disabled={actionLoading} className="rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+            <button type="button" onClick={() => setVoidDialogOpen(true)} disabled={actionLoading} className="rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
               {tc("Void")}
             </button>
           ) : null}
@@ -712,6 +716,25 @@ export default function CustomerPaymentDetailPage() {
 
         </div>
       ) : null}
+
+      <LedgerActionDialog
+        open={voidDialogOpen && Boolean(payment)}
+        onOpenChange={(open) => {
+          if (!open && !actionLoading) {
+            setVoidDialogOpen(false);
+          }
+        }}
+        tone="danger"
+        title={tc("Void customer payment")}
+        description={payment ? tc("Void customer payment {number}?", { number: payment.paymentNumber }) : ""}
+        confirmLabel={tc("Void")}
+        busy={actionLoading}
+        onConfirm={async () => {
+          if (await voidPayment()) {
+            setVoidDialogOpen(false);
+          }
+        }}
+      />
     </section>
   );
 }
