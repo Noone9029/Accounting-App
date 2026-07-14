@@ -23,6 +23,7 @@ import {
   LedgerSummaryBand,
   type LedgerStatusTone,
 } from "@/components/ui/ledger-system";
+import { LedgerActionDialog } from "@/components/ui-ledger/action-dialog";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import {
@@ -59,6 +60,7 @@ export default function ItemsPage() {
   const [itemSearch, setItemSearch] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [pendingDeleteItem, setPendingDeleteItem] = useState<Item | null>(null);
   const canManageItems = can(PERMISSIONS.items.manage);
   const canViewInventory = can(PERMISSIONS.inventory.view);
 
@@ -187,11 +189,7 @@ export default function ItemsPage() {
     return formatInventoryQuantity(total);
   }
 
-  async function deleteItem(item: Item) {
-    if (!window.confirm(`Delete item ${item.name}?`)) {
-      return;
-    }
-
+  async function deleteItem(item: Item): Promise<boolean> {
     setActionId(item.id);
     setError("");
     setSuccess("");
@@ -199,8 +197,10 @@ export default function ItemsPage() {
       await apiRequest<{ deleted: boolean }>(`/items/${item.id}`, { method: "DELETE" });
       setItems((current) => current.filter((candidate) => candidate.id !== item.id));
       setSuccess(`Deleted item ${item.name}.`);
+      return true;
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : "Unable to delete item. Disable it if it is already used.");
+      return false;
     } finally {
       setActionId("");
     }
@@ -353,7 +353,7 @@ export default function ItemsPage() {
                         </LedgerButton>
                       ) : null}
                       {canManageItems ? (
-                        <LedgerButton type="button" onClick={() => void deleteItem(item)} disabled={actionId === item.id} variant="danger" size="sm" aria-label={`Delete ${item.name}`}>
+                        <LedgerButton type="button" onClick={() => setPendingDeleteItem(item)} disabled={actionId === item.id} variant="danger" size="sm" aria-label={`Delete ${item.name}`}>
                           Delete
                         </LedgerButton>
                       ) : null}
@@ -364,6 +364,25 @@ export default function ItemsPage() {
             </tbody>
           </LedgerDataTable>
         ) : null}
+
+        <LedgerActionDialog
+          open={Boolean(pendingDeleteItem)}
+          onOpenChange={(open) => {
+            if (!open && !actionId) {
+              setPendingDeleteItem(null);
+            }
+          }}
+          tone="danger"
+          title="Delete item"
+          description={pendingDeleteItem ? `Delete item ${pendingDeleteItem.name}?` : ""}
+          confirmLabel="Delete"
+          busy={Boolean(actionId)}
+          onConfirm={async () => {
+            if (pendingDeleteItem && (await deleteItem(pendingDeleteItem))) {
+              setPendingDeleteItem(null);
+            }
+          }}
+        />
       </LedgerPageBody>
     </LedgerPage>
   );
