@@ -12,6 +12,15 @@ describe("API Vercel configuration", () => {
     expect(config).not.toHaveProperty("builds");
   });
 
+  it("keeps the tracked root API deployment config on the supported functions model", () => {
+    const config = JSON.parse(readFileSync(resolve(__dirname, "..", "..", "..", "vercel.json"), "utf8"));
+
+    expect(config.functions?.["api/index.js"]).toMatchObject({
+      maxDuration: 60,
+    });
+    expect(config).not.toHaveProperty("builds");
+  });
+
   it("reserves a bounded 60-second request budget for accountant-close revalidation", () => {
     const config = JSON.parse(readFileSync(resolve(__dirname, "..", "vercel.json"), "utf8"));
 
