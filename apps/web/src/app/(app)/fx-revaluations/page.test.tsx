@@ -32,7 +32,6 @@ describe("FxRevaluationsPage", () => {
     ]);
     apiRequestMock.mockReset();
     apiRequestMock.mockImplementation(defaultApiResponse);
-    jest.spyOn(window, "confirm").mockReturnValue(true);
   });
 
   afterEach(() => {
@@ -85,12 +84,14 @@ describe("FxRevaluationsPage", () => {
 
     expect(await screen.findByRole("button", { name: "Post revaluation" })).toBeEnabled();
     fireEvent.click(screen.getByRole("button", { name: "Post revaluation" }));
-    await waitFor(() => expect(window.confirm).toHaveBeenCalledWith(expect.stringMatching(/balanced unrealized FX journal/i)));
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Post" }));
     await waitFor(() => expect(apiRequestMock).toHaveBeenCalledWith("/fx/revaluations/run-1/post", expect.objectContaining({ method: "POST" })));
 
     expect(await screen.findByRole("button", { name: "Reverse revaluation" })).toBeEnabled();
     fireEvent.click(screen.getByRole("button", { name: "Reverse revaluation" }));
-    await waitFor(() => expect(window.confirm).toHaveBeenCalledWith(expect.stringMatching(/reversal journal/i)));
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Reverse" }));
     await waitFor(() => expect(apiRequestMock).toHaveBeenCalledWith("/fx/revaluations/run-1/reverse", expect.objectContaining({ method: "POST" })));
   });
 
