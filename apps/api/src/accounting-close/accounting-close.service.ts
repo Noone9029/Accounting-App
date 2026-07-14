@@ -8,6 +8,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { RecurringReadinessService } from "../recurring-transactions/recurring-readiness.service";
 import { FiscalPeriodService } from "../fiscal-periods/fiscal-period.service";
 import { ObservabilityContextService } from "../observability/observability-context.service";
+import { ReportsService } from "../reports/reports.service";
 import { toCsv } from "../reports/report-csv";
 import {
   AccountingCloseCheck,
@@ -20,6 +21,7 @@ import {
   normalizeDocumentInboxReadiness,
   normalizeInventoryAdjustmentReadiness,
   normalizeInventoryVarianceProposalReadiness,
+  normalizeFinancialStatementReadiness,
   normalizeReportPackReadiness,
   normalizeCreditNoteReadiness,
   normalizeCustomerPaymentReadiness,
@@ -53,6 +55,7 @@ export class AccountingCloseService {
     private readonly recurringReadinessService: RecurringReadinessService,
     private readonly auditLogService: AuditLogService,
     private readonly fiscalPeriodService: FiscalPeriodService,
+    private readonly reportsService: ReportsService,
     @Optional() private readonly observabilityContext?: ObservabilityContextService,
   ) {}
 
@@ -1038,6 +1041,11 @@ export class AccountingCloseService {
       checks.push(unavailableCheck("reports.packs.error", "Failed report packs", "REPORT_PACK_READINESS_UNAVAILABLE"));
     }
     try {
+      checks.push(...await this.financialStatementReadiness(organizationId, fiscalPeriod, executor));
+    } catch {
+      checks.push(unavailableCheck("reports.financialStatements.error", "Financial report integrity", "FINANCIAL_REPORT_READINESS_UNAVAILABLE"));
+    }
+    try {
       checks.push(...normalizeFxReadiness(executor
         ? await this.fxCloseReadinessService.readiness(organizationId, fiscalPeriod.endsOn, executor)
         : await this.fxCloseReadinessService.readiness(organizationId, fiscalPeriod.endsOn)));
@@ -1393,6 +1401,18 @@ export class AccountingCloseService {
       client.reportPack.findFirst({ where, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
     ]);
     return normalizeReportPackReadiness({ failedCount, sourceUpdatedAt: latestPack?.updatedAt.toISOString() });
+  }
+
+  private async financialStatementReadiness(
+    organizationId: string,
+    fiscalPeriod: { startsOn: Date; endsOn: Date },
+    executor?: Prisma.TransactionClient,
+  ) {
+    const to = fiscalPeriod.endsOn.toISOString().slice(0, 10);
+    const integrity = executor
+      ? await this.reportsService.financialStatementIntegrity(organizationId, { asOf: to }, executor)
+      : await this.reportsService.financialStatementIntegrity(organizationId, { asOf: to });
+    return normalizeFinancialStatementReadiness(integrity);
   }
 }
 

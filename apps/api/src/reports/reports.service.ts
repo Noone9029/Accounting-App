@@ -590,6 +590,35 @@ export class ReportsService {
     };
   }
 
+  async financialStatementIntegrity(organizationId: string, query: { asOf: string }, executor?: Prisma.TransactionClient) {
+    const client = executor ?? this.prisma;
+    const asOf = parseEndDate(query.asOf);
+    if (!asOf) throw new BadRequestException("asOf is required.");
+    const where: Prisma.JournalLineWhereInput = {
+      organizationId,
+      journalEntry: {
+        status: { in: POSTED_REPORT_STATUSES },
+        entryDate: { lte: asOf },
+      },
+    };
+    const totalsFor = (types?: AccountType[]) => client.journalLine.aggregate({
+      where: { ...where, ...(types ? { account: { type: { in: types } } } : {}) },
+      _sum: { debit: true, credit: true },
+    });
+    const [all, assets, liabilities, equity, profitAndLoss] = await Promise.all([
+      totalsFor(),
+      totalsFor([AccountType.ASSET]),
+      totalsFor([AccountType.LIABILITY]),
+      totalsFor([AccountType.EQUITY]),
+      totalsFor([AccountType.REVENUE, AccountType.COST_OF_SALES, AccountType.EXPENSE]),
+    ]);
+    const net = (totals: { _sum?: { debit?: unknown; credit?: unknown } }) => money(totals._sum?.debit).minus(money(totals._sum?.credit));
+    return {
+      trialBalanceBalanced: money(all._sum?.debit).eq(money(all._sum?.credit)),
+      balanceSheetBalanced: net(assets).eq(net(liabilities).plus(net(equity)).plus(net(profitAndLoss)).negated()),
+    };
+  }
+
   async vatSummary(organizationId: string, query: ReportDateQuery) {
     rejectUnsupportedTransactionCurrencyFilter(query);
     const dimensions = await this.resolveReportDimensions(organizationId, query);
