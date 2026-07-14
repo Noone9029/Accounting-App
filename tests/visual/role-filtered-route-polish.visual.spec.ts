@@ -17,7 +17,7 @@ const viewports = [
   { name: "mobile", width: 390, height: 844 },
 ] as const;
 
-const routeProfiles = ["Owner", "Viewer"] as const satisfies readonly VisualRoleProfileName[];
+const routeProfiles = ["Owner", "Admin", "Viewer"] as const satisfies readonly VisualRoleProfileName[];
 
 const routes = [
   { slug: "dashboard", path: "/dashboard", heading: /Dashboard/i, actionText: /Receivables|Controlled beta/i, requiredAny: [PERMISSIONS.dashboard.view] },
@@ -39,10 +39,17 @@ const routes = [
   { slug: "bank-accounts", path: "/bank-accounts", heading: /Bank accounts/i, actionText: /Cash and bank profiles/i, requiredAny: [PERMISSIONS.bankAccounts.view] },
 ] as const;
 
-const createProfiles = ["Owner", "Accountant", "Sales", "Purchases", "Viewer"] as const satisfies readonly VisualRoleProfileName[];
+const createProfiles = ["Owner", "Admin", "Accountant", "Sales", "Purchases", "Viewer"] as const satisfies readonly VisualRoleProfileName[];
 
 const createExpectations: Record<VisualRoleProfileName, Record<string, string | false>> = {
   Owner: {
+    Invoice: "/sales/invoices/new",
+    "Receive payment": "/sales/customer-payments/new",
+    Bill: "/purchases/bills/new",
+    "Pay bills": "/purchases/supplier-payments/new",
+    "Journal entry": "/journal-entries/new",
+  },
+  Admin: {
     Invoice: "/sales/invoices/new",
     "Receive payment": "/sales/customer-payments/new",
     Bill: "/purchases/bills/new",

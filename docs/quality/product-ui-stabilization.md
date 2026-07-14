@@ -32,6 +32,9 @@ Planned route entries and provider/production/compliance proof boundaries remain
 | `pnpm run verify:local:guards` | Passed |
 | `pnpm run verify:repo` | Passed: package typechecks, 2,531 API tests, package tests, and web/API builds |
 | `pnpm run test:visual -- tests/visual/polished-workflows.visual.spec.ts` | Passed: 31 desktop/tablet/mobile route checks with no overflow or React key warnings |
+| `node node_modules/jest/bin/jest.js --config jest.config.cjs --runInBand` (from `apps/web`) | Passed: 187 suites, 860 tests |
+| `pnpm run verify:local:web` | Passed: diff check and web typecheck |
+| `pnpm run test:visual -- tests/visual/role-filtered-route-polish.visual.spec.ts` | Passed: 171 role/viewport checks after adding the Admin fixture profile |
 
 The initial fresh-worktree API typecheck failure was classified as a setup prerequisite because Prisma client artifacts were absent; it was resolved by the approved local generation step and is not a product defect.
 
@@ -47,6 +50,7 @@ The initial fresh-worktree API typecheck failure was classified as a setup prere
 | UI-006 | Sales inventory-return cancel/void/stock-in actions | Product defect: destructive workflow and operational stock posting relied on blocking browser confirmation | P2 | Fixed in revenue batch | `apps/web/src/app/(app)/sales/inventory-returns/[id]/page.test.tsx` passes with explicit dialog confirmation |
 | UI-007 | Purchase-bill void and draft-delete actions | Product defect: AP destructive actions bypassed the shared dialog and were inaccessible to route-level keyboard tests | P2 | Fixed in payables batch | `apps/web/src/app/(app)/purchases/bills/[id]/page.test.tsx` passes after both actions moved to `LedgerActionDialog` |
 | UI-008 | Fiscal-period lock action | Product defect: irreversible period lock used a blocking browser confirmation and had no product-level focus/escape semantics | P2 | Fixed in accounting batch | `pnpm --filter @ledgerbyte/web exec tsc --noEmit --pretty false` passes; lock now uses `LedgerActionDialog` with busy protection |
+| UI-009 | Role-filtered visual fixture coverage | Test/fixture defect: the required Admin role was absent from the shared visual role matrix | P2 | Fixed in foundation batch | Admin added to shared fixtures and route/create-menu matrix; 171 Playwright checks pass across desktop/tablet/mobile |
 
 ## Foundation batch checklist
 

@@ -24,6 +24,7 @@ interface VisualRoleProfile {
 
 export const visualRoleProfiles = {
   Owner: { id: "role-owner", name: "Owner", permissions: DEFAULT_ROLE_PERMISSIONS.Owner },
+  Admin: { id: "role-admin", name: "Admin", permissions: DEFAULT_ROLE_PERMISSIONS.Admin },
   Accountant: { id: "role-accountant", name: "Accountant", permissions: DEFAULT_ROLE_PERMISSIONS.Accountant },
   Sales: { id: "role-sales", name: "Sales", permissions: DEFAULT_ROLE_PERMISSIONS.Sales },
   Purchases: { id: "role-purchases", name: "Purchases", permissions: DEFAULT_ROLE_PERMISSIONS.Purchases },
