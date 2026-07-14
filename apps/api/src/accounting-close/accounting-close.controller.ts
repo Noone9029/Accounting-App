@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Param, ParseUUIDPipe, Post, Query, Res, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Headers, Param, ParseUUIDPipe, Patch, Post, Query, Res, UseGuards } from "@nestjs/common";
 import type { Response } from "express";
 import { PERMISSIONS } from "@ledgerbyte/shared";
 import { CurrentOrganizationId } from "../auth/decorators/current-organization.decorator";
@@ -12,6 +12,7 @@ import { CompleteAccountingCloseTaskDto } from "./dto/complete-accounting-close-
 import { ReopenAccountingCloseTaskDto } from "./dto/reopen-accounting-close-task.dto";
 import { RefreshAccountingCloseCycleDto } from "./dto/refresh-accounting-close-cycle.dto";
 import { ListAccountingCloseTasksDto } from "./dto/list-accounting-close-tasks.dto";
+import { ListAccountingCloseAssigneesDto } from "./dto/list-accounting-close-assignees.dto";
 import { ListAccountingCloseSnapshotsDto } from "./dto/list-accounting-close-snapshots.dto";
 import { CompareAccountingCloseSnapshotsDto } from "./dto/compare-accounting-close-snapshots.dto";
 import { AssignAccountingCloseTaskDto } from "./dto/assign-accounting-close-task.dto";
@@ -23,6 +24,7 @@ import { CloseAccountingCloseCycleDto } from "./dto/close-accounting-close-cycle
 import { LockAccountingCloseCycleDto } from "./dto/lock-accounting-close-cycle.dto";
 import { FindAccountingCloseCycleDto } from "./dto/find-accounting-close-cycle.dto";
 import { ExportAccountingCloseEvidenceDto } from "./dto/export-accounting-close-evidence.dto";
+import { UpdateAccountingCloseSignoffPolicyDto } from "./dto/update-accounting-close-signoff-policy.dto";
 import { CurrentUser } from "../auth/decorators/current-user.decorator";
 import type { AuthenticatedUser } from "../auth/auth.types";
 import { AccountingCloseService } from "./accounting-close.service";
@@ -42,6 +44,12 @@ export class AccountingCloseController {
   @RequirePermissions(PERMISSIONS.accountingClose.manage)
   createCycle(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Body() dto: CreateAccountingCloseCycleDto) {
     return this.accountingCloseService.createCycle(organizationId, user.id, dto.fiscalPeriodId);
+  }
+
+  @Patch("signoff-policy")
+  @RequirePermissions(PERMISSIONS.organization.update)
+  updateSignoffPolicy(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Body() dto: UpdateAccountingCloseSignoffPolicyDto) {
+    return this.accountingCloseService.updateSignoffPolicy(organizationId, user.id, dto.accountingCloseSingleUserDemoSignoffEnabled);
   }
 
   @Get("cycles")
@@ -78,6 +86,12 @@ export class AccountingCloseController {
   @RequirePermissions(PERMISSIONS.accountingClose.read)
   listTasks(@CurrentOrganizationId() organizationId: string, @Param("id") cycleId: string, @Query() query: ListAccountingCloseTasksDto) {
     return this.accountingCloseService.listTasks(organizationId, cycleId, query.page, query.pageSize);
+  }
+
+  @Get("cycles/:id/assignees")
+  @RequirePermissions(PERMISSIONS.accountingClose.manage)
+  listAssignableMembers(@CurrentOrganizationId() organizationId: string, @Param("id") cycleId: string, @Query() query: ListAccountingCloseAssigneesDto) {
+    return this.accountingCloseService.listAssignableMembers(organizationId, cycleId, query.query, query.page, query.pageSize);
   }
 
   @Get("cycles/:id/snapshots")
