@@ -3,6 +3,7 @@ import {
   InvoicePdfData,
   PaymentReceiptPdfData,
   PurchaseOrderPdfData,
+  renderAccountingCloseEvidencePdf,
   renderCashExpensePdf,
   renderCustomerStatementPdf,
   renderInvoicePdf,
@@ -120,6 +121,20 @@ describe("PDF rendering", () => {
 
   it("renders purchase order PDFs as buffers", async () => {
     const buffer = await renderPurchaseOrderPdf(purchaseOrderPdfData());
+
+    expect(buffer.subarray(0, 4).toString()).toBe("%PDF");
+    expect(buffer.byteLength).toBeGreaterThan(1000);
+  });
+
+  it("renders a safe accountant close evidence PDF as a buffer", async () => {
+    const buffer = await renderAccountingCloseEvidencePdf({
+      schemaVersion: 1, organization: { name: "LedgerByte Demo" }, baseCurrency: "AED", generatedAt: "2026-07-14T00:00:00.000Z",
+      fiscalPeriod: { id: "period-1", name: "June 2026", startsOn: "2026-06-01", endsOn: "2026-06-30", status: "OPEN" },
+      cycle: { id: "cycle-1", status: "REVIEWED", version: 7, signoffMode: "DISTINCT_USERS", readinessHash: "safe-hash", closedByUserId: "user-closer", lockedByUserId: "user-locker" },
+      tasks: [{ id: "task-1", title: "Review trial balance", status: "COMPLETED", severity: "WARNING" }],
+      checks: [{ checkKey: "reports.trialBalance", status: "READY", severity: "INFORMATION", safeMessage: "Trial balance is balanced." }],
+      evidence: [{ id: "evidence-1", evidenceType: "REPORT", reportType: "TRIAL_BALANCE", generatedDocumentId: "document-1", safeLabel: "June trial balance", addedAt: "2026-07-02T00:00:00.000Z" }],
+    });
 
     expect(buffer.subarray(0, 4).toString()).toBe("%PDF");
     expect(buffer.byteLength).toBeGreaterThan(1000);

@@ -79,6 +79,12 @@ export class AccountingCloseController {
       response.setHeader("content-disposition", `attachment; filename="${csv.filename}"`);
       return csv.content;
     }
+    if (query.format === "pdf") {
+      const pdf = await this.accountingCloseService.exportCycleEvidencePdf(manifest);
+      response.setHeader("content-type", "application/pdf");
+      response.setHeader("content-disposition", `attachment; filename="${pdf.filename}"`);
+      return pdf.content;
+    }
     return manifest;
   }
 

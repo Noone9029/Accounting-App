@@ -10,6 +10,7 @@ import { FiscalPeriodService } from "../fiscal-periods/fiscal-period.service";
 import { ObservabilityContextService } from "../observability/observability-context.service";
 import { ReportsService } from "../reports/reports.service";
 import { toCsv } from "../reports/report-csv";
+import { renderAccountingCloseEvidencePdf } from "@ledgerbyte/pdf-core";
 import {
   AccountingCloseCheck,
   normalizeBankReconciliationReadiness,
@@ -312,6 +313,15 @@ export class AccountingCloseService {
       rows.push(["EVIDENCE", item.id, item.closeTaskId ?? "", "", "", "", "", item.safeLabel, item.reportType ?? "", item.generatedDocumentId ?? "", "", "", item.addedAt.toISOString()]);
     }
     return { filename: `accounting-close-evidence-${manifest.cycle.id}.csv`, content: toCsv(rows) };
+  }
+
+  async exportCycleEvidencePdf(manifest: Awaited<ReturnType<AccountingCloseService["exportCycleEvidence"]>>) {
+    const pdfRowCount = manifest.tasks.length + manifest.evidence.length + (manifest.latestReadinessSnapshot?.items.length ?? 0);
+    if (pdfRowCount > MAX_CLOSE_EVIDENCE_PDF_ROWS) {
+      throw new BadRequestException(`Close evidence PDF export exceeds the ${MAX_CLOSE_EVIDENCE_PDF_ROWS}-row limit. Use JSON or CSV for the complete manifest.`);
+    }
+    const content = await renderAccountingCloseEvidencePdf(closeEvidencePdfData(manifest), { title: "Accounting Close Evidence", showTaxNumber: false });
+    return { filename: `accounting-close-evidence-${manifest.cycle.id}.pdf`, content };
   }
 
   async addEvidence(organizationId: string, actorUserId: string, cycleId: string, expectedVersion: number, input: { closeTaskId?: string; evidenceType: string; reportType?: string; generatedDocumentId?: string; safeLabel: string }) {
@@ -1416,6 +1426,18 @@ export class AccountingCloseService {
   }
 }
 
+export function closeEvidencePdfData(manifest: Awaited<ReturnType<AccountingCloseService["exportCycleEvidence"]>>) {
+  return {
+    schemaVersion: manifest.schemaVersion,
+    organization: { id: manifest.organization.id, name: manifest.organization.name }, baseCurrency: manifest.organization.baseCurrency, generatedAt: manifest.generatedAt,
+    fiscalPeriod: { id: manifest.fiscalPeriod.id, name: manifest.fiscalPeriod.name, startsOn: manifest.fiscalPeriod.startsOn, endsOn: manifest.fiscalPeriod.endsOn, status: manifest.fiscalPeriod.status },
+    cycle: { ...manifest.cycle },
+    tasks: manifest.tasks.map((task) => ({ id: task.id, title: task.title, status: task.status, severity: task.severity, acknowledgementReason: task.acknowledgementReason })),
+    checks: (manifest.latestReadinessSnapshot?.items ?? []).map((item) => ({ checkKey: item.checkKey, status: item.status, severity: item.severity, safeMessage: item.safeMessage })),
+    evidence: manifest.evidence.map((item) => ({ id: item.id, evidenceType: item.evidenceType, reportType: item.reportType, generatedDocumentId: item.generatedDocumentId, safeLabel: item.safeLabel, addedAt: item.addedAt })),
+  };
+}
+
 function prismaErrorCode(error: unknown): string | undefined {
   return typeof error === "object" && error !== null && "code" in error && typeof error.code === "string" ? error.code : undefined;
 }
@@ -1447,6 +1469,7 @@ function evidenceResponse(evidence: any) {
 
 const MAX_CLOSE_EVIDENCE_EXPORT_ROWS = 10_000;
 const MAX_CLOSE_EVIDENCE_EXPORT_CHECKS = 500;
+const MAX_CLOSE_EVIDENCE_PDF_ROWS = 1_000;
 
 const closeEvidenceExportCycleSelect = {
   id: true,
