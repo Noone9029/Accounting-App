@@ -9,6 +9,7 @@ describe("API Vercel configuration", () => {
     expect(config.functions?.["api/index.js"]).toMatchObject({
       maxDuration: 60,
     });
+    expect(config.outputDirectory).toBe("apps/api/dist");
     expect(config).not.toHaveProperty("builds");
   });
 
@@ -18,6 +19,7 @@ describe("API Vercel configuration", () => {
     expect(config.functions?.["api/index.js"]).toMatchObject({
       maxDuration: 60,
     });
+    expect(config.outputDirectory).toBe("apps/api/dist");
     expect(config).not.toHaveProperty("builds");
   });
 
