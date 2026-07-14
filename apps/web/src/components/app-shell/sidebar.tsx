@@ -241,6 +241,19 @@ export function MobileWorkflowNav() {
   const [openCategoryHref, setOpenCategoryHref] = useState<string | null>(() => activeCategoryHref);
 
   useEffect(() => {
+    if (!open) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [open]);
+
+  useEffect(() => {
     setOpenCategoryHref(activeCategoryHref);
   }, [activeCategoryHref]);
 
@@ -283,7 +296,7 @@ export function MobileWorkflowNav() {
       {open ? (
         <div className="fixed inset-0 z-50 lg:hidden">
           <button type="button" aria-label={t("mobile.closeOverlay")} className="absolute inset-0 bg-slate-950/40" onClick={() => setOpen(false)} />
-          <aside aria-label={t("mobile.workspaceDrawer")} className={`absolute inset-y-0 flex w-[min(22rem,88vw)] flex-col bg-sidebar text-slate-100 shadow-2xl ${dir === "rtl" ? "right-0" : "left-0"}`}>
+          <aside aria-label={t("mobile.workspaceDrawer")} aria-modal="true" className={`absolute inset-y-0 flex w-[min(22rem,88vw)] flex-col bg-sidebar text-slate-100 shadow-2xl ${dir === "rtl" ? "right-0" : "left-0"}`}>
             <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
               <div>
                 <div className="text-sm font-semibold text-white">LedgerByte</div>

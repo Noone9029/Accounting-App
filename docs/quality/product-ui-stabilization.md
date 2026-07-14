@@ -40,6 +40,7 @@ The initial fresh-worktree API typecheck failure was classified as a setup prere
 | ID | Surface | Classification | Severity | Status | Evidence / regression |
 | --- | --- | --- | --- | --- | --- |
 | UI-001 | Shared `AttachmentPanel` delete action | Product defect: native browser confirmation was inaccessible and untestable in the app UI | P2 | Fixed in foundation batch | `apps/web/src/components/attachments/attachment-panel.test.tsx`; uses `LedgerActionDialog` with cancel, confirm, and busy behavior |
+| UI-002 | Mobile workspace navigation drawer | Product defect: Escape did not close the open drawer, leaving keyboard users without a predictable dismissal path | P2 | Fixed in foundation batch | `apps/web/src/components/app-shell/sidebar.test.tsx`; Escape closes the drawer and the drawer exposes `aria-modal` |
 
 ## Foundation batch checklist
 
@@ -48,6 +49,7 @@ The initial fresh-worktree API typecheck failure was classified as a setup prere
 - [x] Shared `LedgerActionDialog` and `LedgerTextarea` primitives added with focused tests.
 - [x] First high-risk destructive workflow migrated and regression-tested.
 - [x] Existing polished-workflows visual matrix passed at desktop, tablet, and mobile.
+- [x] Mobile navigation Escape dismissal and modal semantics covered.
 - [ ] Shell, setup, dashboard, navigation, and fallback-state audit completed.
 - [ ] Foundation visual matrix completed for all required roles, viewports, and locales.
 

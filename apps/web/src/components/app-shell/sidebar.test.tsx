@@ -140,4 +140,15 @@ describe("sidebar create shortcut", () => {
     expect(within(drawer).getByRole("button", { name: "Sales" })).toHaveAttribute("aria-expanded", "true");
     expect(within(drawer).getByRole("link", { name: "Invoices" })).toHaveAttribute("href", "/sales/invoices");
   });
+
+  it("closes the mobile navigation drawer with Escape", () => {
+    render(<MobileWorkflowNav />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
+    expect(screen.getByRole("complementary", { name: "Workspace navigation drawer" })).toHaveAttribute("aria-modal", "true");
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(screen.queryByRole("complementary", { name: "Workspace navigation drawer" })).not.toBeInTheDocument();
+  });
 });
