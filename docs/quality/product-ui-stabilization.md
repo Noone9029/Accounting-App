@@ -55,6 +55,7 @@ The initial fresh-worktree API typecheck failure was classified as a setup prere
 | UI-011 | Inventory-adjustment draft deletion | Product defect: adjustment deletion used a blocking browser confirmation; the detail route had no pre-existing Jest suite | P2 | Fixed in banking/inventory batch | Web typecheck passes; the shared dialog now preserves the adjustment context and busy state (a route test remains an explicit follow-up) |
 | UI-012 | Supplier refund void actions (list and detail) | Product defect: AP refund voids bypassed shared focus, Escape, and busy-state behavior | P2 | Fixed in payables batch | Existing supplier-refund list/detail suites pass after both actions moved to `LedgerActionDialog` |
 | UI-013 | Purchase-order close/void/draft-delete actions | Product defect: supplier commitment lifecycle actions relied on native confirmations | P2 | Fixed in payables batch | `apps/web/src/app/(app)/purchases/purchase-orders/[id]/page.test.tsx` passes with explicit dialog-backed actions |
+| UI-014 | Purchase debit-note void/delete/allocation reversal | Product defect: AP adjustment actions used native confirm/prompt flows instead of accessible reason collection | P2 | Fixed in payables batch | `apps/web/src/app/(app)/purchases/debit-notes/[id]/page.test.tsx` passes; reversal reason is now an optional controlled textarea |
 
 ## Foundation batch checklist
 
