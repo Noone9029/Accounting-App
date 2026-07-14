@@ -16,6 +16,8 @@
     "verify:repo": "node scripts/verify-gate.cjs verify:repo",
     "verify:ui:inventory": "node scripts/verify-ui-route-inventory.cjs",
     "test:verify:ui:inventory": "node --test scripts/verify-ui-route-inventory.test.cjs",
+    "ui:route-dispositions": "node scripts/generate-ui-route-page-dispositions.cjs",
+    "test:ui:route-dispositions": "node scripts/generate-ui-route-page-dispositions.cjs --check",
     "verify:ci:local": "node scripts/verify-gate.cjs verify:ci:local",
     "verify:openbooks-clean-room": "node scripts/openbooks-clean-room-validate.cjs --strict",
     "verify:openbook-adoption": "node scripts/openbooks-clean-room-validate.cjs --strict",

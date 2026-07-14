@@ -38,6 +38,8 @@ The inventory is checked from the filesystem and the authoritative `APP_ROUTES` 
 
 Every future route/page finding must link back to this inventory and record the required role, viewport, locale, state, reproduction, classification, and verification fields from the coverage contract above. The inventory command is a merge gate so new page modules or route definitions cannot silently bypass the audit ledger.
 
+The per-page disposition register is checked in at [`ui-route-page-dispositions.json`](./ui-route-page-dispositions.json). It contains one stable row for each of the 205 page modules, including the complete role/viewport/locale/state contract and the current baseline disposition. Run `pnpm run ui:route-dispositions` to refresh it after a route change and `pnpm run test:ui:route-dispositions` to fail on drift.
+
 ## Baseline verification
 
 | Gate | Result |
