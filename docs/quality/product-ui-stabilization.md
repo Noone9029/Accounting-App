@@ -45,6 +45,7 @@ The initial fresh-worktree API typecheck failure was classified as a setup prere
 | UI-004 | Customer payment and refund void actions (list and detail) | Product defect: native confirmations blocked keyboard/test workflows and duplicated destructive-action behavior across revenue surfaces | P2 | Fixed in revenue batch | Existing payment/refund route suites pass after migrating all four actions to `LedgerActionDialog` |
 | UI-005 | Credit-note void/delete/allocation reversal actions | Product defect: native confirm/prompt flows prevented accessible reason collection and left destructive allocation reversal outside the shared dialog contract | P2 | Fixed in revenue batch | `apps/web/src/app/(app)/sales/credit-notes/[id]/page.test.tsx` passes; reversal reason is now an optional controlled textarea |
 | UI-006 | Sales inventory-return cancel/void/stock-in actions | Product defect: destructive workflow and operational stock posting relied on blocking browser confirmation | P2 | Fixed in revenue batch | `apps/web/src/app/(app)/sales/inventory-returns/[id]/page.test.tsx` passes with explicit dialog confirmation |
+| UI-007 | Purchase-bill void and draft-delete actions | Product defect: AP destructive actions bypassed the shared dialog and were inaccessible to route-level keyboard tests | P2 | Fixed in payables batch | `apps/web/src/app/(app)/purchases/bills/[id]/page.test.tsx` passes after both actions moved to `LedgerActionDialog` |
 
 ## Foundation batch checklist
 
