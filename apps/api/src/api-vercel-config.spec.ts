@@ -9,6 +9,7 @@ describe("API Vercel configuration", () => {
     expect(config.functions?.["api/index.js"]).toMatchObject({
       maxDuration: 60,
     });
+    expect(config).not.toHaveProperty("builds");
   });
 
   it("reserves a bounded 60-second request budget for accountant-close revalidation", () => {
