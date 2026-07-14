@@ -52,6 +52,7 @@ The initial fresh-worktree API typecheck failure was classified as a setup prere
 | UI-008 | Fiscal-period lock action | Product defect: irreversible period lock used a blocking browser confirmation and had no product-level focus/escape semantics | P2 | Fixed in accounting batch | `pnpm --filter @ledgerbyte/web exec tsc --noEmit --pretty false` passes; lock now uses `LedgerActionDialog` with busy protection |
 | UI-009 | Role-filtered visual fixture coverage | Test/fixture defect: the required Admin role was absent from the shared visual role matrix | P2 | Fixed in foundation batch | Admin added to shared fixtures and route/create-menu matrix; 171 Playwright checks pass across desktop/tablet/mobile |
 | UI-010 | Item delete action | Product defect: inventory master-data deletion used a blocking browser confirmation instead of the shared accessible dialog | P2 | Fixed in banking/inventory batch | `apps/web/src/app/(app)/items/page.test.tsx` passes; delete now preserves the item context while the request is busy |
+| UI-011 | Inventory-adjustment draft deletion | Product defect: adjustment deletion used a blocking browser confirmation; the detail route had no pre-existing Jest suite | P2 | Fixed in banking/inventory batch | Web typecheck passes; the shared dialog now preserves the adjustment context and busy state (a route test remains an explicit follow-up) |
 
 ## Foundation batch checklist
 
