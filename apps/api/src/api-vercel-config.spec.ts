@@ -3,6 +3,14 @@ import { resolve } from "node:path";
 import { ACCOUNTING_CLOSE_REVALIDATION_TRANSACTION_OPTIONS } from "./accounting-close/accounting-close-revalidation-transaction";
 
 describe("API Vercel configuration", () => {
+  it("configures the CLI fallback API entrypoint with the close revalidation request budget", () => {
+    const config = JSON.parse(readFileSync(resolve(__dirname, "..", "..", "..", "vercel.api.json"), "utf8"));
+
+    expect(config.functions?.["api/index.js"]).toMatchObject({
+      maxDuration: 60,
+    });
+  });
+
   it("reserves a bounded 60-second request budget for accountant-close revalidation", () => {
     const config = JSON.parse(readFileSync(resolve(__dirname, "..", "vercel.json"), "utf8"));
 
