@@ -113,6 +113,11 @@ export type ReportPackReadiness = {
   sourceUpdatedAt?: string;
 };
 
+export type FinancialStatementReadiness = {
+  trialBalanceBalanced: boolean;
+  balanceSheetBalanced: boolean;
+};
+
 export type CashExpenseReadiness = {
   draftCount: number;
   sourceUpdatedAt?: string;
@@ -255,6 +260,16 @@ export function normalizeReportPackReadiness(readiness: ReportPackReadiness): Ac
     return [{ ...check("reports.failedPacks", "Failed report packs", "INFORMATION", "READY", "NO_FAILED_REPORT_PACKS", "No failed report packs overlap this fiscal period.", 0, "/reports", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
   }
   return [{ ...check("reports.failedPacks", "Failed report packs", "WARNING", "OPEN", "FAILED_REPORT_PACKS", "Failed report packs overlapping this fiscal period require accountant review.", readiness.failedCount, "/reports", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
+}
+
+export function normalizeFinancialStatementReadiness(readiness: FinancialStatementReadiness): AccountingCloseCheck[] {
+  const trialBalance = readiness.trialBalanceBalanced
+    ? check("reports.trialBalance", "Trial balance integrity", "INFORMATION", "READY", "TRIAL_BALANCE_BALANCED", "Trial balance is balanced for this fiscal period.", 0, "/reports/trial-balance", false)
+    : check("reports.trialBalance", "Trial balance integrity", "BLOCKER", "BLOCKED", "TRIAL_BALANCE_OUT_OF_BALANCE", "Trial balance is out of balance. Resolve journal integrity before closing.", 1, "/reports/trial-balance", false);
+  const balanceSheet = readiness.balanceSheetBalanced
+    ? check("reports.balanceSheet", "Balance sheet integrity", "INFORMATION", "READY", "BALANCE_SHEET_BALANCED", "Balance sheet is balanced as of this fiscal period end.", 0, "/reports/balance-sheet", false)
+    : check("reports.balanceSheet", "Balance sheet integrity", "BLOCKER", "BLOCKED", "BALANCE_SHEET_OUT_OF_BALANCE", "Balance sheet is out of balance. Resolve journal integrity before closing.", 1, "/reports/balance-sheet", false);
+  return [trialBalance, balanceSheet];
 }
 
 export function normalizeCashExpenseReadiness(readiness: CashExpenseReadiness): AccountingCloseCheck[] {

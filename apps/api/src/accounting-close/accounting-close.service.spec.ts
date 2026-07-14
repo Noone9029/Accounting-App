@@ -87,9 +87,13 @@ describe("AccountingCloseService", () => {
         runsScheduledInsideLockedPeriods: 0, blocksFiscalClose: false, asOf: "2026-07-13T00:00:00.000Z",
       }),
     };
+    const reports = {
+      financialStatementIntegrity: jest.fn().mockResolvedValue({ trialBalanceBalanced: true, balanceSheetBalanced: true }),
+      getRequestId: jest.fn().mockReturnValue(null),
+    };
     const auditLog = { log: jest.fn().mockResolvedValue(undefined) };
     const fiscalPeriods = { closeInTransaction: jest.fn(), lockInTransaction: jest.fn() };
-    return { service: new AccountingCloseService(prisma as never, fx as never, recurring as never, auditLog as never, fiscalPeriods as never), prisma, fx, recurring, auditLog, fiscalPeriods };
+    return { service: new (AccountingCloseService as any)(prisma, fx, recurring, auditLog, fiscalPeriods, reports), prisma, fx, recurring, reports, auditLog, fiscalPeriods };
   }
 
   it("uses tenant-scoped fiscal dates and existing domain readiness without reclassifying policy", async () => {
@@ -109,6 +113,31 @@ describe("AccountingCloseService", () => {
     expect(prisma.fiscalPeriod.findFirst).toHaveBeenCalledWith({ where: { id: "period-1", organizationId: "org-1" } });
     expect(fx.readiness).toHaveBeenCalledWith("org-1", period.endsOn);
     expect(recurring.get).toHaveBeenCalledWith("org-1", { startsOn: period.startsOn, endsOn: period.endsOn });
+  });
+
+  it("reuses transaction-aware financial reports and blocks a close when their core accounting assertions fail", async () => {
+    const { service, reports } = createService();
+    reports.financialStatementIntegrity.mockResolvedValue({ trialBalanceBalanced: false, balanceSheetBalanced: false });
+
+    await expect(service.readiness("org-1", "period-1")).resolves.toMatchObject({
+      checks: expect.arrayContaining([
+        expect.objectContaining({ key: "reports.trialBalance", severity: "BLOCKER", status: "BLOCKED", code: "TRIAL_BALANCE_OUT_OF_BALANCE" }),
+        expect.objectContaining({ key: "reports.balanceSheet", severity: "BLOCKER", status: "BLOCKED", code: "BALANCE_SHEET_OUT_OF_BALANCE" }),
+      ]),
+    });
+    expect(reports.financialStatementIntegrity).toHaveBeenCalledWith("org-1", { asOf: "2026-06-30" });
+  });
+
+  it("fails closed when core financial report readiness cannot be evaluated", async () => {
+    const { service, reports } = createService();
+    reports.financialStatementIntegrity.mockRejectedValue(new Error("report source unavailable"));
+
+    await expect(service.readiness("org-1", "period-1")).resolves.toMatchObject({
+      blockerCount: 2,
+      checks: expect.arrayContaining([
+        expect.objectContaining({ key: "reports.financialStatements.error", severity: "BLOCKER", status: "ERROR", code: "FINANCIAL_REPORT_READINESS_UNAVAILABLE", canAcknowledge: false }),
+      ]),
+    });
   });
 
   it("surfaces every tenant-scoped draft journal by its entry date, including re-dated recurring drafts", async () => {
@@ -1231,7 +1260,7 @@ describe("AccountingCloseService", () => {
   });
 
   it("closes only a reviewed cycle whose live readiness still matches the reviewed hash", async () => {
-    const { service, prisma, fx, recurring, auditLog, fiscalPeriods } = createService();
+    const { service, prisma, fx, recurring, reports, auditLog, fiscalPeriods } = createService();
     fx.readiness.mockResolvedValue({ status: "READY", asOf: "2026-06-30", counts: { foreignDocuments: 0 }, actions: [], blockers: [] });
     recurring.get.mockResolvedValue({ status: "READY", templateCount: 0, activeTemplates: 0, dueTemplates: 0, failedRuns: 0, blockedRuns: 0, generatedDraftsAwaitingReview: 0, schedulesMissingReferences: 0, foreignTemplatesMissingRateEvidence: 0, runsScheduledInsideLockedPeriods: 0, blocksFiscalClose: false, asOf: "2026-07-13T00:00:00.000Z" });
     const readinessHash = (await service.readiness("org-1", "period-1")).canonicalHash;
@@ -1262,6 +1291,7 @@ describe("AccountingCloseService", () => {
     fiscalPeriods.closeInTransaction.mockResolvedValue({ id: "period-1", status: FiscalPeriodStatus.CLOSED });
 
     await expect(service.closeCycle("org-1", "user-2", "cycle-1", 6, "close-cycle-0006")).resolves.toMatchObject({ id: "cycle-1", status: "CLOSED", version: 7 });
+    expect(reports.financialStatementIntegrity).toHaveBeenLastCalledWith("org-1", { asOf: "2026-06-30" }, tx);
     expect(fiscalPeriods.closeInTransaction).toHaveBeenCalledWith("org-1", "user-2", "period-1", tx);
     expect(tx.accountingCloseCycle.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ status: "REVIEWED", version: 6, readinessHash }), data: expect.objectContaining({ status: "CLOSED", closedByUserId: "user-2" }) }));
     expect(tx.accountingCloseReadinessSnapshot.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "CLOSED", canonicalHash: readinessHash }) }));
@@ -1349,7 +1379,7 @@ describe("AccountingCloseService", () => {
 
     const error = await service.closeCycle("org-1", "user-2", "cycle-1", 7, "close-invalidated-0007").then(
       () => null,
-      (cause) => cause,
+      (cause: unknown) => cause,
     );
     expect(error).toMatchObject({ status: 409 });
     expect((error as { getResponse: () => unknown }).getResponse()).toMatchObject({ code: "ACCOUNTING_CLOSE_REVIEW_INVALIDATED" });
@@ -1497,7 +1527,7 @@ describe("AccountingCloseService", () => {
 
     const error = await service.lockCycle("org-1", "user-locker", "cycle-1", 8, "lock-drift-proof-0008").then(
       () => null,
-      (cause) => cause,
+      (cause: unknown) => cause,
     );
 
     expect(error).toMatchObject({ status: 409 });

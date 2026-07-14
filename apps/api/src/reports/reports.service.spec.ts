@@ -1196,6 +1196,46 @@ describe("reports service builders", () => {
     expect(report).toMatchObject({ fxFilters: { transactionCurrency: "USD" } });
   });
 
+  it("evaluates financial statement integrity with bounded aggregate queries on the supplied transaction client", async () => {
+    const prisma = { journalLine: { aggregate: jest.fn(), findMany: jest.fn() } };
+    const executor = { journalLine: { aggregate: jest.fn() } };
+    executor.journalLine.aggregate
+      .mockResolvedValueOnce({ _sum: { debit: "100.0000", credit: "100.0000" } })
+      .mockResolvedValueOnce({ _sum: { debit: "100.0000", credit: "0.0000" } })
+      .mockResolvedValueOnce({ _sum: { debit: "0.0000", credit: "40.0000" } })
+      .mockResolvedValueOnce({ _sum: { debit: "0.0000", credit: "40.0000" } })
+      .mockResolvedValueOnce({ _sum: { debit: "0.0000", credit: "20.0000" } });
+    const service = new ReportsService(prisma as never);
+
+    await expect(service.financialStatementIntegrity("org-1", { asOf: "2026-06-30" }, executor as never)).resolves.toEqual({
+      trialBalanceBalanced: true,
+      balanceSheetBalanced: true,
+    });
+
+    expect(prisma.journalLine.aggregate).not.toHaveBeenCalled();
+    expect(prisma.journalLine.findMany).not.toHaveBeenCalled();
+    expect(executor.journalLine.aggregate).toHaveBeenCalledTimes(5);
+    expect(executor.journalLine.aggregate).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        organizationId: "org-1",
+        journalEntry: expect.objectContaining({ entryDate: { lte: new Date("2026-06-30T23:59:59.999Z") } }),
+      }),
+      _sum: { debit: true, credit: true },
+    }));
+
+    const imbalancedExecutor = { journalLine: { aggregate: jest.fn() } };
+    imbalancedExecutor.journalLine.aggregate
+      .mockResolvedValueOnce({ _sum: { debit: "100.0000", credit: "90.0000" } })
+      .mockResolvedValueOnce({ _sum: { debit: "100.0000", credit: "0.0000" } })
+      .mockResolvedValueOnce({ _sum: { debit: "0.0000", credit: "40.0000" } })
+      .mockResolvedValueOnce({ _sum: { debit: "0.0000", credit: "40.0000" } })
+      .mockResolvedValueOnce({ _sum: { debit: "0.0000", credit: "10.0000" } });
+    await expect(service.financialStatementIntegrity("org-1", { asOf: "2026-06-30" }, imbalancedExecutor as never)).resolves.toEqual({
+      trialBalanceBalanced: false,
+      balanceSheetBalanced: false,
+    });
+  });
+
   it.each([
     ["post-as-of settlement", "customerPaymentAllocation"],
     ["post-as-of allocation reversal", "customerPaymentUnappliedAllocation"],
