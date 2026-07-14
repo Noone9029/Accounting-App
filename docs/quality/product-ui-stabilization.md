@@ -75,6 +75,7 @@ The final local gates were run sequentially with bounded workspace concurrency t
 | `pnpm exec playwright test -c playwright.visual.config.ts tests/visual/arabic-locale.visual.spec.ts --workers=1` | Passed: 177 RTL route/viewport checks across 59 authenticated routes |
 | `pnpm exec playwright test -c playwright.visual.config.ts tests/visual/role-filtered-route-polish.visual.spec.ts --workers=1` | Passed: 171 role-filtered route and create-menu checks across Owner, Admin, Accountant, Sales, Purchases, and Viewer at desktop/tablet/mobile |
 | `pnpm exec playwright test -c playwright.visual.config.ts tests/visual/polished-workflows.visual.spec.ts --workers=1` | Passed: 31 polished workflow checks at desktop/tablet/mobile |
+| Accounting-close and recurring targeted visual workflows | Passed: 6 checks including English desktop/mobile and Arabic mobile RTL states | `tests/visual/accounting-close-workspace.visual.spec.ts`, `tests/visual/recurring-transactions-workspace.visual.spec.ts` |
 | Bounded all-route visual cells | Owner/desktop and Viewer/mobile each passed all 92 active routes with one worker; the full 18-cell matrix remains available through the same harness and explicit role/viewport environment selectors |
 | `pnpm run test:tenant-isolation-proof` | Passed: 16 tests |
 | Permission/tenant focused API regression set | Passed: 7 suites, 148 tests (permission guards, organization context, roles, tenant proof, generated-document permissions) |
