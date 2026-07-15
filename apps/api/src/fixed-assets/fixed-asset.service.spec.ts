@@ -110,4 +110,55 @@ describe("FixedAssetService foundation", () => {
       "Depreciation run has no eligible schedule lines for the selected period.",
     );
   });
+
+  it("claims each asset once when a reviewed run contains multiple monthly lines", async () => {
+    const fixedAsset = {
+      id: "asset-1",
+      organizationId: "org-1",
+      version: 7,
+      status: "ACTIVE",
+      accumulatedDepreciation: "0.0000",
+      baseAcquisitionCost: "100.0000",
+      baseSalvageValue: "0.0000",
+      costCenterId: null,
+      projectId: null,
+      category: { depreciationExpenseAccountId: "expense-1", accumulatedDepreciationAccountId: "accumulated-1" },
+    };
+    const run = {
+      id: "run-1",
+      organizationId: "org-1",
+      status: "REVIEWED",
+      version: 2,
+      depreciationDate: new Date("2026-03-01T00:00:00.000Z"),
+      fiscalPeriodId: "period-1",
+      lines: [
+        { fixedAssetId: "asset-1", scheduleLineId: "schedule-1", depreciationAmount: "10.0000", expenseAccountId: "expense-1", accumulatedDepreciationAccountId: "accumulated-1", costCenterId: null, projectId: null, fixedAsset, scheduleLine: { id: "schedule-1", status: "UNPOSTED" } },
+        { fixedAssetId: "asset-1", scheduleLineId: "schedule-2", depreciationAmount: "20.0000", expenseAccountId: "expense-1", accumulatedDepreciationAccountId: "accumulated-1", costCenterId: null, projectId: null, fixedAsset, scheduleLine: { id: "schedule-2", status: "UNPOSTED" } },
+      ],
+    };
+    const prisma = {
+      $transaction: jest.fn(async (callback: (tx: any) => Promise<unknown>) => callback(prisma)),
+      fixedAssetDepreciationRun: {
+        findFirst: jest.fn().mockResolvedValue(run),
+        update: jest.fn().mockResolvedValue({ ...run, status: "POSTED", version: 3, _count: { lines: 2 } }),
+      },
+      fiscalPeriod: { findFirst: jest.fn().mockResolvedValue({ id: "period-1", organizationId: "org-1", status: "OPEN" }) },
+      organization: { findUnique: jest.fn().mockResolvedValue({ baseCurrency: "SAR" }) },
+      fixedAsset: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      fixedAssetDepreciationScheduleLine: { update: jest.fn().mockResolvedValue({}) },
+      fixedAssetMovement: { create: jest.fn().mockResolvedValue({}) },
+    } as any;
+    const audit = { log: jest.fn().mockResolvedValue(undefined) } as any;
+    const service = new FixedAssetService(prisma, { next: jest.fn() } as any, audit, { assertPostingDateAllowed: jest.fn() } as any);
+    jest.spyOn(service as any, "createPostedJournal").mockResolvedValue({ id: "journal-1" });
+
+    await expect(service.postDepreciationRun("org-1", "user-1", "run-1", { expectedVersion: 2 })).resolves.toEqual(expect.objectContaining({ status: "POSTED" }));
+    expect(prisma.fixedAsset.updateMany).toHaveBeenCalledTimes(1);
+    expect(prisma.fixedAsset.updateMany).toHaveBeenCalledWith({
+      where: { id: "asset-1", organizationId: "org-1", version: 7, status: { in: ["ACTIVE", "FULLY_DEPRECIATED"] } },
+      data: { accumulatedDepreciation: expect.anything(), carryingAmount: expect.anything(), status: "ACTIVE", fullyDepreciatedAt: null, version: { increment: 1 } },
+    });
+    expect(prisma.fixedAssetDepreciationScheduleLine.update).toHaveBeenCalledTimes(2);
+    expect(prisma.fixedAssetMovement.create).toHaveBeenCalledTimes(2);
+  });
 });
