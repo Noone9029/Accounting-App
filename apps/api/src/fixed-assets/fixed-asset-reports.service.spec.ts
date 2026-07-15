@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { FixedAssetReportsService } from "./fixed-asset-reports.service";
 
 describe("FixedAssetReportsService", () => {
@@ -38,5 +39,41 @@ describe("FixedAssetReportsService", () => {
         journalEntryId: "journal-1",
       }),
     ]);
+  });
+
+  it("reconciles current asset balances without counting disposed historical rows", async () => {
+    const prisma = {
+      fixedAssetCategory: {
+        findMany: jest.fn().mockResolvedValue([
+          { assetCostAccountId: "cost-account", accumulatedDepreciationAccountId: "accum-account", depreciationExpenseAccountId: "expense-account" },
+        ]),
+      },
+      fixedAsset: {
+        aggregate: jest.fn().mockResolvedValue({
+          _sum: {
+            baseAcquisitionCost: new Prisma.Decimal("100.0000"),
+            accumulatedDepreciation: new Prisma.Decimal("10.0000"),
+            carryingAmount: new Prisma.Decimal("90.0000"),
+          },
+        }),
+      },
+      journalLine: {
+        groupBy: jest.fn().mockResolvedValue([
+          { accountId: "cost-account", _sum: { debit: new Prisma.Decimal("100.0000"), credit: new Prisma.Decimal("0.0000") } },
+          { accountId: "accum-account", _sum: { debit: new Prisma.Decimal("0.0000"), credit: new Prisma.Decimal("10.0000") } },
+          { accountId: "expense-account", _sum: { debit: new Prisma.Decimal("10.0000"), credit: new Prisma.Decimal("0.0000") } },
+        ]),
+      },
+      fixedAssetMovement: {
+        aggregate: jest.fn().mockResolvedValue({ _sum: { baseAmount: new Prisma.Decimal("10.0000") } }),
+      },
+    };
+    const service = new FixedAssetReportsService(prisma as never);
+
+    await expect(service.reconciliation("org-1")).resolves.toMatchObject({ reconciled: true });
+    expect(prisma.fixedAsset.aggregate).toHaveBeenCalledWith({
+      where: { organizationId: "org-1", status: { in: ["ACTIVE", "FULLY_DEPRECIATED"] } },
+      _sum: { baseAcquisitionCost: true, accumulatedDepreciation: true, carryingAmount: true },
+    });
   });
 });
