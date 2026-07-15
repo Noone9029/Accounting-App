@@ -7,6 +7,7 @@ import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import { LedgerActionDialog } from "@/components/ui-ledger/action-dialog";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatAppDate, formatAppMoney } from "@/lib/app-i18n";
@@ -31,6 +32,7 @@ export default function SupplierRefundDetailPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [voidDialogOpen, setVoidDialogOpen] = useState(false);
   const canVoidRefund = can(PERMISSIONS.supplierRefunds.void);
   const canDownloadGeneratedDocuments = can(PERMISSIONS.generatedDocuments.download);
 
@@ -69,9 +71,9 @@ export default function SupplierRefundDetailPage() {
     };
   }, [organizationId, params.id, tc]);
 
-  async function voidRefund() {
-    if (!refund || !window.confirm(tc("Void supplier refund {number}?", { number: refund.refundNumber }))) {
-      return;
+  async function voidRefund(): Promise<boolean> {
+    if (!refund) {
+      return false;
     }
 
     setActionLoading(true);
@@ -84,8 +86,10 @@ export default function SupplierRefundDetailPage() {
       setRefund(updated);
       setPdfData(nextPdfData);
       setSuccess(tc("Voided supplier refund {number}.", { number: updated.refundNumber }));
+      return true;
     } catch (voidError) {
       setError(voidError instanceof Error ? voidError.message : tc("Unable to void supplier refund."));
+      return false;
     } finally {
       setActionLoading(false);
     }
@@ -134,7 +138,7 @@ export default function SupplierRefundDetailPage() {
             </button>
           ) : null}
           {refund?.status === "POSTED" && canVoidRefund ? (
-            <button type="button" onClick={() => void voidRefund()} disabled={actionLoading} className="rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+            <button type="button" onClick={() => setVoidDialogOpen(true)} disabled={actionLoading} className="rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
               {tc("Void")}
             </button>
           ) : null}
@@ -206,6 +210,21 @@ export default function SupplierRefundDetailPage() {
           ) : null}
         </div>
       ) : null}
+
+      <LedgerActionDialog
+        open={voidDialogOpen && Boolean(refund)}
+        onOpenChange={(open) => {
+          if (!open && !actionLoading) setVoidDialogOpen(false);
+        }}
+        tone="danger"
+        title={tc("Void supplier refund")}
+        description={refund ? tc("Void supplier refund {number}?", { number: refund.refundNumber }) : ""}
+        confirmLabel={tc("Void")}
+        busy={actionLoading}
+        onConfirm={async () => {
+          if (await voidRefund()) setVoidDialogOpen(false);
+        }}
+      />
     </section>
   );
 }

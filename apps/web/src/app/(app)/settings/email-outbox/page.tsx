@@ -1033,9 +1033,9 @@ export default function EmailOutboxPage() {
         </LedgerPanel>
       ) : null}
 
-      <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
-        <LedgerPanel className="p-0">
-          <div aria-label="Email outbox table" className="overflow-x-auto">
+      <div className="grid min-w-0 gap-5 lg:grid-cols-[1.4fr_1fr]">
+        <LedgerPanel className="min-w-0 p-0">
+          <div aria-label="Email outbox table" className="min-w-0 overflow-x-auto">
           <div className="grid min-w-[760px] grid-cols-[1fr_1fr_110px_150px] border-b border-line bg-mist px-4 py-2 text-xs font-semibold uppercase text-steel">
             <div>To</div>
             <div>Template</div>

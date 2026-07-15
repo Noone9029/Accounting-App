@@ -11,6 +11,7 @@ import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { ValuationVariancePreviewPanel } from "@/components/inventory/valuation-variance-preview-panel";
 import { PurchaseMatchingPanel } from "@/components/purchases/purchase-matching-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import { LedgerActionDialog } from "@/components/ui-ledger/action-dialog";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatAppDate, formatAppMoney } from "@/lib/app-i18n";
@@ -58,6 +59,7 @@ export default function PurchaseBillDetailPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [pendingConfirmation, setPendingConfirmation] = useState<"void" | "delete" | null>(null);
   const canUpdateBill = can(PERMISSIONS.purchaseBills.update);
   const canFinalizeBill = can(PERMISSIONS.purchaseBills.finalize);
   const foreignCurrencyDocument = bill ? isForeignCurrencyDocument(bill) : false;
@@ -120,18 +122,14 @@ export default function PurchaseBillDetailPage() {
     };
   }, [canViewValuationVariances, organizationId, params.id, tc]);
 
-  async function runAction(action: "finalize" | "void") {
+  async function runAction(action: "finalize" | "void"): Promise<boolean> {
     if (!bill) {
-      return;
+      return false;
     }
 
     if (action === "finalize" && !documentFxPostingIsReady(bill)) {
       setError(tc(INCOMPLETE_DOCUMENT_FX_CONTEXT_MESSAGE));
-      return;
-    }
-
-    if (action === "void" && !window.confirm(tc("Void purchase bill {number}?", { number: bill.billNumber }))) {
-      return;
+      return false;
     }
 
     setActionLoading(true);
@@ -146,16 +144,18 @@ export default function PurchaseBillDetailPage() {
       const clearing = await apiRequest<InventoryClearingReconciliationReport>(`/inventory/reports/clearing-reconciliation?purchaseBillId=${encodeURIComponent(bill.id)}`).catch(() => null);
       setClearingReport(clearing);
       setSuccess(action === "finalize" ? tc("Finalized bill {number}.", { number: updated.billNumber }) : tc("Voided bill {number}.", { number: updated.billNumber }));
+      return true;
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : tc(action === "finalize" ? "Unable to finalize purchase bill." : "Unable to void purchase bill."));
+      return false;
     } finally {
       setActionLoading(false);
     }
   }
 
-  async function deleteBill() {
-    if (!bill || !window.confirm(tc("Delete draft purchase bill {number}?", { number: bill.billNumber }))) {
-      return;
+  async function deleteBill(): Promise<boolean> {
+    if (!bill) {
+      return false;
     }
 
     setActionLoading(true);
@@ -165,8 +165,10 @@ export default function PurchaseBillDetailPage() {
     try {
       await apiRequest<{ deleted: boolean }>(`/purchase-bills/${bill.id}`, { method: "DELETE" });
       router.push("/purchases/bills");
+      return true;
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : tc("Unable to delete purchase bill."));
+      return false;
     } finally {
       setActionLoading(false);
     }
@@ -248,12 +250,12 @@ export default function PurchaseBillDetailPage() {
             </button>
           ) : null}
           {bill && bill.status !== "VOIDED" && canVoidBill ? (
-            <button type="button" onClick={() => void runAction("void")} disabled={actionLoading} className="rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+            <button type="button" onClick={() => setPendingConfirmation("void")} disabled={actionLoading} className="rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
               {tc("Void")}
             </button>
           ) : null}
           {bill?.status === "DRAFT" && canUpdateBill ? (
-            <button type="button" onClick={() => void deleteBill()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+            <button type="button" onClick={() => setPendingConfirmation("delete")} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
               {tc("Delete")}
             </button>
           ) : null}
@@ -499,6 +501,23 @@ export default function PurchaseBillDetailPage() {
           </div>
         </div>
       ) : null}
+      <LedgerActionDialog
+        open={Boolean(pendingConfirmation && bill)}
+        onOpenChange={(open) => {
+          if (!open && !actionLoading) {
+            setPendingConfirmation(null);
+          }
+        }}
+        tone="danger"
+        title={pendingConfirmation === "delete" ? tc("Delete draft purchase bill") : tc("Void purchase bill")}
+        description={bill ? pendingConfirmation === "delete" ? tc("Delete draft purchase bill {number}?", { number: bill.billNumber }) : tc("Void purchase bill {number}?", { number: bill.billNumber }) : ""}
+        confirmLabel={pendingConfirmation === "delete" ? tc("Delete") : tc("Void")}
+        busy={actionLoading}
+        onConfirm={async () => {
+          const succeeded = pendingConfirmation === "delete" ? await deleteBill() : await runAction("void");
+          if (succeeded) setPendingConfirmation(null);
+        }}
+      />
     </section>
   );
 }

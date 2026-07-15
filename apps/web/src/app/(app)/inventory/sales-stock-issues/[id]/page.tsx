@@ -22,6 +22,7 @@ import {
   LedgerSummaryBand,
   type LedgerStatusTone,
 } from "@/components/ui/ledger-system";
+import { LedgerActionDialog } from "@/components/ui-ledger/action-dialog";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
@@ -55,6 +56,7 @@ export default function SalesStockIssueDetailPage() {
   const [reloadToken, setReloadToken] = useState(0);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [pendingAction, setPendingAction] = useState<"void" | "post-cogs" | "reverse-cogs" | null>(null);
   const canVoid = can(PERMISSIONS.salesStockIssue.create);
   const canPostCogs = can(PERMISSIONS.inventory.cogsPost);
   const canReverseCogs = can(PERMISSIONS.inventory.cogsReverse);
@@ -92,8 +94,8 @@ export default function SalesStockIssueDetailPage() {
     };
   }, [organizationId, params.id, reloadToken]);
 
-  async function voidIssue() {
-    if (!issue || !window.confirm(`Void sales stock issue ${issue.issueNumber}?`)) return;
+  async function voidIssue(): Promise<boolean> {
+    if (!issue) return false;
     setVoiding(true);
     setError("");
     setSuccess("");
@@ -102,15 +104,17 @@ export default function SalesStockIssueDetailPage() {
       setIssue(updated);
       setSuccess(`${updated.issueNumber} has been voided.`);
       setReloadToken((current) => current + 1);
+      return true;
     } catch (voidError) {
       setError(voidError instanceof Error ? voidError.message : "Unable to void sales stock issue.");
+      return false;
     } finally {
       setVoiding(false);
     }
   }
 
-  async function postCogs() {
-    if (!issue || !window.confirm(`Post COGS for ${issue.issueNumber}? ${cogsPostingFinancialReportWarning()}`)) return;
+  async function postCogs(): Promise<boolean> {
+    if (!issue) return false;
     setPostingCogs(true);
     setError("");
     setSuccess("");
@@ -119,15 +123,17 @@ export default function SalesStockIssueDetailPage() {
       setIssue(updated);
       setSuccess(`COGS has been posted for ${updated.issueNumber}.`);
       setReloadToken((current) => current + 1);
+      return true;
     } catch (postError) {
       setError(postError instanceof Error ? postError.message : "Unable to post COGS.");
+      return false;
     } finally {
       setPostingCogs(false);
     }
   }
 
-  async function reverseCogs() {
-    if (!issue || !window.confirm(`Reverse COGS for ${issue.issueNumber}? This creates a reversal journal entry.`)) return;
+  async function reverseCogs(): Promise<boolean> {
+    if (!issue) return false;
     setReversingCogs(true);
     setError("");
     setSuccess("");
@@ -136,8 +142,10 @@ export default function SalesStockIssueDetailPage() {
       setIssue(updated);
       setSuccess(`COGS has been reversed for ${updated.issueNumber}.`);
       setReloadToken((current) => current + 1);
+      return true;
     } catch (reverseError) {
       setError(reverseError instanceof Error ? reverseError.message : "Unable to reverse COGS.");
+      return false;
     } finally {
       setReversingCogs(false);
     }
@@ -154,7 +162,7 @@ export default function SalesStockIssueDetailPage() {
           <>
             <LedgerButton href="/inventory/sales-stock-issues">Back</LedgerButton>
             {issue && canVoid && canVoidPostedStockDocument(issue.status) ? (
-              <LedgerButton type="button" disabled={voiding} onClick={() => void voidIssue()} variant="danger">
+              <LedgerButton type="button" disabled={voiding} onClick={() => setPendingAction("void")} variant="danger">
                 {voiding ? "Voiding..." : "Void"}
               </LedgerButton>
             ) : null}
@@ -179,9 +187,9 @@ export default function SalesStockIssueDetailPage() {
               canVoid={canVoid}
               canPostCogs={canPostCogs}
               canReverseCogs={canReverseCogs}
-              onVoid={() => void voidIssue()}
-              onPostCogs={() => void postCogs()}
-              onReverseCogs={() => void reverseCogs()}
+              onVoid={() => setPendingAction("void")}
+              onPostCogs={() => setPendingAction("post-cogs")}
+              onReverseCogs={() => setPendingAction("reverse-cogs")}
               actionLoading={voiding || postingCogs || reversingCogs}
             />
 
@@ -233,11 +241,26 @@ export default function SalesStockIssueDetailPage() {
               canReversePermission={canReverseCogs}
               postingCogs={postingCogs}
               reversingCogs={reversingCogs}
-              onPostCogs={() => void postCogs()}
-              onReverseCogs={() => void reverseCogs()}
+              onPostCogs={() => setPendingAction("post-cogs")}
+              onReverseCogs={() => setPendingAction("reverse-cogs")}
             />
           </>
         ) : null}
+        <LedgerActionDialog
+          open={Boolean(pendingAction && issue)}
+          onOpenChange={(open) => {
+            if (!open && !voiding && !postingCogs && !reversingCogs) setPendingAction(null);
+          }}
+          tone="danger"
+          title={pendingAction === "post-cogs" ? "Post COGS" : pendingAction === "reverse-cogs" ? "Reverse COGS" : "Void sales stock issue"}
+          description={issue ? pendingAction === "post-cogs" ? `Post COGS for ${issue.issueNumber}? ${cogsPostingFinancialReportWarning()}` : pendingAction === "reverse-cogs" ? `Reverse COGS for ${issue.issueNumber}? This creates a reversal journal entry.` : `Void sales stock issue ${issue.issueNumber}?` : ""}
+          confirmLabel={pendingAction === "post-cogs" ? "Post COGS" : pendingAction === "reverse-cogs" ? "Reverse" : "Void"}
+          busy={voiding || postingCogs || reversingCogs}
+          onConfirm={async () => {
+            const succeeded = pendingAction === "post-cogs" ? await postCogs() : pendingAction === "reverse-cogs" ? await reverseCogs() : await voidIssue();
+            if (succeeded) setPendingAction(null);
+          }}
+        />
       </LedgerPageBody>
     </LedgerPage>
   );

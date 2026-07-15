@@ -20,6 +20,7 @@ import {
 import { downloadAuthenticatedFile } from "@/lib/pdf-download";
 import { PERMISSIONS } from "@/lib/permissions";
 import type { Attachment, AttachmentLinkedEntityType } from "@/lib/types";
+import { LedgerActionDialog } from "@/components/ui-ledger/action-dialog";
 
 interface AttachmentPanelProps {
   linkedEntityType: AttachmentLinkedEntityType;
@@ -47,6 +48,7 @@ export function AttachmentPanel({
   const [actionLoading, setActionLoading] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<Attachment | null>(null);
 
   const canView = can(PERMISSIONS.attachments.view);
   const canUpload = canUploadAttachment(can(PERMISSIONS.attachments.upload), allowUpload);
@@ -153,10 +155,11 @@ export function AttachmentPanel({
     }
   }
 
-  async function remove(attachment: Attachment) {
-    if (!window.confirm(tc("Delete attachment {filename}?", { filename: attachment.filename }))) {
-      return;
-    }
+  function remove(attachment: Attachment) {
+    setDeleteTarget(attachment);
+  }
+
+  async function confirmRemove(attachment: Attachment) {
     setActionLoading(`delete-${attachment.id}`);
     setError("");
     setSuccess("");
@@ -164,6 +167,7 @@ export function AttachmentPanel({
       await apiRequest<Attachment>(`/attachments/${attachment.id}`, { method: "DELETE" });
       await refresh();
       setSuccess(tc("Deleted {filename}.", { filename: attachment.filename }));
+      setDeleteTarget(null);
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : tc("Unable to delete attachment."));
     } finally {
@@ -176,7 +180,8 @@ export function AttachmentPanel({
   }
 
   return (
-    <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
+    <>
+      <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-base font-semibold text-ink">{tc(title)}</h2>
@@ -300,7 +305,27 @@ export function AttachmentPanel({
           </table>
         </div>
       ) : null}
-    </div>
+      </div>
+
+      <LedgerActionDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open && !actionLoading.startsWith("delete-")) {
+            setDeleteTarget(null);
+          }
+        }}
+        tone="danger"
+        title={tc("Delete attachment")}
+        description={deleteTarget ? tc("Delete attachment {filename}?", { filename: deleteTarget.filename }) : ""}
+        confirmLabel={tc("Delete")}
+        busy={deleteTarget ? actionLoading === `delete-${deleteTarget.id}` : false}
+        onConfirm={async () => {
+          if (deleteTarget) {
+            await confirmRemove(deleteTarget);
+          }
+        }}
+      />
+    </>
   );
 }
 

@@ -6,6 +6,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { SourceDocumentGuidance } from "@/components/documents/document-guidance";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
+import { LedgerActionDialog } from "@/components/ui-ledger/action-dialog";
 import { useAppLocale } from "@/components/app-locale-provider";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
@@ -41,6 +42,9 @@ export default function SupplierPaymentDetailPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [wasJustRecorded, setWasJustRecorded] = useState(false);
+  const [pendingAction, setPendingAction] = useState<"void" | "reverse" | null>(null);
+  const [pendingAllocationId, setPendingAllocationId] = useState("");
+  const [pendingReason, setPendingReason] = useState("");
 
   useEffect(() => {
     if (typeof window === "undefined") {
@@ -161,13 +165,9 @@ export default function SupplierPaymentDetailPage() {
     }
   }
 
-  async function reverseUnappliedAllocation(allocationId: string) {
+  async function reverseUnappliedAllocation(allocationId: string, reason: string): Promise<boolean> {
     if (!payment) {
-      return;
-    }
-    const reason = window.prompt(tc("Reason for reversing this unapplied supplier payment allocation?")) ?? "";
-    if (!window.confirm(tc("Reverse allocation on {number}?", { number: payment.paymentNumber }))) {
-      return;
+      return false;
     }
 
     setActionLoading(true);
@@ -182,16 +182,18 @@ export default function SupplierPaymentDetailPage() {
       setPayment(updated);
       setReceiptData(await apiRequest<SupplierPaymentReceiptData>(`/supplier-payments/${payment.id}/receipt-data`));
       setSuccess(tc("Unapplied supplier payment allocation reversed."));
+      return true;
     } catch (reverseError) {
       setError(reverseError instanceof Error ? reverseError.message : tc("Unable to reverse unapplied supplier payment allocation."));
+      return false;
     } finally {
       setActionLoading(false);
     }
   }
 
-  async function voidPayment() {
-    if (!payment || !window.confirm(tc("Void supplier payment {number}?", { number: payment.paymentNumber }))) {
-      return;
+  async function voidPayment(): Promise<boolean> {
+    if (!payment) {
+      return false;
     }
 
     setActionLoading(true);
@@ -203,8 +205,10 @@ export default function SupplierPaymentDetailPage() {
       setPayment(updated);
       await refreshPayment();
       setSuccess(tc("Voided supplier payment {number}.", { number: updated.paymentNumber }));
+      return true;
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : tc("Unable to void supplier payment."));
+      return false;
     } finally {
       setActionLoading(false);
     }
@@ -268,7 +272,7 @@ export default function SupplierPaymentDetailPage() {
             </Link>
           ) : null}
           {payment?.status === "POSTED" && canVoidPaymentPermission ? (
-            <button type="button" onClick={() => void voidPayment()} disabled={actionLoading} className="rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+            <button type="button" onClick={() => setPendingAction("void")} disabled={actionLoading} className="rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
               {tc("Void")}
             </button>
           ) : null}
@@ -404,7 +408,7 @@ export default function SupplierPaymentDetailPage() {
                               {tc("View bill")}
                             </Link>
                             {canReverseSupplierPaymentUnappliedAllocation(allocation) && canVoidPaymentPermission ? (
-                              <button type="button" onClick={() => void reverseUnappliedAllocation(allocation.id)} disabled={actionLoading} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                              <button type="button" onClick={() => { setPendingAction("reverse"); setPendingAllocationId(allocation.id); setPendingReason(""); }} disabled={actionLoading} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
                                 {tc("Reverse")}
                               </button>
                             ) : null}
@@ -497,6 +501,30 @@ export default function SupplierPaymentDetailPage() {
           ) : null}
         </div>
       ) : null}
+      <LedgerActionDialog
+        open={Boolean(pendingAction && payment)}
+        onOpenChange={(open) => {
+          if (!open && !actionLoading) {
+            setPendingAction(null);
+            setPendingAllocationId("");
+            setPendingReason("");
+          }
+        }}
+        tone="danger"
+        title={pendingAction === "reverse" ? tc("Reverse supplier payment allocation") : tc("Void supplier payment")}
+        description={payment ? pendingAction === "reverse" ? tc("Reverse allocation on {number}?", { number: payment.paymentNumber }) : tc("Void supplier payment {number}?", { number: payment.paymentNumber }) : ""}
+        confirmLabel={pendingAction === "reverse" ? tc("Reverse") : tc("Void")}
+        busy={actionLoading}
+        reason={pendingAction === "reverse" ? { id: "supplier-payment-reversal-reason", label: tc("Reason (optional)"), value: pendingReason, onChange: setPendingReason, placeholder: tc("Add context for the reversal") } : undefined}
+        onConfirm={async () => {
+          const succeeded = pendingAction === "reverse" ? await reverseUnappliedAllocation(pendingAllocationId, pendingReason) : await voidPayment();
+          if (succeeded) {
+            setPendingAction(null);
+            setPendingAllocationId("");
+            setPendingReason("");
+          }
+        }}
+      />
     </section>
   );
 }

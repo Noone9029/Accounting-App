@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ComponentType, SVGProps } from "react";
 import { useAppLocale } from "@/components/app-locale-provider";
 import { usePermissions } from "@/components/permissions/permission-provider";
@@ -235,10 +235,53 @@ export function MobileWorkflowNav() {
   const { activeMembership } = usePermissions();
   const { dir, t, tc } = useAppLocale();
   const [open, setOpen] = useState(false);
+  const navigationTriggerRef = useRef<HTMLButtonElement>(null);
+  const drawerRef = useRef<HTMLDivElement>(null);
   const visibleLinks = mobileWorkflowLinks.filter((item) => canViewNavItem(activeMembership, item.requiredAny));
   const visibleItems = useMemo(() => filterSidebarNavItems(activeMembership), [activeMembership]);
   const activeCategoryHref = useMemo(() => activeExpandableHref(visibleItems, pathname), [pathname, visibleItems]);
   const [openCategoryHref, setOpenCategoryHref] = useState<string | null>(() => activeCategoryHref);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const focusableSelector = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const focusFirst = () => drawerRef.current?.querySelector<HTMLElement>(focusableSelector)?.focus();
+    const animationFrame = window.requestAnimationFrame(focusFirst);
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        navigationTriggerRef.current?.focus();
+        return;
+      }
+      if (event.key === "Tab") {
+        const focusable = drawerRef.current ? [...drawerRef.current.querySelectorAll<HTMLElement>(focusableSelector)] : [];
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (!first || !last) return;
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  function closeDrawer() {
+    setOpen(false);
+    navigationTriggerRef.current?.focus();
+  }
 
   useEffect(() => {
     setOpenCategoryHref(activeCategoryHref);
@@ -255,6 +298,7 @@ export function MobileWorkflowNav() {
           <button
             type="button"
             aria-label={t("mobile.openNavigation")}
+            ref={navigationTriggerRef}
             onClick={() => setOpen(true)}
             className="ledger-focus inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-line bg-white text-ink"
           >
@@ -282,14 +326,14 @@ export function MobileWorkflowNav() {
       </nav>
       {open ? (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <button type="button" aria-label={t("mobile.closeOverlay")} className="absolute inset-0 bg-slate-950/40" onClick={() => setOpen(false)} />
-          <aside aria-label={t("mobile.workspaceDrawer")} className={`absolute inset-y-0 flex w-[min(22rem,88vw)] flex-col bg-sidebar text-slate-100 shadow-2xl ${dir === "rtl" ? "right-0" : "left-0"}`}>
+          <button type="button" aria-label={t("mobile.closeOverlay")} className="absolute inset-0 bg-slate-950/40" onClick={closeDrawer} />
+          <div ref={drawerRef} role="dialog" aria-label={t("mobile.workspaceDrawer")} aria-modal="true" className={`absolute inset-y-0 flex w-[min(22rem,88vw)] flex-col bg-sidebar text-slate-100 shadow-2xl ${dir === "rtl" ? "right-0" : "left-0"}`}>
             <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
               <div>
                 <div className="text-sm font-semibold text-white">LedgerByte</div>
                 <div className="mt-0.5 text-xs text-slate-300">{t("common.controlledBeta")}</div>
               </div>
-              <button type="button" aria-label={t("mobile.closeNavigation")} onClick={() => setOpen(false)} className="ledger-focus rounded-md border border-white/10 p-2 text-slate-200">
+              <button type="button" aria-label={t("mobile.closeNavigation")} onClick={closeDrawer} className="ledger-focus rounded-md border border-white/10 p-2 text-slate-200">
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </div>
@@ -307,7 +351,7 @@ export function MobileWorkflowNav() {
                 </div>
               ))}
             </div>
-          </aside>
+          </div>
         </div>
       ) : null}
     </>

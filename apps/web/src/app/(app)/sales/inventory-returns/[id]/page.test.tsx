@@ -71,6 +71,8 @@ describe("SalesInventoryReturnDetailPage", () => {
     expect(screen.getByRole("button", { name: "Post inventory return movement" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Post inventory return movement" }));
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Post movement" }));
 
     await waitFor(() => expect(apiRequestMock).toHaveBeenCalledWith("/sales-inventory-returns/sir-1/post-inventory-return", { method: "POST" }));
     expect(screen.getByText(/Inventory return movement posted/i)).toBeInTheDocument();

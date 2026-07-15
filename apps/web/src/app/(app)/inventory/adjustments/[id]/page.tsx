@@ -21,6 +21,7 @@ import {
   LedgerSummaryBand,
   type LedgerStatusTone,
 } from "@/components/ui/ledger-system";
+import { LedgerActionDialog } from "@/components/ui-ledger/action-dialog";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
@@ -59,6 +60,7 @@ export default function InventoryAdjustmentDetailPage() {
   const [reloadToken, setReloadToken] = useState(0);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const canCreate = can(PERMISSIONS.inventoryAdjustments.create);
   const canApprove = can(PERMISSIONS.inventoryAdjustments.approve);
@@ -133,9 +135,9 @@ export default function InventoryAdjustmentDetailPage() {
     }
   }
 
-  async function deleteAdjustment() {
-    if (!adjustment || !window.confirm(`Delete ${adjustment.adjustmentNumber}?`)) {
-      return;
+  async function deleteAdjustment(): Promise<boolean> {
+    if (!adjustment) {
+      return false;
     }
     setActionId("delete");
     setError("");
@@ -143,8 +145,10 @@ export default function InventoryAdjustmentDetailPage() {
     try {
       await apiRequest<{ deleted: boolean }>(`/inventory-adjustments/${adjustment.id}`, { method: "DELETE" });
       router.push("/inventory/adjustments");
+      return true;
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : "Unable to delete inventory adjustment.");
+      return false;
     } finally {
       setActionId("");
     }
@@ -162,7 +166,7 @@ export default function InventoryAdjustmentDetailPage() {
             <LedgerButton href="/inventory/adjustments">Back</LedgerButton>
             {adjustment && canCreate && canEditInventoryAdjustment(adjustment.status) ? <LedgerButton href={`/inventory/adjustments/${adjustment.id}/edit`}>Edit</LedgerButton> : null}
             {adjustment && canCreate && canEditInventoryAdjustment(adjustment.status) ? (
-              <LedgerButton type="button" disabled={actionId === "delete"} onClick={() => void deleteAdjustment()} variant="danger">
+              <LedgerButton type="button" disabled={actionId === "delete"} onClick={() => setDeleteDialogOpen(true)} variant="danger">
                 {actionId === "delete" ? "Deleting..." : "Delete"}
               </LedgerButton>
             ) : null}
@@ -229,6 +233,24 @@ export default function InventoryAdjustmentDetailPage() {
             </LedgerSection>
           </>
         ) : null}
+        <LedgerActionDialog
+          open={deleteDialogOpen && Boolean(adjustment)}
+          onOpenChange={(open) => {
+            if (!open && actionId !== "delete") {
+              setDeleteDialogOpen(false);
+            }
+          }}
+          tone="danger"
+          title="Delete inventory adjustment"
+          description={adjustment ? `Delete ${adjustment.adjustmentNumber}?` : ""}
+          confirmLabel="Delete"
+          busy={actionId === "delete"}
+          onConfirm={async () => {
+            if (await deleteAdjustment()) {
+              setDeleteDialogOpen(false);
+            }
+          }}
+        />
       </LedgerPageBody>
     </LedgerPage>
   );

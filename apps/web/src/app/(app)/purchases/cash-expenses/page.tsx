@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import { LedgerActionDialog } from "@/components/ui-ledger/action-dialog";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatAppDate, formatAppMoney } from "@/lib/app-i18n";
@@ -22,6 +23,7 @@ export default function CashExpensesPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [reloadToken, setReloadToken] = useState(0);
+  const [pendingVoidExpense, setPendingVoidExpense] = useState<CashExpense | null>(null);
   const canCreateExpense = can(PERMISSIONS.cashExpenses.create);
   const canVoidExpensePermission = can(PERMISSIONS.cashExpenses.void);
 
@@ -56,11 +58,7 @@ export default function CashExpensesPage() {
     };
   }, [organizationId, reloadToken, tc]);
 
-  async function voidExpense(expense: CashExpense) {
-    if (!window.confirm(tc("Void cash expense {number}?", { number: expense.expenseNumber }))) {
-      return;
-    }
-
+  async function voidExpense(expense: CashExpense): Promise<boolean> {
     setActionId(expense.id);
     setError("");
     setSuccess("");
@@ -69,8 +67,10 @@ export default function CashExpensesPage() {
       const voided = await apiRequest<CashExpense>(`/cash-expenses/${expense.id}/void`, { method: "POST" });
       setSuccess(tc("Voided cash expense {number}.", { number: voided.expenseNumber }));
       setReloadToken((current) => current + 1);
+      return true;
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : tc("Unable to void cash expense."));
+      return false;
     } finally {
       setActionId("");
     }
@@ -134,7 +134,7 @@ export default function CashExpensesPage() {
                         {tc("View")}
                       </Link>
                       {canVoidCashExpense(expense.status) && canVoidExpensePermission ? (
-                        <button type="button" onClick={() => void voidExpense(expense)} disabled={actionId === expense.id} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                        <button type="button" onClick={() => setPendingVoidExpense(expense)} disabled={actionId === expense.id} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
                           {tc("Void")}
                         </button>
                       ) : null}
@@ -146,6 +146,21 @@ export default function CashExpensesPage() {
           </table>
         </div>
       ) : null}
+
+      <LedgerActionDialog
+        open={Boolean(pendingVoidExpense)}
+        onOpenChange={(open) => {
+          if (!open && !actionId) setPendingVoidExpense(null);
+        }}
+        tone="danger"
+        title={tc("Void cash expense")}
+        description={pendingVoidExpense ? tc("Void cash expense {number}?", { number: pendingVoidExpense.expenseNumber }) : ""}
+        confirmLabel={tc("Void")}
+        busy={Boolean(actionId)}
+        onConfirm={async () => {
+          if (pendingVoidExpense && (await voidExpense(pendingVoidExpense))) setPendingVoidExpense(null);
+        }}
+      />
     </section>
   );
 }

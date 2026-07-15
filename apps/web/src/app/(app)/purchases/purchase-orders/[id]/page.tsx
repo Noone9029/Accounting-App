@@ -8,6 +8,7 @@ import { StatusMessage } from "@/components/common/status-message";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { PurchaseMatchingPanel } from "@/components/purchases/purchase-matching-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import { LedgerActionDialog } from "@/components/ui-ledger/action-dialog";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatAppDate, formatAppMoney } from "@/lib/app-i18n";
@@ -45,6 +46,7 @@ export default function PurchaseOrderDetailPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [pendingConfirmation, setPendingConfirmation] = useState<"close" | "void" | "delete" | null>(null);
   const canUpdateOrder = can(PERMISSIONS.purchaseOrders.update);
   const canApproveOrder = can(PERMISSIONS.purchaseOrders.approve);
   const canVoidOrder = can(PERMISSIONS.purchaseOrders.void);
@@ -91,13 +93,9 @@ export default function PurchaseOrderDetailPage() {
     };
   }, [organizationId, params.id, tc]);
 
-  async function runAction(action: "approve" | "mark-sent" | "close" | "void") {
+  async function runAction(action: "approve" | "mark-sent" | "close" | "void"): Promise<boolean> {
     if (!order) {
-      return;
-    }
-
-    if ((action === "void" || action === "close") && !window.confirm(tc("{action} purchase order {number}?", { action: tc(action === "void" ? "Void" : "Close"), number: order.purchaseOrderNumber }))) {
-      return;
+      return false;
     }
 
     setActionLoading(true);
@@ -108,8 +106,10 @@ export default function PurchaseOrderDetailPage() {
       const updated = await apiRequest<PurchaseOrder>(`/purchase-orders/${order.id}/${action}`, { method: "POST" });
       setOrder(updated);
       setSuccess(tc("Purchase order {number} is now {status}.", { number: updated.purchaseOrderNumber, status: tc(purchaseOrderStatusLabel(updated.status)) }));
+      return true;
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : tc("Unable to update purchase order."));
+      return false;
     } finally {
       setActionLoading(false);
     }
@@ -134,9 +134,9 @@ export default function PurchaseOrderDetailPage() {
     }
   }
 
-  async function deleteOrder() {
-    if (!order || !window.confirm(tc("Delete draft purchase order {number}?", { number: order.purchaseOrderNumber }))) {
-      return;
+  async function deleteOrder(): Promise<boolean> {
+    if (!order) {
+      return false;
     }
 
     setActionLoading(true);
@@ -146,8 +146,10 @@ export default function PurchaseOrderDetailPage() {
     try {
       await apiRequest<{ deleted: boolean }>(`/purchase-orders/${order.id}`, { method: "DELETE" });
       router.push("/purchases/purchase-orders");
+      return true;
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : tc("Unable to delete purchase order."));
+      return false;
     } finally {
       setActionLoading(false);
     }
@@ -214,17 +216,17 @@ export default function PurchaseOrderDetailPage() {
             </Link>
           ) : null}
           {order && canClosePurchaseOrder(order.status) && canUpdateOrder ? (
-            <button type="button" onClick={() => void runAction("close")} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+            <button type="button" onClick={() => setPendingConfirmation("close")} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
               {tc("Close")}
             </button>
           ) : null}
           {order && canVoidPurchaseOrder(order.status) && canVoidOrder ? (
-            <button type="button" onClick={() => void runAction("void")} disabled={actionLoading} className="rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+            <button type="button" onClick={() => setPendingConfirmation("void")} disabled={actionLoading} className="rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
               {tc("Void")}
             </button>
           ) : null}
           {order && canEditPurchaseOrder(order.status) && canUpdateOrder ? (
-            <button type="button" onClick={() => void deleteOrder()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+            <button type="button" onClick={() => setPendingConfirmation("delete")} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
               {tc("Delete")}
             </button>
           ) : null}
@@ -313,6 +315,21 @@ export default function PurchaseOrderDetailPage() {
           </div>
         </div>
       ) : null}
+      <LedgerActionDialog
+        open={Boolean(pendingConfirmation && order)}
+        onOpenChange={(open) => {
+          if (!open && !actionLoading) setPendingConfirmation(null);
+        }}
+        tone="danger"
+        title={pendingConfirmation === "delete" ? tc("Delete draft purchase order") : pendingConfirmation === "void" ? tc("Void purchase order") : tc("Close purchase order")}
+        description={order ? pendingConfirmation === "delete" ? tc("Delete draft purchase order {number}?", { number: order.purchaseOrderNumber }) : tc("{action} purchase order {number}?", { action: tc(pendingConfirmation === "void" ? "Void" : "Close"), number: order.purchaseOrderNumber }) : ""}
+        confirmLabel={pendingConfirmation === "delete" ? tc("Delete") : pendingConfirmation === "void" ? tc("Void") : tc("Close")}
+        busy={actionLoading}
+        onConfirm={async () => {
+          const succeeded = pendingConfirmation === "delete" ? await deleteOrder() : pendingConfirmation ? await runAction(pendingConfirmation) : false;
+          if (succeeded) setPendingConfirmation(null);
+        }}
+      />
     </section>
   );
 }

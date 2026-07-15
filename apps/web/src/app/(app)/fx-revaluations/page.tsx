@@ -12,6 +12,7 @@ import {
   LedgerPanel,
   LedgerStatusBadge,
 } from "@/components/ui/ledger-system";
+import { LedgerActionDialog } from "@/components/ui-ledger/action-dialog";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import {
   getFxRevaluationContext,
@@ -53,6 +54,7 @@ export default function FxRevaluationsPage() {
   const [mutating, setMutating] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [pendingAction, setPendingAction] = useState<"post" | "reverse" | null>(null);
 
   useEffect(() => {
     setCatalog(null);
@@ -100,7 +102,7 @@ export default function FxRevaluationsPage() {
 
   async function createPreview() {
     if (!canRun || !readiness?.fxRevaluationEnabled) return;
-    await mutate(async () => {
+    return mutate(async () => {
       const created = await previewFxRevaluation({
         revaluationDate,
         rateDate,
@@ -113,12 +115,10 @@ export default function FxRevaluationsPage() {
     });
   }
 
-  async function transition(action: "review" | "post" | "reverse") {
-    if (!selectedRun) return;
-    if (action === "post" && !window.confirm("Post a balanced unrealized FX journal and update monetary carrying values?")) return;
-    if (action === "reverse" && !window.confirm("Create a reversal journal and restore the prior monetary carrying values?")) return;
+  async function transition(action: "review" | "post" | "reverse"): Promise<boolean> {
+    if (!selectedRun) return false;
     const executor = action === "review" ? reviewFxRevaluation : action === "post" ? postFxRevaluation : reverseFxRevaluation;
-    await mutate(async () => {
+    return mutate(async () => {
       const updated = await executor(selectedRun.id, idempotencyKey(action));
       setSelectedRun(updated);
       setRuns((current) => current.map((run) => (run.id === updated.id ? { ...run, ...updated } : run)));
@@ -126,14 +126,16 @@ export default function FxRevaluationsPage() {
     });
   }
 
-  async function mutate(operation: () => Promise<void>) {
+  async function mutate(operation: () => Promise<void>): Promise<boolean> {
     setMutating(true);
     setError("");
     setMessage("");
     try {
       await operation();
+      return true;
     } catch (mutationError) {
       setError(mutationError instanceof Error ? mutationError.message : "Unable to update the FX revaluation.");
+      return false;
     } finally {
       setMutating(false);
     }
@@ -183,9 +185,24 @@ export default function FxRevaluationsPage() {
                 <RevaluationRunList runs={runs} selectedId={selectedRun?.id ?? null} onSelect={(id) => void selectRun(id)} />
               </LedgerPanel>
             </div>
-            {selectedRun ? <RevaluationDetail run={selectedRun} canRun={canRun} canReverse={canReverse} mutating={mutating} onAction={(action) => void transition(action)} /> : null}
+            {selectedRun ? <RevaluationDetail run={selectedRun} canRun={canRun} canReverse={canReverse} mutating={mutating} onAction={(action) => { if (action === "post" || action === "reverse") setPendingAction(action); else void transition(action); }} /> : null}
           </>
         ) : null}
+
+        <LedgerActionDialog
+          open={Boolean(pendingAction && selectedRun)}
+          onOpenChange={(open) => {
+            if (!open && !mutating) setPendingAction(null);
+          }}
+          tone="danger"
+          title={pendingAction === "reverse" ? "Reverse FX revaluation" : "Post FX revaluation"}
+          description={pendingAction === "reverse" ? "Create a reversal journal and restore the prior monetary carrying values?" : "Post a balanced unrealized FX journal and update monetary carrying values?"}
+          confirmLabel={pendingAction === "reverse" ? "Reverse" : "Post"}
+          busy={mutating}
+          onConfirm={async () => {
+            if (pendingAction && (await transition(pendingAction))) setPendingAction(null);
+          }}
+        />
       </LedgerPageBody>
     </LedgerPage>
   );

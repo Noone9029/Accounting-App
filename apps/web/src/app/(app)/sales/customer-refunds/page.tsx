@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import { LedgerActionDialog } from "@/components/ui-ledger/action-dialog";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatAppDate, formatAppMoney } from "@/lib/app-i18n";
@@ -21,6 +22,7 @@ export default function CustomerRefundsPage() {
   const [actionId, setActionId] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [pendingVoidRefund, setPendingVoidRefund] = useState<CustomerRefund | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
   const canCreateRefund = can(PERMISSIONS.customerRefunds.create);
   const canVoidRefund = can(PERMISSIONS.customerRefunds.void);
@@ -56,11 +58,7 @@ export default function CustomerRefundsPage() {
     };
   }, [organizationId, reloadToken, tc]);
 
-  async function voidRefund(refund: CustomerRefund) {
-    if (!window.confirm(tc("Void refund {number}?", { number: refund.refundNumber }))) {
-      return;
-    }
-
+  async function voidRefund(refund: CustomerRefund): Promise<boolean> {
     setActionId(refund.id);
     setError("");
     setSuccess("");
@@ -69,8 +67,10 @@ export default function CustomerRefundsPage() {
       const voided = await apiRequest<CustomerRefund>(`/customer-refunds/${refund.id}/void`, { method: "POST" });
       setSuccess(tc("Voided refund {number}.", { number: voided.refundNumber }));
       setReloadToken((current) => current + 1);
+      return true;
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : tc("Unable to void refund."));
+      return false;
     } finally {
       setActionId("");
     }
@@ -133,7 +133,7 @@ export default function CustomerRefundsPage() {
                         {tc("View")}
                       </Link>
                       {refund.status === "POSTED" && canVoidRefund ? (
-                        <button type="button" onClick={() => void voidRefund(refund)} disabled={actionId === refund.id} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                        <button type="button" onClick={() => setPendingVoidRefund(refund)} disabled={actionId === refund.id} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
                           {tc("Void")}
                         </button>
                       ) : null}
@@ -145,6 +145,25 @@ export default function CustomerRefundsPage() {
           </table>
         </div>
       ) : null}
+
+      <LedgerActionDialog
+        open={Boolean(pendingVoidRefund)}
+        onOpenChange={(open) => {
+          if (!open && !actionId) {
+            setPendingVoidRefund(null);
+          }
+        }}
+        tone="danger"
+        title={tc("Void customer refund")}
+        description={pendingVoidRefund ? tc("Void refund {number}?", { number: pendingVoidRefund.refundNumber }) : ""}
+        confirmLabel={tc("Void")}
+        busy={Boolean(actionId)}
+        onConfirm={async () => {
+          if (pendingVoidRefund && (await voidRefund(pendingVoidRefund))) {
+            setPendingVoidRefund(null);
+          }
+        }}
+      />
     </section>
   );
 }

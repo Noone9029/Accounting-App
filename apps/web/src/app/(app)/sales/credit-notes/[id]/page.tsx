@@ -9,6 +9,7 @@ import { UaeEinvoiceReadinessPanel } from "@/components/compliance/uae-einvoice-
 import { SourceDocumentGuidance } from "@/components/documents/document-guidance";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import { LedgerActionDialog } from "@/components/ui-ledger/action-dialog";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { getCreditNoteComplianceReadiness, prepareCreditNoteCompliance, validateComplianceDocument } from "@/lib/compliance";
@@ -44,6 +45,9 @@ export default function CreditNoteDetailPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [pendingAction, setPendingAction] = useState<"void" | "delete" | "reverse" | null>(null);
+  const [pendingAllocationId, setPendingAllocationId] = useState("");
+  const [pendingReason, setPendingReason] = useState("");
 
   useEffect(() => {
     if (!organizationId || !params.id) {
@@ -108,18 +112,14 @@ export default function CreditNoteDetailPage() {
     };
   }, [organizationId, creditNote]);
 
-  async function runAction(action: "finalize" | "void") {
+  async function runAction(action: "finalize" | "void"): Promise<boolean> {
     if (!creditNote) {
-      return;
+      return false;
     }
 
     if (action === "finalize" && !documentFxPostingIsReady(creditNote)) {
       setError(tc(INCOMPLETE_DOCUMENT_FX_CONTEXT_MESSAGE));
-      return;
-    }
-
-    if (action === "void" && !window.confirm(tc("Void credit note {number}?", { number: creditNote.creditNoteNumber }))) {
-      return;
+      return false;
     }
 
     setActionLoading(true);
@@ -133,16 +133,18 @@ export default function CreditNoteDetailPage() {
         await fetchUaeReadiness(updated.id).catch(() => undefined);
       }
       setSuccess(action === "finalize" ? tc("Finalized credit note {number}.", { number: updated.creditNoteNumber }) : tc("Voided credit note {number}.", { number: updated.creditNoteNumber }));
+      return true;
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : action === "finalize" ? tc("Unable to finalize credit note.") : tc("Unable to void credit note."));
+      return false;
     } finally {
       setActionLoading(false);
     }
   }
 
-  async function deleteCreditNote() {
-    if (!creditNote || !window.confirm(tc("Delete draft credit note {number}?", { number: creditNote.creditNoteNumber }))) {
-      return;
+  async function deleteCreditNote(): Promise<boolean> {
+    if (!creditNote) {
+      return false;
     }
 
     setActionLoading(true);
@@ -152,8 +154,10 @@ export default function CreditNoteDetailPage() {
     try {
       await apiRequest<{ deleted: boolean }>(`/credit-notes/${creditNote.id}`, { method: "DELETE" });
       router.push("/sales/credit-notes");
+      return true;
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : tc("Unable to delete credit note."));
+      return false;
     } finally {
       setActionLoading(false);
     }
@@ -240,12 +244,11 @@ export default function CreditNoteDetailPage() {
     }
   }
 
-  async function reverseAllocation(allocationId: string) {
-    if (!creditNote || !window.confirm(tc("Reverse this credit note allocation?"))) {
-      return;
+  async function reverseAllocation(allocationId: string, reason: string): Promise<boolean> {
+    if (!creditNote) {
+      return false;
     }
 
-    const reason = window.prompt(tc("Reversal reason (optional)"), "") ?? "";
     setActionLoading(true);
     setError("");
     setSuccess("");
@@ -260,8 +263,10 @@ export default function CreditNoteDetailPage() {
       setOpenInvoices(invoices);
       setSelectedInvoiceId(invoices[0]?.id ?? "");
       setSuccess(tc("Credit allocation reversed."));
+      return true;
     } catch (reverseError) {
       setError(reverseError instanceof Error ? reverseError.message : tc("Unable to reverse credit allocation."));
+      return false;
     } finally {
       setActionLoading(false);
     }
@@ -326,12 +331,12 @@ export default function CreditNoteDetailPage() {
             </button>
           ) : null}
           {creditNote && creditNote.status !== "VOIDED" && canVoidCreditNote ? (
-            <button type="button" onClick={() => void runAction("void")} disabled={actionLoading} className="self-start rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+            <button type="button" onClick={() => setPendingAction("void")} disabled={actionLoading} className="self-start rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
               {tc("Void")}
             </button>
           ) : null}
           {creditNote?.status === "DRAFT" && canCreateCreditNote ? (
-            <button type="button" onClick={() => void deleteCreditNote()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+            <button type="button" onClick={() => setPendingAction("delete")} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
               {tc("Delete")}
             </button>
           ) : null}
@@ -478,7 +483,7 @@ export default function CreditNoteDetailPage() {
                               {tc("View invoice")}
                             </Link>
                             {canReverseCreditNoteAllocation(allocation) && canVoidCreditNote ? (
-                              <button type="button" onClick={() => void reverseAllocation(allocation.id)} disabled={actionLoading} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                              <button type="button" onClick={() => { setPendingAction("reverse"); setPendingAllocationId(allocation.id); setPendingReason(""); }} disabled={actionLoading} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
                                 {tc("Reverse")}
                               </button>
                             ) : null}
@@ -547,6 +552,49 @@ export default function CreditNoteDetailPage() {
           <SourceDocumentGuidance />
         </div>
       ) : null}
+
+      <LedgerActionDialog
+        open={Boolean(pendingAction && creditNote)}
+        onOpenChange={(open) => {
+          if (!open && !actionLoading) {
+            setPendingAction(null);
+            setPendingAllocationId("");
+            setPendingReason("");
+          }
+        }}
+        tone="danger"
+        title={pendingAction === "delete" ? tc("Delete draft credit note") : pendingAction === "reverse" ? tc("Reverse credit allocation") : tc("Void credit note")}
+        description={
+          creditNote
+            ? pendingAction === "delete"
+              ? tc("Delete draft credit note {number}?", { number: creditNote.creditNoteNumber })
+              : pendingAction === "reverse"
+                ? tc("Reverse this credit note allocation?")
+                : tc("Void credit note {number}?", { number: creditNote.creditNoteNumber })
+            : ""
+        }
+        confirmLabel={pendingAction === "delete" ? tc("Delete") : pendingAction === "reverse" ? tc("Reverse") : tc("Void")}
+        busy={actionLoading}
+        reason={pendingAction === "reverse" ? {
+          id: "credit-note-reversal-reason",
+          label: tc("Reversal reason (optional)"),
+          value: pendingReason,
+          onChange: setPendingReason,
+          placeholder: tc("Add context for the reversal"),
+        } : undefined}
+        onConfirm={async () => {
+          const succeeded = pendingAction === "delete"
+            ? await deleteCreditNote()
+            : pendingAction === "reverse"
+              ? await reverseAllocation(pendingAllocationId, pendingReason)
+              : await runAction("void");
+          if (succeeded) {
+            setPendingAction(null);
+            setPendingAllocationId("");
+            setPendingReason("");
+          }
+        }}
+      />
     </section>
   );
 }

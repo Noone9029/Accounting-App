@@ -10,6 +10,7 @@ import { RelatedDeliveryNotesPanel } from "@/components/delivery-notes/related-d
 import { SourceDocumentGuidance } from "@/components/documents/document-guidance";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import { LedgerActionDialog } from "@/components/ui-ledger/action-dialog";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { collectionActivityTypeLabel, collectionStatusBadgeClass, collectionStatusLabel, collectionsSafeWording } from "@/lib/collections";
@@ -102,6 +103,7 @@ export default function SalesInvoiceDetailPage() {
   const [qrPayload, setQrPayload] = useState("");
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [pendingConfirmation, setPendingConfirmation] = useState<"void" | "delete" | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -216,18 +218,14 @@ export default function SalesInvoiceDetailPage() {
     };
   }, [invoice?.id, organizationId]);
 
-  async function runAction(action: "finalize" | "void") {
+  async function runAction(action: "finalize" | "void"): Promise<boolean> {
     if (!invoice) {
-      return;
+      return false;
     }
 
     if (action === "finalize" && !documentFxPostingIsReady(invoice)) {
       setError(tc(INCOMPLETE_DOCUMENT_FX_CONTEXT_MESSAGE));
-      return;
-    }
-
-    if (action === "void" && !window.confirm(tc("Void invoice {number}?", { number: invoice.invoiceNumber }))) {
-      return;
+      return false;
     }
 
     setActionLoading(true);
@@ -252,16 +250,18 @@ export default function SalesInvoiceDetailPage() {
           ? tc("Invoice posted. Accounting entries were created for {number}; record payment when cash is received.", { number: updated.invoiceNumber })
           : tc("Invoice voided. Reversal details are shown below when available for {number}.", { number: updated.invoiceNumber }),
       );
+      return true;
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : tc("Unable to {action} invoice.", { action: tc(action) }));
+      return false;
     } finally {
       setActionLoading(false);
     }
   }
 
-  async function deleteInvoice() {
-    if (!invoice || !window.confirm(tc("Delete draft invoice {number}?", { number: invoice.invoiceNumber }))) {
-      return;
+  async function deleteInvoice(): Promise<boolean> {
+    if (!invoice) {
+      return false;
     }
 
     setActionLoading(true);
@@ -271,8 +271,10 @@ export default function SalesInvoiceDetailPage() {
     try {
       await apiRequest<{ deleted: boolean }>(`/sales-invoices/${invoice.id}`, { method: "DELETE" });
       router.push("/sales/invoices");
+      return true;
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : tc("Unable to delete invoice."));
+      return false;
     } finally {
       setActionLoading(false);
     }
@@ -651,12 +653,12 @@ export default function SalesInvoiceDetailPage() {
             </button>
           ) : null}
           {invoice && invoice.status !== "VOIDED" && canVoidInvoice ? (
-            <button type="button" onClick={() => void runAction("void")} disabled={actionLoading} className="rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+            <button type="button" onClick={() => setPendingConfirmation("void")} disabled={actionLoading} className="rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
               {tc("Void")}
             </button>
           ) : null}
           {invoice?.status === "DRAFT" && canUpdateInvoice ? (
-            <button type="button" onClick={() => void deleteInvoice()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+            <button type="button" onClick={() => setPendingConfirmation("delete")} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
               {tc("Delete")}
             </button>
           ) : null}
@@ -1383,6 +1385,32 @@ export default function SalesInvoiceDetailPage() {
           ) : null}
         </div>
       ) : null}
+
+      <LedgerActionDialog
+        open={Boolean(pendingConfirmation && invoice)}
+        onOpenChange={(open) => {
+          if (!open && !actionLoading) {
+            setPendingConfirmation(null);
+          }
+        }}
+        tone="danger"
+        title={pendingConfirmation === "delete" ? tc("Delete draft invoice") : tc("Void invoice")}
+        description={
+          invoice
+            ? pendingConfirmation === "delete"
+              ? tc("Delete draft invoice {number}?", { number: invoice.invoiceNumber })
+              : tc("Void invoice {number}?", { number: invoice.invoiceNumber })
+            : ""
+        }
+        confirmLabel={pendingConfirmation === "delete" ? tc("Delete") : tc("Void")}
+        busy={actionLoading}
+        onConfirm={async () => {
+          const succeeded = pendingConfirmation === "delete" ? await deleteInvoice() : await runAction("void");
+          if (succeeded) {
+            setPendingConfirmation(null);
+          }
+        }}
+      />
     </section>
   );
 }

@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import AccountingCloseCyclePage from "./page";
 
 const apiRequestMock = jest.fn();
@@ -27,6 +27,15 @@ describe("accountant close cycle detail", () => {
       return Promise.resolve(null);
     });
   });
+
+  async function confirmDialog(label: string, reason?: string) {
+    const dialog = await screen.findByRole("dialog");
+    if (reason) fireEvent.change(within(dialog).getByRole("textbox", { name: /reason/i }), { target: { value: reason } });
+    const confirmButton = within(dialog).getAllByRole("button").find((button) => button.textContent?.trim() === label);
+    if (!confirmButton) throw new Error(`Missing dialog action: ${label}`);
+    fireEvent.click(confirmButton);
+    return dialog;
+  }
 
   it("loads the cycle and bounded checklist, then refreshes using the returned version", async () => {
     render(<AccountingCloseCyclePage />);
@@ -106,7 +115,6 @@ describe("accountant close cycle detail", () => {
   });
 
   it("returns a reviewed cycle to preparation with an explicit reason", async () => {
-    const prompt = jest.spyOn(window, "prompt").mockReturnValue("Readiness changed after review.");
     apiRequestMock.mockImplementation((path: string) => {
       if (path === "/accounting-close/cycles/cycle-1") return Promise.resolve({ id: "cycle-1", fiscalPeriodId: "period-1", status: "REVIEWED", version: 7, readinessHash: "reviewed-hash", fiscalPeriod: { name: "June 2026", status: "OPEN" }, taskCount: 2, evidenceCount: 1, snapshotCount: 1 });
       if (path === "/accounting-close/cycles/cycle-1/tasks?page=1&pageSize=100") return Promise.resolve({ items: [], meta: { totalItems: 0 } });
@@ -117,12 +125,11 @@ describe("accountant close cycle detail", () => {
 
     render(<AccountingCloseCyclePage />);
     fireEvent.click(await screen.findByRole("button", { name: "Return to preparer" }));
+    await confirmDialog("Return", "Readiness changed after review.");
     await waitFor(() => expect(apiRequestMock).toHaveBeenCalledWith("/accounting-close/cycles/cycle-1/return-to-preparer", { method: "POST", body: { expectedVersion: 7, returnReason: "Readiness changed after review." } }));
-    prompt.mockRestore();
   });
 
   it("offers return to preparation after an authorized fiscal-period reopen instead of an invalid lock action", async () => {
-    const prompt = jest.spyOn(window, "prompt").mockReturnValue("Lock readiness changed after close.");
     apiRequestMock.mockImplementation((path: string) => {
       if (path === "/accounting-close/cycles/cycle-1") return Promise.resolve({ id: "cycle-1", fiscalPeriodId: "period-1", status: "CLOSED", version: 8, readinessHash: "closed-hash", fiscalPeriod: { name: "June 2026", status: "OPEN" }, taskCount: 2, evidenceCount: 1, snapshotCount: 2 });
       if (path === "/accounting-close/cycles/cycle-1/tasks?page=1&pageSize=100") return Promise.resolve({ items: [], meta: { totalItems: 0 } });
@@ -133,15 +140,14 @@ describe("accountant close cycle detail", () => {
 
     render(<AccountingCloseCyclePage />);
     fireEvent.click(await screen.findByRole("button", { name: "Return to preparer" }));
+    await confirmDialog("Return", "Lock readiness changed after close.");
     await waitFor(() => expect(apiRequestMock).toHaveBeenCalledWith("/accounting-close/cycles/cycle-1/return-to-preparer", { method: "POST", body: { expectedVersion: 8, returnReason: "Lock readiness changed after close." } }));
     expect(screen.getByText("The fiscal period is open while this close cycle remains closed. Return the close cycle to preparation before starting a fresh readiness and review workflow.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Refresh readiness" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Lock period" })).not.toBeInTheDocument();
-    prompt.mockRestore();
   });
 
   it("reloads the cycle after the close gate invalidates a stale review", async () => {
-    const confirm = jest.spyOn(window, "confirm").mockReturnValue(true);
     let cycleReads = 0;
     apiRequestMock.mockImplementation((path: string) => {
       if (path === "/accounting-close/cycles/cycle-1") {
@@ -156,6 +162,7 @@ describe("accountant close cycle detail", () => {
 
     render(<AccountingCloseCyclePage />);
     fireEvent.click(await screen.findByRole("button", { name: "Close period" }));
+    await confirmDialog("Close");
     await waitFor(() => expect(apiRequestMock).toHaveBeenCalledWith(
       "/accounting-close/cycles/cycle-1/close",
       expect.objectContaining({
@@ -166,12 +173,11 @@ describe("accountant close cycle detail", () => {
     ));
     expect(await screen.findByText("IN PROGRESS")).toBeInTheDocument();
     expect(screen.getByText("The review was invalidated because readiness changed. Refresh readiness and record a new review before closing this period.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.getByRole("button", { name: "Refresh readiness" })).toBeEnabled();
-    confirm.mockRestore();
   });
 
   it("shows post-close drift and reloads after a safe lock revalidation conflict", async () => {
-    const confirm = jest.spyOn(window, "confirm").mockReturnValue(true);
     let cycleReads = 0;
     apiRequestMock.mockImplementation((path: string) => {
       if (path === "/accounting-close/cycles/cycle-1") {
@@ -186,6 +192,7 @@ describe("accountant close cycle detail", () => {
 
     render(<AccountingCloseCyclePage />);
     fireEvent.click(await screen.findByRole("button", { name: "Lock period" }));
+    await confirmDialog("Lock");
     await waitFor(() => expect(apiRequestMock).toHaveBeenCalledWith(
       "/accounting-close/cycles/cycle-1/lock",
       expect.objectContaining({
@@ -196,11 +203,9 @@ describe("accountant close cycle detail", () => {
     ));
     expect(await screen.findByText("Close readiness changed after the fiscal period was closed. No lock was applied. Use the authorized fiscal-period reopen workflow, then return this close cycle to preparation before a fresh review and lock attempt.")).toBeInTheDocument();
     expect(cycleReads).toBe(2);
-    confirm.mockRestore();
   });
 
   it("keeps a generic close conflict visible instead of treating it as a review invalidation", async () => {
-    const confirm = jest.spyOn(window, "confirm").mockReturnValue(true);
     let cycleReads = 0;
     apiRequestMock.mockImplementation((path: string) => {
       if (path === "/accounting-close/cycles/cycle-1") {
@@ -215,15 +220,17 @@ describe("accountant close cycle detail", () => {
 
     render(<AccountingCloseCyclePage />);
     fireEvent.click(await screen.findByRole("button", { name: "Close period" }));
+    await confirmDialog("Close");
     expect(await screen.findByText("Close cycle changed. Reload and retry.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Close period" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "Close period" }));
+    await confirmDialog("Close");
     await waitFor(() => expect(apiRequestMock.mock.calls.filter(([path]) => path === "/accounting-close/cycles/cycle-1/close")).toHaveLength(2));
     const closeCalls = apiRequestMock.mock.calls.filter(([path]) => path === "/accounting-close/cycles/cycle-1/close");
     expect((closeCalls[0][1] as { headers: { "idempotency-key": string } }).headers["idempotency-key"])
       .toBe((closeCalls[1][1] as { headers: { "idempotency-key": string } }).headers["idempotency-key"]);
     expect(cycleReads).toBe(1);
-    confirm.mockRestore();
   });
 
   it("downloads the safe close evidence manifest as JSON, CSV, or PDF without mutating the cycle", async () => {

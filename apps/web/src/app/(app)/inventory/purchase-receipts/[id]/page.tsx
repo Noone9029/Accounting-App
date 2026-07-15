@@ -24,6 +24,7 @@ import {
   LedgerSummaryBand,
   type LedgerStatusTone,
 } from "@/components/ui/ledger-system";
+import { LedgerActionDialog } from "@/components/ui-ledger/action-dialog";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatOptionalDate } from "@/lib/invoice-display";
@@ -73,6 +74,7 @@ export default function PurchaseReceiptDetailPage() {
   const [reloadToken, setReloadToken] = useState(0);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [pendingAction, setPendingAction] = useState<"void" | "post-asset" | "reverse-asset" | null>(null);
   const canVoid = can(PERMISSIONS.purchaseReceiving.create);
   const canPostAsset = can(PERMISSIONS.inventory.receiptsPostAsset);
   const canReverseAsset = can(PERMISSIONS.inventory.receiptsReverseAsset);
@@ -120,8 +122,8 @@ export default function PurchaseReceiptDetailPage() {
     };
   }, [canViewValuationVariances, organizationId, params.id, reloadToken]);
 
-  async function voidReceipt() {
-    if (!receipt || !window.confirm(`Void purchase receipt ${receipt.receiptNumber}?`)) return;
+  async function voidReceipt(): Promise<boolean> {
+    if (!receipt) return false;
     setVoiding(true);
     setError("");
     setSuccess("");
@@ -130,15 +132,17 @@ export default function PurchaseReceiptDetailPage() {
       setReceipt(updated);
       setSuccess(`${updated.receiptNumber} has been voided.`);
       setReloadToken((current) => current + 1);
+      return true;
     } catch (voidError) {
       setError(voidError instanceof Error ? voidError.message : "Unable to void purchase receipt.");
+      return false;
     } finally {
       setVoiding(false);
     }
   }
 
-  async function postInventoryAsset() {
-    if (!receipt || !window.confirm(`Post inventory asset for ${receipt.receiptNumber}? ${receiptAssetPostingFinancialReportWarning()}`)) return;
+  async function postInventoryAsset(): Promise<boolean> {
+    if (!receipt) return false;
     setPostingAsset(true);
     setError("");
     setSuccess("");
@@ -147,15 +151,17 @@ export default function PurchaseReceiptDetailPage() {
       setReceipt(updated);
       setSuccess(`Inventory asset journal posted for ${updated.receiptNumber}.`);
       setReloadToken((current) => current + 1);
+      return true;
     } catch (postError) {
       setError(postError instanceof Error ? postError.message : "Unable to post inventory asset journal.");
+      return false;
     } finally {
       setPostingAsset(false);
     }
   }
 
-  async function reverseInventoryAsset() {
-    if (!receipt || !window.confirm(`Reverse inventory asset posting for ${receipt.receiptNumber}?`)) return;
+  async function reverseInventoryAsset(): Promise<boolean> {
+    if (!receipt) return false;
     setReversingAsset(true);
     setError("");
     setSuccess("");
@@ -164,8 +170,10 @@ export default function PurchaseReceiptDetailPage() {
       setReceipt(updated);
       setSuccess(`Inventory asset posting reversed for ${updated.receiptNumber}.`);
       setReloadToken((current) => current + 1);
+      return true;
     } catch (reverseError) {
       setError(reverseError instanceof Error ? reverseError.message : "Unable to reverse inventory asset journal.");
+      return false;
     } finally {
       setReversingAsset(false);
     }
@@ -182,7 +190,7 @@ export default function PurchaseReceiptDetailPage() {
           <>
             <LedgerButton href="/inventory/purchase-receipts">Back</LedgerButton>
             {receipt && canVoid && canVoidPostedStockDocument(receipt.status) ? (
-              <LedgerButton type="button" disabled={voiding} onClick={() => void voidReceipt()} variant="danger">
+              <LedgerButton type="button" disabled={voiding} onClick={() => setPendingAction("void")} variant="danger">
                 {voiding ? "Voiding..." : "Void"}
               </LedgerButton>
             ) : null}
@@ -210,9 +218,9 @@ export default function PurchaseReceiptDetailPage() {
               canVoid={canVoid}
               canPostAsset={canPostAsset}
               canReverseAsset={canReverseAsset}
-              onVoid={() => void voidReceipt()}
-              onPostAsset={() => void postInventoryAsset()}
-              onReverseAsset={() => void reverseInventoryAsset()}
+              onVoid={() => setPendingAction("void")}
+              onPostAsset={() => setPendingAction("post-asset")}
+              onReverseAsset={() => setPendingAction("reverse-asset")}
               actionLoading={voiding || postingAsset || reversingAsset}
             />
 
@@ -273,12 +281,27 @@ export default function PurchaseReceiptDetailPage() {
               canReverseAsset={canReverseAsset}
               postingAsset={postingAsset}
               reversingAsset={reversingAsset}
-              onPostAsset={() => void postInventoryAsset()}
-              onReverseAsset={() => void reverseInventoryAsset()}
+              onPostAsset={() => setPendingAction("post-asset")}
+              onReverseAsset={() => setPendingAction("reverse-asset")}
             />
             <ReceiptClearingReconciliationPanel receipt={receipt} preview={preview} report={clearingReport} />
           </>
         ) : null}
+        <LedgerActionDialog
+          open={Boolean(pendingAction && receipt)}
+          onOpenChange={(open) => {
+            if (!open && !voiding && !postingAsset && !reversingAsset) setPendingAction(null);
+          }}
+          tone="danger"
+          title={pendingAction === "post-asset" ? "Post inventory asset" : pendingAction === "reverse-asset" ? "Reverse inventory asset" : "Void purchase receipt"}
+          description={receipt ? pendingAction === "post-asset" ? `Post inventory asset for ${receipt.receiptNumber}? ${receiptAssetPostingFinancialReportWarning()}` : pendingAction === "reverse-asset" ? `Reverse inventory asset posting for ${receipt.receiptNumber}?` : `Void purchase receipt ${receipt.receiptNumber}?` : ""}
+          confirmLabel={pendingAction === "post-asset" ? "Post asset" : pendingAction === "reverse-asset" ? "Reverse" : "Void"}
+          busy={voiding || postingAsset || reversingAsset}
+          onConfirm={async () => {
+            const succeeded = pendingAction === "post-asset" ? await postInventoryAsset() : pendingAction === "reverse-asset" ? await reverseInventoryAsset() : await voidReceipt();
+            if (succeeded) setPendingAction(null);
+          }}
+        />
       </LedgerPageBody>
     </LedgerPage>
   );

@@ -5,6 +5,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { useAppLocale } from "@/components/app-locale-provider";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
+import { LedgerActionDialog } from "@/components/ui-ledger/action-dialog";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
@@ -28,6 +29,7 @@ export default function CashExpenseDetailPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [voidDialogOpen, setVoidDialogOpen] = useState(false);
   const canVoidExpense = can(PERMISSIONS.cashExpenses.void);
   const canDownloadGeneratedDocuments = can(PERMISSIONS.generatedDocuments.download);
   const returnTo = safeReturnToFromSearch(searchParams.toString() ? `?${searchParams.toString()}` : "");
@@ -77,9 +79,9 @@ export default function CashExpenseDetailPage() {
     setPdfData(pdfResult);
   }
 
-  async function voidExpense() {
-    if (!expense || !window.confirm(tc("Void cash expense {number}?", { number: expense.expenseNumber }))) {
-      return;
+  async function voidExpense(): Promise<boolean> {
+    if (!expense) {
+      return false;
     }
 
     setActionLoading(true);
@@ -91,8 +93,10 @@ export default function CashExpenseDetailPage() {
       setExpense(voided);
       await refresh();
       setSuccess(tc("Voided cash expense {number}.", { number: voided.expenseNumber }));
+      return true;
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : tc("Unable to void cash expense."));
+      return false;
     } finally {
       setActionLoading(false);
     }
@@ -139,7 +143,7 @@ export default function CashExpenseDetailPage() {
             </button>
           ) : null}
           {canVoidCashExpense(expense?.status) && canVoidExpense ? (
-            <button type="button" onClick={() => void voidExpense()} disabled={actionLoading} className="rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+            <button type="button" onClick={() => setVoidDialogOpen(true)} disabled={actionLoading} className="rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
               {tc("Void")}
             </button>
           ) : null}
@@ -237,6 +241,20 @@ export default function CashExpenseDetailPage() {
           ) : null}
         </div>
       ) : null}
+      <LedgerActionDialog
+        open={voidDialogOpen && Boolean(expense)}
+        onOpenChange={(open) => {
+          if (!open && !actionLoading) setVoidDialogOpen(false);
+        }}
+        tone="danger"
+        title={tc("Void cash expense")}
+        description={expense ? tc("Void cash expense {number}?", { number: expense.expenseNumber }) : ""}
+        confirmLabel={tc("Void")}
+        busy={actionLoading}
+        onConfirm={async () => {
+          if (await voidExpense()) setVoidDialogOpen(false);
+        }}
+      />
     </section>
   );
 }

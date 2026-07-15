@@ -8,6 +8,7 @@ import { StatusMessage } from "@/components/common/status-message";
 import { SourceDocumentGuidance } from "@/components/documents/document-guidance";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import { LedgerActionDialog } from "@/components/ui-ledger/action-dialog";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatAppDate, formatAppDateTime, formatAppMoney } from "@/lib/app-i18n";
@@ -41,6 +42,9 @@ export default function PurchaseDebitNoteDetailPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [pendingAction, setPendingAction] = useState<"void" | "delete" | "reverse" | null>(null);
+  const [pendingAllocationId, setPendingAllocationId] = useState("");
+  const [pendingReason, setPendingReason] = useState("");
 
   useEffect(() => {
     if (!organizationId || !params.id) {
@@ -101,18 +105,14 @@ export default function PurchaseDebitNoteDetailPage() {
     };
   }, [debitNote, organizationId]);
 
-  async function runAction(action: "finalize" | "void") {
+  async function runAction(action: "finalize" | "void"): Promise<boolean> {
     if (!debitNote) {
-      return;
+      return false;
     }
 
     if (action === "finalize" && !documentFxPostingIsReady(debitNote)) {
       setError(tc(INCOMPLETE_DOCUMENT_FX_CONTEXT_MESSAGE));
-      return;
-    }
-
-    if (action === "void" && !window.confirm(tc("Void debit note {number}?", { number: debitNote.debitNoteNumber }))) {
-      return;
+      return false;
     }
 
     setActionLoading(true);
@@ -123,16 +123,18 @@ export default function PurchaseDebitNoteDetailPage() {
       const updated = await apiRequest<PurchaseDebitNote>(`/purchase-debit-notes/${debitNote.id}/${action}`, { method: "POST" });
       setDebitNote(updated);
       setSuccess(action === "finalize" ? tc("Finalized debit note {number}.", { number: updated.debitNoteNumber }) : tc("Voided debit note {number}.", { number: updated.debitNoteNumber }));
+      return true;
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : action === "finalize" ? tc("Unable to finalize debit note.") : tc("Unable to void debit note."));
+      return false;
     } finally {
       setActionLoading(false);
     }
   }
 
-  async function deleteDebitNote() {
-    if (!debitNote || !window.confirm(tc("Delete draft debit note {number}?", { number: debitNote.debitNoteNumber }))) {
-      return;
+  async function deleteDebitNote(): Promise<boolean> {
+    if (!debitNote) {
+      return false;
     }
 
     setActionLoading(true);
@@ -142,8 +144,10 @@ export default function PurchaseDebitNoteDetailPage() {
     try {
       await apiRequest<{ deleted: boolean }>(`/purchase-debit-notes/${debitNote.id}`, { method: "DELETE" });
       router.push("/purchases/debit-notes");
+      return true;
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : tc("Unable to delete debit note."));
+      return false;
     } finally {
       setActionLoading(false);
     }
@@ -202,12 +206,11 @@ export default function PurchaseDebitNoteDetailPage() {
     }
   }
 
-  async function reverseAllocation(allocationId: string) {
-    if (!debitNote || !window.confirm(tc("Reverse this debit note allocation?"))) {
-      return;
+  async function reverseAllocation(allocationId: string, reason: string): Promise<boolean> {
+    if (!debitNote) {
+      return false;
     }
 
-    const reason = window.prompt(tc("Reversal reason (optional)"), "") ?? "";
     setActionLoading(true);
     setError("");
     setSuccess("");
@@ -222,8 +225,10 @@ export default function PurchaseDebitNoteDetailPage() {
       setOpenBills(bills);
       setSelectedBillId(bills[0]?.id ?? "");
       setSuccess(tc("Debit note allocation reversed."));
+      return true;
     } catch (reverseError) {
       setError(reverseError instanceof Error ? reverseError.message : tc("Unable to reverse debit note allocation."));
+      return false;
     } finally {
       setActionLoading(false);
     }
@@ -287,12 +292,12 @@ export default function PurchaseDebitNoteDetailPage() {
             </button>
           ) : null}
           {debitNote && debitNote.status !== "VOIDED" && canVoidDebitNote ? (
-            <button type="button" onClick={() => void runAction("void")} disabled={actionLoading} className="rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+            <button type="button" onClick={() => setPendingAction("void")} disabled={actionLoading} className="rounded-md border border-rosewood px-3 py-2 text-sm font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
               {tc("Void")}
             </button>
           ) : null}
           {debitNote?.status === "DRAFT" && canCreateDebitNote ? (
-            <button type="button" onClick={() => void deleteDebitNote()} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
+            <button type="button" onClick={() => setPendingAction("delete")} disabled={actionLoading} className="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400">
               {tc("Delete")}
             </button>
           ) : null}
@@ -438,7 +443,7 @@ export default function PurchaseDebitNoteDetailPage() {
                               {tc("View bill")}
                             </Link>
                             {canReversePurchaseDebitNoteAllocation(allocation) && canVoidDebitNote ? (
-                              <button type="button" onClick={() => void reverseAllocation(allocation.id)} disabled={actionLoading} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                              <button type="button" onClick={() => { setPendingAction("reverse"); setPendingAllocationId(allocation.id); setPendingReason(""); }} disabled={actionLoading} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
                                 {tc("Reverse")}
                               </button>
                             ) : null}
@@ -506,6 +511,36 @@ export default function PurchaseDebitNoteDetailPage() {
           </div>
         </div>
       ) : null}
+      <LedgerActionDialog
+        open={Boolean(pendingAction && debitNote)}
+        onOpenChange={(open) => {
+          if (!open && !actionLoading) {
+            setPendingAction(null);
+            setPendingAllocationId("");
+            setPendingReason("");
+          }
+        }}
+        tone="danger"
+        title={pendingAction === "delete" ? tc("Delete draft debit note") : pendingAction === "reverse" ? tc("Reverse debit allocation") : tc("Void debit note")}
+        description={debitNote ? pendingAction === "delete" ? tc("Delete draft debit note {number}?", { number: debitNote.debitNoteNumber }) : pendingAction === "reverse" ? tc("Reverse this debit note allocation?") : tc("Void debit note {number}?", { number: debitNote.debitNoteNumber }) : ""}
+        confirmLabel={pendingAction === "delete" ? tc("Delete") : pendingAction === "reverse" ? tc("Reverse") : tc("Void")}
+        busy={actionLoading}
+        reason={pendingAction === "reverse" ? {
+          id: "debit-note-reversal-reason",
+          label: tc("Reversal reason (optional)"),
+          value: pendingReason,
+          onChange: setPendingReason,
+          placeholder: tc("Add context for the reversal"),
+        } : undefined}
+        onConfirm={async () => {
+          const succeeded = pendingAction === "delete" ? await deleteDebitNote() : pendingAction === "reverse" ? await reverseAllocation(pendingAllocationId, pendingReason) : await runAction("void");
+          if (succeeded) {
+            setPendingAction(null);
+            setPendingAllocationId("");
+            setPendingReason("");
+          }
+        }}
+      />
     </section>
   );
 }

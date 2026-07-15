@@ -7,6 +7,7 @@ import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
 import { ValuationVariancePreviewPanel } from "@/components/inventory/valuation-variance-preview-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import { LedgerActionDialog } from "@/components/ui-ledger/action-dialog";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatAppDate, formatAppMoney } from "@/lib/app-i18n";
@@ -52,6 +53,7 @@ export default function PurchaseReturnDetailPage() {
   const [movementActionLoading, setMovementActionLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [pendingAction, setPendingAction] = useState<"cancel" | "void" | "post-movement" | null>(null);
   const canManage = canAny(PERMISSIONS.purchaseBills.create, PERMISSIONS.purchaseBills.update, PERMISSIONS.purchaseReceiving.create);
   const canViewInventoryMovement = can(PERMISSIONS.inventory.view);
   const canViewValuationVariances = canViewInventoryMovement;
@@ -119,11 +121,8 @@ export default function PurchaseReturnDetailPage() {
     };
   }, [canViewInventoryMovement, organizationId, params.id, purchaseReturn?.status, purchaseReturn?.inventoryReturnPostedAt]);
 
-  async function runAction(action: ReturnAction) {
-    if (!purchaseReturn) return;
-    if ((action === "void" || action === "cancel") && !window.confirm(tc("{action} purchase return {number}?", { action: tc(action === "void" ? "Void" : "Cancel"), number: purchaseReturn.purchaseReturnNumber }))) {
-      return;
-    }
+  async function runAction(action: ReturnAction): Promise<boolean> {
+    if (!purchaseReturn) return false;
     setActionLoading(true);
     setError("");
     setSuccess("");
@@ -132,18 +131,17 @@ export default function PurchaseReturnDetailPage() {
       const updated = await apiRequest<PurchaseReturn>(`/purchase-returns/${purchaseReturn.id}/${action}`, { method: "POST" });
       setPurchaseReturn(updated);
       setSuccess(tc("Purchase return {number} {action}.", { number: updated.purchaseReturnNumber, action: tc(actionLabel(action)) }));
+      return true;
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : tc("Unable to {action} purchase return.", { action: tc(action) }));
+      return false;
     } finally {
       setActionLoading(false);
     }
   }
 
-  async function postInventoryReturnMovement() {
-    if (!purchaseReturn) return;
-    if (!window.confirm(`${tc(PURCHASE_RETURN_INVENTORY_MOVEMENT_HELPER_TEXT)}\n\n${tc("Post inventory return movement for {number}?", { number: purchaseReturn.purchaseReturnNumber })}`)) {
-      return;
-    }
+  async function postInventoryReturnMovement(): Promise<boolean> {
+    if (!purchaseReturn) return false;
     setMovementActionLoading(true);
     setError("");
     setSuccess("");
@@ -156,8 +154,10 @@ export default function PurchaseReturnDetailPage() {
         const preview = await apiRequest<PurchaseReturnInventoryMovementPreview>(`/purchase-returns/${purchaseReturn.id}/inventory-return-preview`);
         setInventoryMovementPreview(preview);
       }
+      return true;
     } catch (postError) {
       setError(postError instanceof Error ? postError.message : tc("Unable to post inventory return movement."));
+      return false;
     } finally {
       setMovementActionLoading(false);
     }
@@ -196,7 +196,7 @@ export default function PurchaseReturnDetailPage() {
 
       {purchaseReturn ? (
         <div className="mt-5 space-y-5">
-          <PurchaseReturnWorkflowGuidance purchaseReturn={purchaseReturn} canManage={canManage} actionLoading={actionLoading} onAction={runAction} />
+          <PurchaseReturnWorkflowGuidance purchaseReturn={purchaseReturn} canManage={canManage} actionLoading={actionLoading} onAction={(action) => { if (action === "cancel" || action === "void") setPendingAction(action); else void runAction(action); }} />
 
           <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
             <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">
@@ -222,7 +222,7 @@ export default function PurchaseReturnDetailPage() {
               preview={inventoryMovementPreview}
               canPost={canPostInventoryMovement}
               actionLoading={movementActionLoading}
-              onPost={postInventoryReturnMovement}
+              onPost={() => setPendingAction("post-movement")}
             />
           ) : null}
 
@@ -270,6 +270,19 @@ export default function PurchaseReturnDetailPage() {
           </div>
         </div>
       ) : null}
+      <LedgerActionDialog
+        open={Boolean(pendingAction && purchaseReturn)}
+        onOpenChange={(open) => { if (!open && !actionLoading && !movementActionLoading) setPendingAction(null); }}
+        tone="danger"
+        title={pendingAction === "post-movement" ? tc("Post inventory return movement") : pendingAction === "void" ? tc("Void purchase return") : tc("Cancel purchase return")}
+        description={purchaseReturn ? pendingAction === "post-movement" ? `${tc(PURCHASE_RETURN_INVENTORY_MOVEMENT_HELPER_TEXT)} ${tc("Post inventory return movement for {number}?", { number: purchaseReturn.purchaseReturnNumber })}` : tc("{action} purchase return {number}?", { action: tc(pendingAction === "void" ? "Void" : "Cancel"), number: purchaseReturn.purchaseReturnNumber }) : ""}
+        confirmLabel={pendingAction === "post-movement" ? tc("Post movement") : pendingAction === "void" ? tc("Void") : tc("Cancel")}
+        busy={actionLoading || movementActionLoading}
+        onConfirm={async () => {
+          const succeeded = pendingAction === "post-movement" ? await postInventoryReturnMovement() : pendingAction ? await runAction(pendingAction) : false;
+          if (succeeded) setPendingAction(null);
+        }}
+      />
     </section>
   );
 }

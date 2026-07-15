@@ -417,6 +417,14 @@ export function getRequiredPermissionsForPathname(pathname: string): Permission[
     return [PERMISSIONS.fxRevaluation.read];
   }
 
+  if (pathname.startsWith("/fx-close")) {
+    return [PERMISSIONS.reports.view];
+  }
+
+  if (pathname.startsWith("/accounting-close")) {
+    return [PERMISSIONS.accountingClose.read];
+  }
+
   if (pathname.startsWith("/branches")) {
     return [PERMISSIONS.organization.view];
   }

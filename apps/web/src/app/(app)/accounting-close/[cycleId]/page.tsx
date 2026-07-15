@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { LedgerAlert, LedgerButton, LedgerDataTable, LedgerEmptyState, LedgerErrorState, LedgerFieldLabel, LedgerFieldText, LedgerInput, LedgerLoadingState, LedgerPage, LedgerPageBody, LedgerPageHeader, LedgerPanel, LedgerSelect, LedgerStatusBadge } from "@/components/ui/ledger-system";
+import { LedgerActionDialog } from "@/components/ui-ledger/action-dialog";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { accountingCloseEvidenceExportPath, downloadAuthenticatedFile } from "@/lib/pdf-download";
@@ -46,6 +47,8 @@ export default function AccountingCloseCyclePage() {
   const [evidenceExportError, setEvidenceExportError] = useState("");
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<{ kind: "cycle"; action: "return-to-preparer" | "close" | "lock" } | { kind: "task"; task: Task; action: "reopen" } | null>(null);
+  const [pendingReason, setPendingReason] = useState("");
   const [error, setError] = useState("");
   const [reviewInvalidatedWarning, setReviewInvalidatedWarning] = useState("");
   const [postCloseDriftWarning, setPostCloseDriftWarning] = useState("");
@@ -122,11 +125,9 @@ export default function AccountingCloseCyclePage() {
     finally { if (context === comparisonRequestId.current) setComparisonLoading(false); }
   }
 
-  async function transition(action: "refresh" | "prepare" | "review" | "return-to-preparer" | "close" | "lock") {
-    if (!cycle) return;
-    const returnReason = action === "return-to-preparer" ? window.prompt("Why is this close cycle being returned to preparation?")?.trim() : undefined;
-    if (action === "return-to-preparer" && !returnReason) return;
-    if ((action === "close" || action === "lock") && !window.confirm(`${action === "lock" ? "Locking" : "Closing"} ${cycle.fiscalPeriod.name} changes the fiscal period through the authoritative accounting workflow. Continue?`)) return;
+  async function transition(action: "refresh" | "prepare" | "review" | "return-to-preparer" | "close" | "lock", returnReason?: string): Promise<boolean> {
+    if (!cycle) return false;
+    if (action === "return-to-preparer" && !returnReason) return false;
     const expectedVersion = cycle.version;
     const idempotencyKey = action === "close" || action === "lock"
       ? terminalMutationIdempotencyKey(terminalMutationIdempotencyKeys.current, action, cycle.id, expectedVersion)
@@ -141,34 +142,36 @@ export default function AccountingCloseCyclePage() {
       });
       if (context === requestId.current) { setRunning(null); await load(); }
     } catch (cause) {
-      if (context !== requestId.current) return;
+      if (context !== requestId.current) return false;
       if (action === "close" && isReviewInvalidationConflict(cause)) {
         setRunning(null);
         setReviewInvalidatedWarning("The review was invalidated because readiness changed. Refresh readiness and record a new review before closing this period.");
         await load();
-        return;
+        return false;
       }
       if (action === "lock" && isLockRevalidationConflict(cause)) {
         setRunning(null);
         setPostCloseDriftWarning("Close readiness changed after the fiscal period was closed. No lock was applied. Use the authorized fiscal-period reopen workflow, then return this close cycle to preparation before a fresh review and lock attempt.");
         await load();
-        return;
+        return false;
       }
       setError(cause instanceof Error ? cause.message : `Unable to ${action} this close cycle.`);
+      return false;
     }
     finally { if (context === requestId.current) setRunning(null); }
+    return true;
   }
 
-  async function mutateTask(task: Task, action: "complete" | "reopen") {
-    if (!cycle) return;
-    const reopenReason = action === "reopen" ? window.prompt(`Why is ${task.title} being reopened?`)?.trim() : undefined;
-    if (action === "reopen" && !reopenReason) return;
+  async function mutateTask(task: Task, action: "complete" | "reopen", reopenReason?: string): Promise<boolean> {
+    if (!cycle) return false;
+    if (action === "reopen" && !reopenReason) return false;
     const context = requestId.current;
     setRunning(`${action}:${task.id}`); setError("");
     try {
       await apiRequest(`/accounting-close/cycles/${cycle.id}/tasks/${task.id}/${action}`, { method: "POST", body: action === "complete" ? { expectedVersion: cycle.version } : { expectedVersion: cycle.version, reopenReason } });
       if (context === requestId.current) { setRunning(null); await load(); }
-    } catch (cause) { if (context === requestId.current) setError(cause instanceof Error ? cause.message : `Unable to ${action} this task.`); }
+      return true;
+    } catch (cause) { if (context === requestId.current) setError(cause instanceof Error ? cause.message : `Unable to ${action} this task.`); return false; }
     finally { if (context === requestId.current) setRunning(null); }
   }
 
@@ -243,7 +246,7 @@ export default function AccountingCloseCyclePage() {
        {cycle?.status === "CLOSED" && cycle.fiscalPeriod.status === "OPEN" ? <LedgerAlert tone="warning">The fiscal period is open while this close cycle remains closed. Return the close cycle to preparation before starting a fresh readiness and review workflow.</LedgerAlert> : null}
        {cycle ? <>
         <LedgerPanel>
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div className="min-w-0"><h2 className="text-base font-semibold text-ink">Readiness control</h2><p className="mt-1 break-all text-sm text-steel">Current hash: {cycle.readinessHash ?? "Not captured yet"}</p></div><div className="flex flex-wrap gap-2">{canRefreshReadiness ? <LedgerButton onClick={() => void transition("refresh")} disabled={running !== null}>{running === "refresh" ? "Refreshing..." : "Refresh readiness"}</LedgerButton> : null}{cycle.status === "IN_PROGRESS" && cycle.fiscalPeriod.status === "OPEN" && canAny(PERMISSIONS.accountingClose.prepare) ? <LedgerButton variant="primary" onClick={() => void transition("prepare")} disabled={running !== null}>Prepare for review</LedgerButton> : null}{cycle.status === "READY_FOR_REVIEW" && cycle.fiscalPeriod.status === "OPEN" && canAny(PERMISSIONS.accountingClose.review) ? <LedgerButton variant="primary" onClick={() => void transition("review")} disabled={running !== null}>Record review</LedgerButton> : null}{canReturnToPreparation ? <LedgerButton variant="quiet" onClick={() => void transition("return-to-preparer")} disabled={running !== null}>Return to preparer</LedgerButton> : null}{canClosePeriod ? <LedgerButton variant="danger" onClick={() => void transition("close")} disabled={running !== null}>Close period</LedgerButton> : null}{canLockPeriod ? <LedgerButton variant="danger" onClick={() => void transition("lock")} disabled={running !== null}>Lock period</LedgerButton> : null}</div></div>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div className="min-w-0"><h2 className="text-base font-semibold text-ink">Readiness control</h2><p className="mt-1 break-all text-sm text-steel">Current hash: {cycle.readinessHash ?? "Not captured yet"}</p></div><div className="flex flex-wrap gap-2">{canRefreshReadiness ? <LedgerButton onClick={() => void transition("refresh")} disabled={running !== null}>{running === "refresh" ? "Refreshing..." : "Refresh readiness"}</LedgerButton> : null}{cycle.status === "IN_PROGRESS" && cycle.fiscalPeriod.status === "OPEN" && canAny(PERMISSIONS.accountingClose.prepare) ? <LedgerButton variant="primary" onClick={() => void transition("prepare")} disabled={running !== null}>Prepare for review</LedgerButton> : null}{cycle.status === "READY_FOR_REVIEW" && cycle.fiscalPeriod.status === "OPEN" && canAny(PERMISSIONS.accountingClose.review) ? <LedgerButton variant="primary" onClick={() => void transition("review")} disabled={running !== null}>Record review</LedgerButton> : null}{canReturnToPreparation ? <LedgerButton variant="quiet" onClick={() => { setPendingAction({ kind: "cycle", action: "return-to-preparer" }); setPendingReason(""); }} disabled={running !== null}>Return to preparer</LedgerButton> : null}{canClosePeriod ? <LedgerButton variant="danger" onClick={() => setPendingAction({ kind: "cycle", action: "close" })} disabled={running !== null}>Close period</LedgerButton> : null}{canLockPeriod ? <LedgerButton variant="danger" onClick={() => setPendingAction({ kind: "cycle", action: "lock" })} disabled={running !== null}>Lock period</LedgerButton> : null}</div></div>
           {cycle.signoffMode === "SINGLE_USER_DEMO" ? <LedgerAlert tone="warning">Single-user demo sign-off was recorded for this cycle. It is explicitly marked as a demonstration exception, not separation-of-duties evidence.</LedgerAlert> : null}
           {cycle.signoffMode === "SEPARATED" ? <LedgerAlert tone="success">Separate preparer and reviewer sign-off was recorded for this cycle.</LedgerAlert> : null}
         </LedgerPanel>
@@ -258,10 +261,36 @@ export default function AccountingCloseCyclePage() {
           {selectedSnapshot ? <div className="mt-4 rounded-md border border-line bg-mist p-4"><div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><div><h3 className="font-semibold text-ink">Snapshot evidence</h3><p className="mt-1 text-sm text-steel">{selectedSnapshot.status.replaceAll("_", " ")} · version {selectedSnapshot.sourceVersion} · {new Date(selectedSnapshot.capturedAt).toLocaleString()}</p></div><code className="break-all text-xs text-steel">{selectedSnapshot.canonicalHash}</code></div>{snapshotLoading ? <p className="mt-4 text-sm text-steel">Loading frozen check evidence…</p> : null}{snapshotDetail ? <div className="mt-4"><LedgerDataTable minWidth="700px"><thead className="bg-white text-left text-xs uppercase tracking-wide text-steel"><tr><th className="px-4 py-3">Check</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Evidence</th><th className="px-4 py-3">Count</th></tr></thead><tbody className="divide-y divide-slate-200">{snapshotDetail.items.map((item) => <tr key={item.checkKey}><td className="px-4 py-3"><p className="font-medium text-ink">{item.metadataSafe?.title ?? item.code}</p><p className="mt-1 font-mono text-xs text-steel">{item.checkKey}</p></td><td className="px-4 py-3"><LedgerStatusBadge tone={item.severity === "BLOCKER" ? "danger" : item.severity === "WARNING" ? "warning" : "info"}>{item.status.replaceAll("_", " ")}</LedgerStatusBadge></td><td className="px-4 py-3 text-steel">{item.safeMessage}</td><td className="px-4 py-3 text-steel">{item.count ?? "—"}{item.currencyCode ? ` ${item.currencyCode}` : ""}</td></tr>)}</tbody></LedgerDataTable></div> : null}</div> : null}
           {snapshots.length > 1 ? <div className="mt-4 border-t border-line pt-4"><h3 className="font-semibold text-ink">Compare frozen snapshots</h3><p className="mt-1 text-sm text-steel">Compare two captured states to see only check-level changes.</p><div className="mt-3 grid gap-3 md:grid-cols-3"><LedgerFieldLabel><LedgerFieldText>Baseline snapshot</LedgerFieldText><LedgerSelect aria-label="Baseline snapshot" value={baselineSnapshotId} onChange={(event) => { comparisonRequestId.current += 1; setComparisonLoading(false); setBaselineSnapshotId(event.target.value); setSnapshotComparison(null); }}><option value="">Select baseline</option>{snapshots.map((snapshot) => <option key={snapshot.id} value={snapshot.id}>{snapshot.status} · {snapshot.capturedAt}</option>)}</LedgerSelect></LedgerFieldLabel><LedgerFieldLabel><LedgerFieldText>Comparison snapshot</LedgerFieldText><LedgerSelect aria-label="Comparison snapshot" value={comparisonSnapshotId} onChange={(event) => { comparisonRequestId.current += 1; setComparisonLoading(false); setComparisonSnapshotId(event.target.value); setSnapshotComparison(null); }}><option value="">Select comparison</option>{snapshots.map((snapshot) => <option key={snapshot.id} value={snapshot.id}>{snapshot.status} · {snapshot.capturedAt}</option>)}</LedgerSelect></LedgerFieldLabel><div className="flex items-end"><LedgerButton onClick={() => void compareSnapshots()} disabled={comparisonLoading || !baselineSnapshotId || !comparisonSnapshotId || baselineSnapshotId === comparisonSnapshotId}>{comparisonLoading ? "Comparing..." : "Compare snapshots"}</LedgerButton></div></div>{snapshotComparison ? <div className="mt-4"><p className="text-sm text-steel">{snapshotComparison.changeCount} changed checks</p><LedgerDataTable minWidth="700px"><thead className="bg-white text-left text-xs uppercase tracking-wide text-steel"><tr><th className="px-4 py-3">Check</th><th className="px-4 py-3">Change</th><th className="px-4 py-3">Before</th><th className="px-4 py-3">After</th></tr></thead><tbody className="divide-y divide-slate-200">{snapshotComparison.changes.map((change) => <tr key={change.checkKey}><td className="px-4 py-3 font-mono text-xs text-ink">{change.checkKey}</td><td className="px-4 py-3"><LedgerStatusBadge tone={change.changeType === "ADDED" ? "danger" : change.changeType === "REMOVED" ? "neutral" : "warning"}>{change.changeType}</LedgerStatusBadge></td><td className="px-4 py-3 text-steel">{change.before?.safeMessage ?? "—"}</td><td className="px-4 py-3 text-steel">{change.after?.safeMessage ?? "—"}</td></tr>)}</tbody></LedgerDataTable></div> : null}</div> : null}
         </LedgerPanel>
-        <LedgerPanel><h2 className="text-base font-semibold text-ink">Manual close checklist</h2><p className="mt-1 text-sm text-steel">System checks cannot be manually completed, reopened, or reassigned. Manual task changes are versioned and audited by the existing close workflow.</p>{canManage && tasksMutable ? <div className="mt-4 max-w-sm"><LedgerInput aria-label="Search eligible assignees" value={assigneeQuery} onChange={(event) => { setAssigneeQuery(event.target.value); void loadAssignableMembers(event.target.value); }} placeholder="Search eligible assignees" /><p className="mt-1 text-xs text-steel">Search by name to narrow the bounded eligible-assignee list.</p></div> : null}{tasks.length ? <div className="mt-4"><LedgerDataTable minWidth="980px"><thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-steel"><tr><th className="px-4 py-3">Task</th><th className="px-4 py-3">Source</th><th className="px-4 py-3">Assignee</th><th className="px-4 py-3">Required</th><th className="px-4 py-3">Status</th><th className="px-4 py-3 text-right">Action</th></tr></thead><tbody className="divide-y divide-slate-100">{tasks.map((task) => <tr key={task.id}><td className="px-4 py-3 font-medium text-ink">{task.title}</td><td className="px-4 py-3 text-steel">{task.source.replaceAll("_", " ")}</td><td className="px-4 py-3 text-steel">{canManage && tasksMutable && task.source !== "SYSTEM" ? <LedgerSelect aria-label={`Assignee: ${task.title}`} value={task.assignedToUserId ?? ""} onFocus={() => void loadAssignableMembers()} onChange={(event) => void assignTask(task, event.target.value)} disabled={running !== null || assigneesLoading}>{!task.assignedToUserId ? <option value="">Select assignee</option> : null}{[...(assignees ?? []), ...(task.assignedToUser && !(assignees ?? []).some((assignee) => assignee.id === task.assignedToUser?.id) ? [task.assignedToUser] : [])].map((assignee) => <option key={assignee.id} value={assignee.id}>{assignee.name}</option>)}</LedgerSelect> : task.assignedToUser?.name ?? "Unassigned"}</td><td className="px-4 py-3 text-steel">{task.isRequired ? "Required" : "Optional"}</td><td className="px-4 py-3"><LedgerStatusBadge tone={task.status === "COMPLETED" ? "success" : "neutral"}>{task.status.replaceAll("_", " ")}</LedgerStatusBadge></td><td className="px-4 py-3 text-right">{canManage && tasksMutable && task.source !== "SYSTEM" && ["OPEN", "IN_PROGRESS", "BLOCKED"].includes(task.status) ? <LedgerButton size="sm" onClick={() => void mutateTask(task, "complete")} disabled={running !== null} aria-label={`Complete task: ${task.title}`}>Complete</LedgerButton> : null}{canManage && tasksMutable && task.source !== "SYSTEM" && task.status === "COMPLETED" ? <LedgerButton size="sm" onClick={() => void mutateTask(task, "reopen")} disabled={running !== null} aria-label={`Reopen task: ${task.title}`}>Reopen</LedgerButton> : null}</td></tr>)}</tbody></LedgerDataTable></div> : <LedgerEmptyState title="No close tasks were returned." description="Refresh the cycle or contact an accountant administrator if the template should contain manual tasks." />}</LedgerPanel>
+        <LedgerPanel><h2 className="text-base font-semibold text-ink">Manual close checklist</h2><p className="mt-1 text-sm text-steel">System checks cannot be manually completed, reopened, or reassigned. Manual task changes are versioned and audited by the existing close workflow.</p>{canManage && tasksMutable ? <div className="mt-4 max-w-sm"><LedgerInput aria-label="Search eligible assignees" value={assigneeQuery} onChange={(event) => { setAssigneeQuery(event.target.value); void loadAssignableMembers(event.target.value); }} placeholder="Search eligible assignees" /><p className="mt-1 text-xs text-steel">Search by name to narrow the bounded eligible-assignee list.</p></div> : null}{tasks.length ? <div className="mt-4"><LedgerDataTable minWidth="980px"><thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-steel"><tr><th className="px-4 py-3">Task</th><th className="px-4 py-3">Source</th><th className="px-4 py-3">Assignee</th><th className="px-4 py-3">Required</th><th className="px-4 py-3">Status</th><th className="px-4 py-3 text-right">Action</th></tr></thead><tbody className="divide-y divide-slate-100">{tasks.map((task) => <tr key={task.id}><td className="px-4 py-3 font-medium text-ink">{task.title}</td><td className="px-4 py-3 text-steel">{task.source.replaceAll("_", " ")}</td><td className="px-4 py-3 text-steel">{canManage && tasksMutable && task.source !== "SYSTEM" ? <LedgerSelect aria-label={`Assignee: ${task.title}`} value={task.assignedToUserId ?? ""} onFocus={() => void loadAssignableMembers()} onChange={(event) => void assignTask(task, event.target.value)} disabled={running !== null || assigneesLoading}>{!task.assignedToUserId ? <option value="">Select assignee</option> : null}{[...(assignees ?? []), ...(task.assignedToUser && !(assignees ?? []).some((assignee) => assignee.id === task.assignedToUser?.id) ? [task.assignedToUser] : [])].map((assignee) => <option key={assignee.id} value={assignee.id}>{assignee.name}</option>)}</LedgerSelect> : task.assignedToUser?.name ?? "Unassigned"}</td><td className="px-4 py-3 text-steel">{task.isRequired ? "Required" : "Optional"}</td><td className="px-4 py-3"><LedgerStatusBadge tone={task.status === "COMPLETED" ? "success" : "neutral"}>{task.status.replaceAll("_", " ")}</LedgerStatusBadge></td><td className="px-4 py-3 text-right">{canManage && tasksMutable && task.source !== "SYSTEM" && ["OPEN", "IN_PROGRESS", "BLOCKED"].includes(task.status) ? <LedgerButton size="sm" onClick={() => void mutateTask(task, "complete")} disabled={running !== null} aria-label={`Complete task: ${task.title}`}>Complete</LedgerButton> : null}{canManage && tasksMutable && task.source !== "SYSTEM" && task.status === "COMPLETED" ? <LedgerButton size="sm" onClick={() => { setPendingAction({ kind: "task", task, action: "reopen" }); setPendingReason(""); }} disabled={running !== null} aria-label={`Reopen task: ${task.title}`}>Reopen</LedgerButton> : null}</td></tr>)}</tbody></LedgerDataTable></div> : <LedgerEmptyState title="No close tasks were returned." description="Refresh the cycle or contact an accountant administrator if the template should contain manual tasks." />}</LedgerPanel>
         {canManage && tasksMutable ? <LedgerPanel><h2 className="text-base font-semibold text-ink">Link supporting evidence</h2><p className="mt-1 text-sm text-steel">This creates a safe reference to an existing report type. It does not upload documents or expose report contents.</p><form onSubmit={attachEvidence} className="mt-4 grid gap-3 md:grid-cols-2"><LedgerFieldLabel><LedgerFieldText>Safe label</LedgerFieldText><LedgerInput value={evidenceLabel} onChange={(event) => setEvidenceLabel(event.target.value)} maxLength={160} required placeholder="June trial balance reviewed" /></LedgerFieldLabel><LedgerFieldLabel><LedgerFieldText>Report type</LedgerFieldText><LedgerSelect value={evidenceReportType} onChange={(event) => setEvidenceReportType(event.target.value)}><option value="TRIAL_BALANCE">Trial balance</option><option value="PROFIT_AND_LOSS">Profit and loss</option><option value="BALANCE_SHEET">Balance sheet</option><option value="CASH_FLOW">Cash flow</option><option value="AR_AGING">AR aging</option><option value="AP_AGING">AP aging</option><option value="VAT_SUMMARY">VAT summary</option></LedgerSelect></LedgerFieldLabel><LedgerFieldLabel><LedgerFieldText>Related manual task (optional)</LedgerFieldText><LedgerSelect value={evidenceTaskId} onChange={(event) => setEvidenceTaskId(event.target.value)}><option value="">Cycle-level evidence</option>{tasks.filter((task) => task.source !== "SYSTEM").map((task) => <option key={task.id} value={task.id}>{task.title}</option>)}</LedgerSelect></LedgerFieldLabel><div className="flex items-end"><LedgerButton type="submit" disabled={running !== null}>{running === "evidence" ? "Linking..." : "Link evidence"}</LedgerButton></div></form></LedgerPanel> : null}
         <LedgerAlert tone="info">Closing and locking never auto-post drafts or correct accounting records. Each action revalidates readiness against the current fiscal-period authority.</LedgerAlert>
       </> : null}
+      <LedgerActionDialog
+        open={Boolean(pendingAction && cycle)}
+        onOpenChange={(open) => {
+          if (!open && !running) {
+            setPendingAction(null);
+            setPendingReason("");
+          }
+        }}
+        tone="danger"
+        title={pendingAction?.kind === "task" ? "Reopen close task" : pendingAction?.action === "lock" ? "Lock close cycle" : pendingAction?.action === "close" ? "Close fiscal period" : "Return close cycle to preparation"}
+        description={pendingAction?.kind === "task" ? `Why is ${pendingAction.task.title} being reopened?` : pendingAction?.action === "return-to-preparer" ? "Why is this close cycle being returned to preparation?" : cycle ? `${pendingAction?.action === "lock" ? "Locking" : "Closing"} ${cycle.fiscalPeriod.name} changes the fiscal period through the authoritative accounting workflow. Continue?` : ""}
+        confirmLabel={pendingAction?.kind === "task" ? "Reopen" : pendingAction?.action === "return-to-preparer" ? "Return" : pendingAction?.action === "lock" ? "Lock" : "Close"}
+        busy={Boolean(running)}
+        reason={pendingAction?.kind === "task" || pendingAction?.action === "return-to-preparer" ? { id: "accounting-close-reason", label: pendingAction?.kind === "task" ? "Reopen reason" : "Return reason", value: pendingReason, onChange: setPendingReason, required: true, placeholder: "Enter a reason" } : undefined}
+        onConfirm={async () => {
+          const succeeded = pendingAction?.kind === "task"
+            ? await mutateTask(pendingAction.task, "reopen", pendingReason)
+            : pendingAction
+              ? await transition(pendingAction.action, pendingReason)
+              : false;
+          if (succeeded) {
+            setPendingAction(null);
+            setPendingReason("");
+          }
+        }}
+      />
     </LedgerPageBody>
   </LedgerPage>;
 }

@@ -8,6 +8,7 @@ import {
   LedgerAlert, LedgerButton, LedgerDataTable, LedgerEmptyState, LedgerLoadingState, LedgerPage, LedgerPageBody,
   LedgerPageHeader, LedgerPanel, LedgerStatusBadge,
 } from "@/components/ui/ledger-system";
+import { LedgerActionDialog } from "@/components/ui-ledger/action-dialog";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { PERMISSIONS } from "@/lib/permissions";
 import {
@@ -79,17 +80,19 @@ export default function RecurringTransactionDetailPage() {
     } finally { if (organizationRef.current === initiatingOrganization) setAction(""); }
   }
 
-  async function reviewExpense(proposalId: string) {
-    if (action) return; setAction(`review:${proposalId}`); setError(""); setSuccess("");
+  async function reviewExpense(proposalId: string): Promise<boolean> {
+    if (action) return false; setAction(`review:${proposalId}`); setError(""); setSuccess("");
     const initiatingOrganization = organizationId;
     try {
       const reviewed = await reviewRecurringExpenseProposal(proposalId, `web-review:${proposalId}:${globalThis.crypto?.randomUUID?.() ?? Date.now()}`);
-      if (organizationRef.current !== initiatingOrganization) return;
+      if (organizationRef.current !== initiatingOrganization) return false;
       setRuns((current) => current.map((run) => run.generatedExpenseProposal?.id === proposalId ? { ...run, generatedExpenseProposal: { ...run.generatedExpenseProposal, ...reviewed, status: "REVIEWED" } } : run));
       setSuccess("Expense proposal reviewed and posted through the normal expense workflow.");
+      return true;
     } catch (reviewError) {
-      if (organizationRef.current !== initiatingOrganization) return;
+      if (organizationRef.current !== initiatingOrganization) return false;
       setError(reviewError instanceof Error ? reviewError.message : "Unable to review expense proposal.");
+      return false;
     } finally { if (organizationRef.current === initiatingOrganization) setAction(""); }
   }
 
@@ -129,18 +132,22 @@ function LineEvidence({ template }: { template: RecurringTemplate }) {
   return <LedgerPanel><h2 className="mb-3 text-base font-semibold text-ink">Source lines and dimensions</h2><LedgerDataTable minWidth="980px" className="[&_table]:text-start"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel"><tr><th className="px-3 py-2">Description</th><th className="px-3 py-2">Account</th><th className="px-3 py-2">Cost center</th><th className="px-3 py-2">Project</th><th className="px-3 py-2 text-end">Quantity</th><th className="px-3 py-2 text-end">Unit price</th></tr></thead><tbody className="divide-y divide-line">{template.lines.map((line) => <tr key={line.id ?? line.sortOrder}><td className="px-3 py-2 font-medium text-ink">{line.description}</td><td className="px-3 py-2"><bdi dir="ltr">{line.account ? `${line.account.code} · ${line.account.name}` : line.accountId}</bdi></td><td className="px-3 py-2">{line.costCenter?.name ?? "—"}</td><td className="px-3 py-2">{line.project?.name ?? "—"}</td><td className="px-3 py-2 text-end font-mono text-xs">{line.quantity}</td><td className="px-3 py-2 text-end font-mono text-xs">{line.unitPrice}</td></tr>)}</tbody></LedgerDataTable></LedgerPanel>;
 }
 
-function RunHistory({ runs, canReview, reviewing, onReview }: { runs: RecurringRun[]; canReview: boolean; reviewing: boolean; onReview: (id: string) => Promise<void> }) {
-  return <LedgerPanel><div className="mb-3 flex items-center gap-2"><TriangleAlert className="h-4 w-4 text-amber-700" aria-hidden="true" /><h2 className="text-base font-semibold text-ink">Run history and exceptions</h2></div>{!runs.length ? <LedgerEmptyState title="No runs yet" description="Scheduled and manual attempts will appear here with immutable outcome evidence." /> : <LedgerDataTable minWidth="1050px" className="[&_table]:text-start"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel"><tr><th className="px-3 py-2">Scheduled</th><th className="px-3 py-2">Trigger</th><th className="px-3 py-2">Status</th><th className="px-3 py-2">Attempt</th><th className="px-3 py-2">Exception</th><th className="px-3 py-2">Generated target</th></tr></thead><tbody className="divide-y divide-line">{runs.map((run) => <tr key={run.id}><td className="px-3 py-2"><bdi dir="ltr" className="font-mono text-xs">{run.scheduledLocalDate.slice(0, 10)}</bdi></td><td className="px-3 py-2">{run.trigger}</td><td className="px-3 py-2"><LedgerStatusBadge tone={runTone(run.status)}>{run.status}</LedgerStatusBadge></td><td className="px-3 py-2">{run.attemptCount}</td><td className="px-3 py-2"><div className="font-mono text-xs text-ink">{run.failureCode ?? "—"}</div>{run.failureMessageSafe ? <div className="mt-1 max-w-md text-xs text-steel">{run.failureMessageSafe}</div> : null}</td><td className="px-3 py-2">{generatedTarget(run, canReview, reviewing, onReview)}</td></tr>)}</tbody></LedgerDataTable>}</LedgerPanel>;
+function RunHistory({ runs, canReview, reviewing, onReview }: { runs: RecurringRun[]; canReview: boolean; reviewing: boolean; onReview: (id: string) => Promise<boolean> }) {
+  const [pendingProposal, setPendingProposal] = useState<NonNullable<RecurringRun["generatedExpenseProposal"]> | null>(null);
+  return <>
+    <LedgerPanel><div className="mb-3 flex items-center gap-2"><TriangleAlert className="h-4 w-4 text-amber-700" aria-hidden="true" /><h2 className="text-base font-semibold text-ink">Run history and exceptions</h2></div>{!runs.length ? <LedgerEmptyState title="No runs yet" description="Scheduled and manual attempts will appear here with immutable outcome evidence." /> : <LedgerDataTable minWidth="1050px" className="[&_table]:text-start"><thead className="bg-slate-50 text-xs uppercase tracking-wide text-steel"><tr><th className="px-3 py-2">Scheduled</th><th className="px-3 py-2">Trigger</th><th className="px-3 py-2">Status</th><th className="px-3 py-2">Attempt</th><th className="px-3 py-2">Exception</th><th className="px-3 py-2">Generated target</th></tr></thead><tbody className="divide-y divide-line">{runs.map((run) => <tr key={run.id}><td className="px-3 py-2"><bdi dir="ltr" className="font-mono text-xs">{run.scheduledLocalDate.slice(0, 10)}</bdi></td><td className="px-3 py-2">{run.trigger}</td><td className="px-3 py-2"><LedgerStatusBadge tone={runTone(run.status)}>{run.status}</LedgerStatusBadge></td><td className="px-3 py-2">{run.attemptCount}</td><td className="px-3 py-2"><div className="font-mono text-xs text-ink">{run.failureCode ?? "—"}</div>{run.failureMessageSafe ? <div className="mt-1 max-w-md text-xs text-steel">{run.failureMessageSafe}</div> : null}</td><td className="px-3 py-2">{generatedTarget(run, canReview, reviewing, onReview, setPendingProposal)}</td></tr>)}</tbody></LedgerDataTable>}</LedgerPanel>
+    <LedgerActionDialog open={Boolean(pendingProposal)} onOpenChange={(open) => { if (!open && !reviewing) setPendingProposal(null); }} tone="danger" title="Review and post expense" description={pendingProposal ? `Post expense ${pendingProposal.total} ${pendingProposal.currency} dated ${pendingProposal.proposedDate.slice(0, 10)} through ${pendingProposal.paidThroughAccount.code}?` : ""} confirmLabel="Review and post" busy={reviewing} onConfirm={async () => { if (pendingProposal && await onReview(pendingProposal.id)) setPendingProposal(null); }} />
+  </>;
 }
 
-function generatedTarget(run: RecurringRun, canReview: boolean, reviewing: boolean, onReview: (id: string) => Promise<void>) {
+function generatedTarget(run: RecurringRun, canReview: boolean, reviewing: boolean, onReview: (id: string) => Promise<boolean>, onReviewRequest: (proposal: NonNullable<RecurringRun["generatedExpenseProposal"]>) => void) {
   if (run.generatedSalesInvoice) return <a className="font-medium text-palm hover:underline" href={`/sales/invoices/${run.generatedSalesInvoice.id}`}><bdi dir="ltr">{run.generatedSalesInvoice.invoiceNumber}</bdi> · {run.generatedSalesInvoice.status}</a>;
   if (run.generatedPurchaseBill) return <a className="font-medium text-palm hover:underline" href={`/purchases/bills/${run.generatedPurchaseBill.id}`}><bdi dir="ltr">{run.generatedPurchaseBill.billNumber}</bdi> · {run.generatedPurchaseBill.status}</a>;
   if (run.generatedJournalEntry) return <a className="font-medium text-palm hover:underline" href="/journal-entries"><bdi dir="ltr">{run.generatedJournalEntry.entryNumber}</bdi> · {run.generatedJournalEntry.status}</a>;
   if (run.generatedExpenseProposal) {
     const proposal = run.generatedExpenseProposal;
     return <div className="min-w-72 space-y-2 text-xs">
-      <div className="flex flex-wrap items-center gap-2"><span className="font-semibold text-ink">Expense proposal · {proposal.status}</span>{canReview && proposal.status === "DRAFT" ? <LedgerButton size="sm" disabled={reviewing} onClick={() => { if (window.confirm(`Post expense ${proposal.total} ${proposal.currency} dated ${proposal.proposedDate.slice(0, 10)} through ${proposal.paidThroughAccount.code}?`)) void onReview(proposal.id); }}>Review and post expense</LedgerButton> : null}</div>
+      <div className="flex flex-wrap items-center gap-2"><span className="font-semibold text-ink">Expense proposal · {proposal.status}</span>{canReview && proposal.status === "DRAFT" ? <LedgerButton size="sm" disabled={reviewing} onClick={() => onReviewRequest(proposal)}>Review and post expense</LedgerButton> : null}</div>
       <div><bdi dir="ltr">{proposal.proposedDate.slice(0, 10)}</bdi> · <bdi dir="ltr">{proposal.total} {proposal.currency}</bdi></div>
       <div><bdi dir="ltr">Subtotal {proposal.subtotal} · discount {proposal.discountTotal} · taxable {proposal.taxableTotal} · tax {proposal.taxTotal}</bdi></div>
       <div>Paid through <bdi dir="ltr">{proposal.paidThroughAccount.code}</bdi> · {proposal.paidThroughAccount.name}</div>

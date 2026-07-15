@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
+import { LedgerActionDialog } from "@/components/ui-ledger/action-dialog";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatAppDate, formatAppMoney } from "@/lib/app-i18n";
@@ -24,6 +25,7 @@ export default function SupplierPaymentsPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [reloadToken, setReloadToken] = useState(0);
+  const [pendingVoidPayment, setPendingVoidPayment] = useState<SupplierPayment | null>(null);
   const canCreatePayment = can(PERMISSIONS.supplierPayments.create);
   const canVoidPayment = can(PERMISSIONS.supplierPayments.void);
   const supplierId = searchParams.get("supplierId")?.trim() ?? "";
@@ -74,11 +76,7 @@ export default function SupplierPaymentsPage() {
     };
   }, [organizationId, reloadToken]);
 
-  async function voidPayment(payment: SupplierPayment) {
-    if (!window.confirm(tc("Void supplier payment {number}?", { number: payment.paymentNumber }))) {
-      return;
-    }
-
+  async function voidPayment(payment: SupplierPayment): Promise<boolean> {
     setActionId(payment.id);
     setError("");
     setSuccess("");
@@ -87,8 +85,10 @@ export default function SupplierPaymentsPage() {
       const voided = await apiRequest<SupplierPayment>(`/supplier-payments/${payment.id}/void`, { method: "POST" });
       setSuccess(tc("Voided supplier payment {number}.", { number: voided.paymentNumber }));
       setReloadToken((current) => current + 1);
+      return true;
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : tc("Unable to void supplier payment."));
+      return false;
     } finally {
       setActionId("");
     }
@@ -169,7 +169,7 @@ export default function SupplierPaymentsPage() {
                         {tc("View")}
                       </Link>
                       {payment.status === "POSTED" && canVoidPayment ? (
-                        <button type="button" onClick={() => void voidPayment(payment)} disabled={actionId === payment.id} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
+                        <button type="button" onClick={() => setPendingVoidPayment(payment)} disabled={actionId === payment.id} className="rounded-md border border-rosewood px-2 py-1 text-xs font-medium text-rosewood hover:bg-red-50 disabled:cursor-not-allowed disabled:text-slate-400">
                           {tc("Void")}
                         </button>
                       ) : null}
@@ -181,6 +181,17 @@ export default function SupplierPaymentsPage() {
           </table>
         </div>
       ) : null}
+
+      <LedgerActionDialog
+        open={Boolean(pendingVoidPayment)}
+        onOpenChange={(open) => { if (!open && !actionId) setPendingVoidPayment(null); }}
+        tone="danger"
+        title={tc("Void supplier payment")}
+        description={pendingVoidPayment ? tc("Void supplier payment {number}?", { number: pendingVoidPayment.paymentNumber }) : ""}
+        confirmLabel={tc("Void")}
+        busy={Boolean(actionId)}
+        onConfirm={async () => { if (pendingVoidPayment && (await voidPayment(pendingVoidPayment))) setPendingVoidPayment(null); }}
+      />
     </section>
   );
 }

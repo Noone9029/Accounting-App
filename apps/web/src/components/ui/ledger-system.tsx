@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ComponentType, InputHTMLAttributes, LabelHTMLAttributes, ReactNode, SelectHTMLAttributes, SVGProps } from "react";
+import type { ButtonHTMLAttributes, ComponentType, InputHTMLAttributes, LabelHTMLAttributes, ReactNode, SelectHTMLAttributes, SVGProps, TextareaHTMLAttributes } from "react";
 import Link from "next/link";
 import { AlertTriangle, CircleDashed, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -439,6 +439,18 @@ export function LedgerInput({ className, ...props }: Readonly<InputHTMLAttribute
     <input
       className={cn(
         "w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-ink outline-none transition-colors placeholder:text-slate-400 focus:border-palm focus:ring-2 focus:ring-palm/10 disabled:bg-slate-50 disabled:text-slate-400",
+        className,
+      )}
+      {...props}
+    />
+  );
+}
+
+export function LedgerTextarea({ className, ...props }: Readonly<TextareaHTMLAttributes<HTMLTextAreaElement>>) {
+  return (
+    <textarea
+      className={cn(
+        "min-h-24 w-full resize-y rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-ink outline-none transition-colors placeholder:text-slate-400 focus:border-palm focus:ring-2 focus:ring-palm/10 disabled:bg-slate-50 disabled:text-slate-400",
         className,
       )}
       {...props}
