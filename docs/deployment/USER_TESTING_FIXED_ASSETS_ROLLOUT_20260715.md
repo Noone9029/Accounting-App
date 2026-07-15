@@ -1,36 +1,40 @@
 # Fixed Assets MVP: Burner Rollout Evidence
 
-Status: **PARTIAL PASS for the approved burner/user-testing environment.** The implementation, accounting fixes, hosted API proof, and authenticated browser surface are present. This is not a clean-ledger or production-readiness sign-off because the approved burner contains prior diagnostic data, a clean organization could not be provisioned, and non-fixed-asset close blockers remain.
+Status: **PASS for the fixed-assets scope in the approved burner/user-testing environment.** The implementation, accounting fixes, clean-organization hosted API proof, and authenticated browser surface are present. This is not a production-readiness, compliance, backup/recovery, or full-close sign-off; the shared burner still contains prior diagnostic data and non-fixed-asset close blockers remain.
 
 Scope is limited to Supabase project `xynelbjqcmbgtscfmmzv`, Vercel projects `ledgerbyte-api-test` and `ledgerbyte-web-test`, and the approved aliases below. This document does not claim production, compliance, provider, money-movement, backup, restore, or official e-invoicing proof.
 
 ## Source, merge, and review evidence
 
-- Fixed-assets implementation and follow-up fixes are merged through PRs #363, #364, #365, #366, #368, #369, and #370.
-- Current merged `origin/main`: `f5e0cc719559cee62257711c69129e0c34b88b1c`.
+- Fixed-assets implementation and follow-up fixes are merged through PRs #363, #364, #365, #366, #368, #369, #370, #371, #372, #373, and #374.
+- Current merged `origin/main`: `bf369ceba4593d024dcc637cb97bb82523d9572a`.
 - PR #368 (`8005bc79`) corrected reconciliation to net depreciation reversals while excluding disposed and written-off historical assets from current-balance aggregation.
 - PR #369 (`5c47284a`) corrected multi-line depreciation posting and reversal so each asset is updated once by the aggregated run amount and exact restoration is preserved.
 - PR #370 (`af4e19f8`) corrected the web register's organization transition state: prior rows are cleared immediately and late responses cannot repopulate a previous tenant's register.
-- The independent accounting review found no Critical or Important findings after the #369 correction. It recorded a Minor limitation: the new service tests stub journal creation and do not independently assert journal balancing; existing journal tests cover that concern. All three PRs passed GitHub Non-mutating verification and GitGuardian security checks.
+- PR #372 (`1ebe7b7e`) batched default-role and foundation-account provisioning, reducing organization-create round trips; a clean organization then provisioned with HTTP 201.
+- PR #373 (`6a07082f`) batched straight-line schedule generation with `createMany`.
+- PR #374 (`bf369ceb`) batched depreciation post/reversal schedule updates and movement inserts while preserving per-line evidence and row-count checks.
+- Independent reviews of the #372, #373, and #374 changes found no Critical or Important findings. The reviews recorded only pre-existing limitations: organization-create retry idempotency, a reversal predicate outside the patch, and unit tests not being a substitute for concurrent integration tests. All PR checks passed GitHub Non-mutating verification and GitGuardian security checks.
 
 ## Supabase and migration evidence
 
 - Additive disposal-evidence and disposal-review migrations were applied to project `xynelbjqcmbgtscfmmzv`; remote migration/schema read-back confirmed the disposal-review columns and movement proceeds/gain/loss columns.
-- The approved user-testing account and original smoke organization remain the only confirmed membership context. A new organization-create attempt returned hosted HTTP 500 before a new organization could be provisioned, so the clean smoke had to remain in the approved existing burner.
+- PR #372 was deployed and a new organization was created successfully through the approved API alias with HTTP 201. The final clean smoke organization was `d525baa6-bc9d-45a0-b9d4-b867918b50f2`, with open fiscal period `f74043b3-81c8-416e-9b6f-49f0e4a22ba0` (`2026`).
+- Earlier provisioning and schedule-timeout failures were retained as diagnostic evidence: the first organization-create attempt hit the old 30-second transaction ceiling, and the first clean depreciation preview hit the pre-#373 per-row schedule insert ceiling. Neither failure was bypassed; both were corrected in merged PRs #372 and #373.
 - All smoke data is marked `SMOKE-CLEAN-FA-*` or `SMOKE-*`. No protected root artifact or production tenant was used.
 
 ## Deployments
 
 | Surface | Deployment | State | Alias |
 | --- | --- | --- | --- |
-| API | `dpl_AErvHiy8J7owD7KuSbBe9w9x2bTo` | READY / production | `https://ledgerbyte-api-test.vercel.app` |
+| API | `dpl_9xC8cNziAJeVSXbSpstXG7txfrUV` | READY / production | `https://ledgerbyte-api-test.vercel.app` |
 | Web | `dpl_87moFnjjBpesJ2p8k2exWoegdv5N` | READY / production | `https://ledgerbyte-web-test.vercel.app` |
 
 Observed public checks after the merged API deployment: API `/`, `/health`, and `/readiness` returned HTTP 200; protected fixed-assets access without credentials returned HTTP 401. The web alias loaded the authenticated fixed-assets routes used below.
 
 ## API and hosted smoke evidence
 
-The marked API smoke covered matrix items 1–29: category/account mapping; manual acquisition and balanced posting; finalized bill and full-line capitalization; duplicate rejection; foreign-currency evidence preservation; opening import; depreciation preview/review/post; balanced depreciation journal; idempotent replay; reverse/reopen; sale and gain/loss; write-off and zero proceeds; register, depreciation, disposal, and reconciliation reports; CSV/PDF exports; close-readiness blocker observation and clearance; and cross-tenant category, asset, run, and report HTTP 403 checks.
+The clean API smoke covered matrix items 1–29: category/account mapping; manual acquisition and balanced posting; finalized bill and full-line capitalization; duplicate rejection; foreign-currency evidence preservation; opening import; depreciation preview/review/post; balanced depreciation journal; idempotent replay; reverse/reopen; sale and gain/loss; write-off and zero proceeds; register, depreciation, disposal, and reconciliation reports; CSV/PDF exports; close-readiness endpoint checks; and cross-tenant category, asset, run, and report HTTP 403 checks.
 
 The earlier smoke observed `scheduleLines: 12`, one posted depreciation line, a `POSTED` then `REVERSED` run, disposal `DISPOSED`, write-off `WRITTEN_OFF`, report counts of 16/156/8, non-empty CSV/PDF exports, and cross-tenant HTTP 403. Its reconciliation result was deliberately recorded as false because the burner already contained earlier diagnostic records.
 
@@ -42,7 +46,16 @@ A second marked lifecycle was executed against the corrected API deployment in t
 - After PR #368, reconciliation returned `reconciled: true`: register and GL cost `15,950`, accumulated depreciation `625`, carrying value `15,325`, depreciation expense `425`, with all reported differences equal to `0`. This is a shared-burner reconciliation result, not a clean-ledger result.
 - After PR #369, reviewed multi-line run `b7b42073-f1a2-4b0e-901c-cc0f78474ca2` posted successfully. A second marked period `7dfa19c3-6f4e-4f19-8d31-c8adbd6519a4` had a fixed-asset close blocker before posting (`FIXED_ASSET_DEPRECIATION_UNPOSTED`, count 2); marked run `ab260ca2-e3b4-41f5-b4ac-2f9af9bf7837` then posted with status `POSTED`, version `3`, and the fixed-asset readiness check changed to `FIXED_ASSETS_READY` / `INFORMATION`. Overall readiness decreased from 4 blockers to 3; the remaining blockers are outside this MVP.
 - Two earlier 2099 diagnostic runs remain marked `REVIEWED` after an intentionally failed pre-#369 multi-line posting probe; they were not deleted through direct database mutation. Their presence is part of the shared-burner limitation.
-- The continuation run did not claim a new cross-tenant result because it necessarily ran inside the existing approved organization. The earlier independent smoke recorded cross-tenant and stale-organization HTTP 403 results.
+
+The final clean-organization smoke was run against API deployment `dpl_9xC8cNziAJeVSXbSpstXG7txfrUV`:
+
+- Organization provisioning returned HTTP 201; the account mapping category used posting accounts `130`, `120`, `511`, `411`, and `512`.
+- A marked purchase bill finalized with a posted balanced journal; the full eligible line capitalized once, and the second capitalization attempt returned HTTP 409. A foreign-currency asset without source evidence returned HTTP 400.
+- The reviewed opening-balance CSV committed locally with zero validation errors (`COMMITTED_LOCAL`). Three manual assets were reviewed and capitalized with balanced acquisition journals.
+- Depreciation preview returned a positive straight-line monthly run; preview replay returned the same run; review, post, idempotent post replay, reverse, exact restoration, and repost all completed. The clean run exercised the batched schedule and movement paths introduced by PRs #373 and #374.
+- The marked sale is `DISPOSED` with positive gain and balanced journal `8128f4e7-2195-49db-a9fb-f012b8bf11eb` (debit/credit `900/900`). The zero-proceeds write-off is `WRITTEN_OFF` with loss `550` and balanced journal `f99696ca-e0b5-4be0-8cb2-d877fd7ed5c2` (debit/credit `600/600`).
+- Final reconciliation returned `reconciled: true`; register and GL cost were `3700`, accumulated depreciation `483.3334`, depreciation expense `358.3334`, and all differences were `0`.
+- JSON report endpoints returned HTTP 200. CSV exports were non-empty at 1,556 / 18,316 / 746 / 115 bytes; PDF exports were non-empty at 2,499 / 8,315 / 2,278 bytes for register / depreciation / reconciliation. Final close-readiness returned HTTP 200, and fixed-assets/categories/assets/depreciation-runs/reconciliation all returned HTTP 403 with a foreign organization header.
 
 ## Browser matrix evidence
 
@@ -59,7 +72,7 @@ Authenticated Playwright checks against the final web deployment and canonical a
 ## Verification gates
 
 - `corepack pnpm verify:ci:local` passed on merged `origin/main`: web typecheck, web Jest (`189` suites / `865` tests), web production build (`149` generated routes), and `git diff --check`.
-- The targeted fixed-assets API suite passed earlier with `7` suites and `19` tests, including reconciliation reversal arithmetic and multi-line post/reversal restoration. API typecheck and production build also passed.
+- The merged PR #374 non-mutating verification passed; the independent review recorded `7` fixed-asset suites / `19` tests, and the local API typecheck plus focused fixed-asset tests passed after the batching changes. API production deployment build completed successfully.
 
 ## Implementation boundaries
 
@@ -76,4 +89,4 @@ Authenticated Playwright checks against the final web deployment and canonical a
 
 ## Closeout limitation
 
-This rollout remains **PARTIAL PASS**. The fixed-assets code, targeted tests, merged source, deployed API and web aliases, authenticated browser surface, exports, reconciliation correction, fixed-asset close-blocker clearance, and tenant-boundary evidence are present. Full completion is withheld because the approved burner is not a clean ledger, organization creation is currently a hosted HTTP 500, overall close readiness still has three non-fixed-asset blockers, and backup/restore proof remains synthetic or plan-only.
+This rollout is **PASS for the fixed-assets scope in the approved burner/user-testing environment**. The fixed-assets code, targeted tests, merged source, deployed API and web aliases, authenticated browser surface, clean-organization lifecycle, exports, reconciliation, fixed-asset close-readiness evidence, and tenant-boundary evidence are present. The shared burner remains non-clean because it contains prior diagnostic records; overall close readiness still has three non-fixed-asset blockers; and backup/restore proof remains synthetic or plan-only. None of those boundaries is represented as production, compliance, PITR, RPO/RTO, or disaster-recovery proof.
