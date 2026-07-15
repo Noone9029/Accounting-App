@@ -3210,10 +3210,10 @@ model FixedAssetDepreciationScheduleLine {
   fixedAsset                 FixedAsset                     @relation(fields: [organizationId, fixedAssetId], references: [organizationId, id], onDelete: NoAction)
   runLines                   FixedAssetDepreciationRunLine[]
 
-  @@unique([organizationId, fixedAssetId, periodStart])
+  @@unique([organizationId, fixedAssetId, periodStart], map: "fixed_asset_schedule_org_asset_period_key")
   @@unique([organizationId, id])
   @@index([organizationId, status, depreciationDate])
-  @@index([organizationId, fixedAssetId, depreciationDate])
+  @@index([organizationId, fixedAssetId, depreciationDate], map: "fixed_asset_schedule_org_asset_date_idx")
 }
 
 model FixedAssetDepreciationRun {
