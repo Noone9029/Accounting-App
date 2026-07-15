@@ -493,11 +493,11 @@ export class FixedAssetService {
         const fully = carrying.eq(salvage);
         const claimed = await tx.fixedAsset.updateMany({ where: { id: assetGroup.fixedAsset.id, organizationId, version: assetGroup.fixedAsset.version, status: { in: [FixedAssetStatus.ACTIVE, FixedAssetStatus.FULLY_DEPRECIATED] } }, data: { accumulatedDepreciation: currentAccumulated, carryingAmount: carrying, status: fully ? FixedAssetStatus.FULLY_DEPRECIATED : FixedAssetStatus.ACTIVE, fullyDepreciatedAt: fully ? new Date() : null, version: { increment: 1 } } });
         if (claimed.count !== 1) throw new ConflictException("Fixed asset changed while posting depreciation.");
-        for (const line of assetGroup.lines) {
-          await tx.fixedAssetDepreciationScheduleLine.update({ where: { id: line.scheduleLineId }, data: { status: FixedAssetScheduleLineStatus.POSTED, journalEntryId: journal.id, postedAt: new Date() } });
-          await tx.fixedAssetMovement.create({ data: { organizationId, fixedAssetId: line.fixedAssetId, movementType: FixedAssetMovementType.DEPRECIATION, effectiveDate: run.depreciationDate, baseAmount: line.depreciationAmount, journalEntryId: journal.id, createdByUserId: actorUserId, postedAt: new Date() } });
-        }
+        const scheduleLineIds = assetGroup.lines.map((line) => line.scheduleLineId);
+        const marked = await tx.fixedAssetDepreciationScheduleLine.updateMany({ where: { organizationId, id: { in: scheduleLineIds }, status: FixedAssetScheduleLineStatus.UNPOSTED }, data: { status: FixedAssetScheduleLineStatus.POSTED, journalEntryId: journal.id, postedAt: new Date() } });
+        if (marked.count !== scheduleLineIds.length) throw new ConflictException("A depreciation schedule line changed while posting.");
       }
+      await tx.fixedAssetMovement.createMany({ data: run.lines.map((line) => ({ organizationId, fixedAssetId: line.fixedAssetId, movementType: FixedAssetMovementType.DEPRECIATION, effectiveDate: run.depreciationDate, baseAmount: line.depreciationAmount, journalEntryId: journal.id, createdByUserId: actorUserId, postedAt: new Date() })) });
       const posted = await tx.fixedAssetDepreciationRun.update({ where: { id }, data: { status: FixedAssetDepreciationRunStatus.POSTED, postedByUserId: actorUserId, postedAt: new Date(), journalEntryId: journal.id, version: { increment: 1 } }, include: { _count: { select: { lines: true } } } });
       await this.auditLogService.log({ organizationId, actorUserId, action: "POST", entityType: "FixedAssetDepreciationRun", entityId: id, after: { status: posted.status, journalEntryId: journal.id, totalDepreciation: String(posted.totalDepreciation) } }, tx);
       return this.toRun(posted);
@@ -525,15 +525,17 @@ export class FixedAssetService {
         assetGroup.lines.push(line);
         assetGroups.set(line.fixedAssetId, assetGroup);
       }
+      const reversalMovements: Prisma.FixedAssetMovementCreateManyInput[] = [];
       for (const assetGroup of assetGroups.values()) {
         const accumulated = toMoney(String(assetGroup.fixedAsset.accumulatedDepreciation)).minus(assetGroup.amount);
         const carrying = toMoney(String(assetGroup.fixedAsset.baseAcquisitionCost)).minus(accumulated);
         await tx.fixedAsset.update({ where: { id: assetGroup.fixedAsset.id }, data: { accumulatedDepreciation: accumulated, carryingAmount: carrying, status: FixedAssetStatus.ACTIVE, fullyDepreciatedAt: null, version: { increment: 1 } } });
-        for (const line of assetGroup.lines) {
-          await tx.fixedAssetDepreciationScheduleLine.update({ where: { id: line.scheduleLineId }, data: reopenedScheduleLineState() });
-          await tx.fixedAssetMovement.create({ data: { organizationId, fixedAssetId: line.fixedAssetId, movementType: FixedAssetMovementType.DEPRECIATION_REVERSAL, effectiveDate: new Date(), baseAmount: line.depreciationAmount, journalEntryId: reversal.id, reversedMovementId: line.scheduleLineId, createdByUserId: actorUserId, postedAt: new Date() } });
-        }
+        const scheduleLineIds = assetGroup.lines.map((line) => line.scheduleLineId);
+        const reopened = await tx.fixedAssetDepreciationScheduleLine.updateMany({ where: { organizationId, id: { in: scheduleLineIds }, status: FixedAssetScheduleLineStatus.POSTED }, data: reopenedScheduleLineState() });
+        if (reopened.count !== scheduleLineIds.length) throw new ConflictException("A depreciation schedule line changed while reversing.");
+        reversalMovements.push(...assetGroup.lines.map((line) => ({ organizationId, fixedAssetId: line.fixedAssetId, movementType: FixedAssetMovementType.DEPRECIATION_REVERSAL, effectiveDate: new Date(), baseAmount: line.depreciationAmount, journalEntryId: reversal.id, reversedMovementId: line.scheduleLineId, createdByUserId: actorUserId, postedAt: new Date() })));
       }
+      await tx.fixedAssetMovement.createMany({ data: reversalMovements });
       const reversed = await tx.fixedAssetDepreciationRun.update({ where: { id }, data: { status: FixedAssetDepreciationRunStatus.REVERSED, reversedAt: new Date(), version: { increment: 1 } }, include: { _count: { select: { lines: true } } } });
       await this.auditLogService.log({ organizationId, actorUserId, action: "REVERSE", entityType: "FixedAssetDepreciationRun", entityId: id, after: { status: reversed.status, reversalJournalEntryId: reversal.id } }, tx);
       return this.toRun(reversed);

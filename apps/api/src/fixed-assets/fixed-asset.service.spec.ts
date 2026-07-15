@@ -145,8 +145,8 @@ describe("FixedAssetService foundation", () => {
       fiscalPeriod: { findFirst: jest.fn().mockResolvedValue({ id: "period-1", organizationId: "org-1", status: "OPEN" }) },
       organization: { findUnique: jest.fn().mockResolvedValue({ baseCurrency: "SAR" }) },
       fixedAsset: { updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
-      fixedAssetDepreciationScheduleLine: { update: jest.fn().mockResolvedValue({}) },
-      fixedAssetMovement: { create: jest.fn().mockResolvedValue({}) },
+      fixedAssetDepreciationScheduleLine: { updateMany: jest.fn().mockResolvedValue({ count: 2 }) },
+      fixedAssetMovement: { createMany: jest.fn().mockResolvedValue({ count: 2 }) },
     } as any;
     const audit = { log: jest.fn().mockResolvedValue(undefined) } as any;
     const service = new FixedAssetService(prisma, { next: jest.fn() } as any, audit, { assertPostingDateAllowed: jest.fn() } as any);
@@ -161,8 +161,14 @@ describe("FixedAssetService foundation", () => {
     const updateData = prisma.fixedAsset.updateMany.mock.calls[0][0].data;
     expect(String(updateData.accumulatedDepreciation)).toBe("30");
     expect(String(updateData.carryingAmount)).toBe("70");
-    expect(prisma.fixedAssetDepreciationScheduleLine.update).toHaveBeenCalledTimes(2);
-    expect(prisma.fixedAssetMovement.create).toHaveBeenCalledTimes(2);
+    expect(prisma.fixedAssetDepreciationScheduleLine.updateMany).toHaveBeenCalledWith({
+      where: { organizationId: "org-1", id: { in: ["schedule-1", "schedule-2"] }, status: "UNPOSTED" },
+      data: { status: "POSTED", journalEntryId: "journal-1", postedAt: expect.any(Date) },
+    });
+    expect(prisma.fixedAssetMovement.createMany).toHaveBeenCalledWith({ data: expect.arrayContaining([
+      expect.objectContaining({ fixedAssetId: "asset-1", movementType: "DEPRECIATION", baseAmount: "10.0000", journalEntryId: "journal-1" }),
+      expect.objectContaining({ fixedAssetId: "asset-1", movementType: "DEPRECIATION", baseAmount: "20.0000", journalEntryId: "journal-1" }),
+    ]) });
   });
 
   it("restores each asset once when reversing a multi-line depreciation run", async () => {
@@ -193,13 +199,13 @@ describe("FixedAssetService foundation", () => {
         findFirst: jest.fn().mockResolvedValue(run),
         update: jest.fn().mockResolvedValue({ ...run, status: "REVERSED", version: 4, _count: { lines: 2 } }),
       },
-      fixedAssetMovement: { count: jest.fn().mockResolvedValue(0), create: jest.fn().mockResolvedValue({}) },
+      fixedAssetMovement: { count: jest.fn().mockResolvedValue(0), createMany: jest.fn().mockResolvedValue({ count: 2 }) },
       journalEntry: {
         findFirst: jest.fn().mockResolvedValue({ id: "journal-1", entryNumber: "JE-1", currency: "SAR", status: "POSTED", lines: [{ accountId: "expense-1", debit: "30.0000", credit: "0.0000", description: "Depreciation" }] }),
         update: jest.fn().mockResolvedValue({}),
       },
       fixedAsset: { update: jest.fn().mockResolvedValue({}) },
-      fixedAssetDepreciationScheduleLine: { update: jest.fn().mockResolvedValue({}) },
+      fixedAssetDepreciationScheduleLine: { updateMany: jest.fn().mockResolvedValue({ count: 2 }) },
     } as any;
     const audit = { log: jest.fn().mockResolvedValue(undefined) } as any;
     const service = new FixedAssetService(prisma, { next: jest.fn() } as any, audit, { assertPostingDateAllowed: jest.fn() } as any);
@@ -211,7 +217,13 @@ describe("FixedAssetService foundation", () => {
     const updateData = prisma.fixedAsset.update.mock.calls[0][0].data;
     expect(String(updateData.accumulatedDepreciation)).toBe("0");
     expect(String(updateData.carryingAmount)).toBe("100");
-    expect(prisma.fixedAssetDepreciationScheduleLine.update).toHaveBeenCalledTimes(2);
-    expect(prisma.fixedAssetMovement.create).toHaveBeenCalledTimes(2);
+    expect(prisma.fixedAssetDepreciationScheduleLine.updateMany).toHaveBeenCalledWith({
+      where: { organizationId: "org-1", id: { in: ["schedule-1", "schedule-2"] }, status: "POSTED" },
+      data: { status: "UNPOSTED", journalEntryId: null, postedAt: null },
+    });
+    expect(prisma.fixedAssetMovement.createMany).toHaveBeenCalledWith({ data: expect.arrayContaining([
+      expect.objectContaining({ fixedAssetId: "asset-1", movementType: "DEPRECIATION_REVERSAL", baseAmount: "10.0000", journalEntryId: "reversal-1", reversedMovementId: "schedule-1" }),
+      expect.objectContaining({ fixedAssetId: "asset-1", movementType: "DEPRECIATION_REVERSAL", baseAmount: "20.0000", journalEntryId: "reversal-1", reversedMovementId: "schedule-2" }),
+    ]) });
   });
 });
