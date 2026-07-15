@@ -178,7 +178,7 @@ CREATE UNIQUE INDEX "FixedAssetCategory_organizationId_id_key" ON "FixedAssetCat
 CREATE UNIQUE INDEX "FixedAsset_organizationId_assetNumber_key" ON "FixedAsset"("organizationId", "assetNumber");
 CREATE UNIQUE INDEX "FixedAsset_organizationId_id_key" ON "FixedAsset"("organizationId", "id");
 CREATE UNIQUE INDEX "FixedAssetSourceLink_organizationId_sourceType_sourceEntityId_sourceLineId_key" ON "FixedAssetSourceLink"("organizationId", "sourceType", "sourceEntityId", "sourceLineId");
-CREATE UNIQUE INDEX "FixedAssetDepreciationScheduleLine_organizationId_fixedAssetId_periodStart_key" ON "FixedAssetDepreciationScheduleLine"("organizationId", "fixedAssetId", "periodStart");
+CREATE UNIQUE INDEX "fixed_asset_schedule_org_asset_period_key" ON "FixedAssetDepreciationScheduleLine"("organizationId", "fixedAssetId", "periodStart");
 CREATE UNIQUE INDEX "FixedAssetDepreciationScheduleLine_organizationId_id_key" ON "FixedAssetDepreciationScheduleLine"("organizationId", "id");
 CREATE UNIQUE INDEX "FixedAssetDepreciationRun_organizationId_id_key" ON "FixedAssetDepreciationRun"("organizationId", "id");
 CREATE UNIQUE INDEX "FixedAssetDepreciationRun_organizationId_idempotencyKey_key" ON "FixedAssetDepreciationRun"("organizationId", "idempotencyKey");
@@ -193,7 +193,7 @@ CREATE INDEX "FixedAsset_organizationId_inServiceDate_idx" ON "FixedAsset"("orga
 CREATE INDEX "FixedAssetSourceLink_organizationId_fixedAssetId_idx" ON "FixedAssetSourceLink"("organizationId", "fixedAssetId");
 CREATE INDEX "FixedAssetSourceLink_organizationId_sourceEntityId_sourceLineId_idx" ON "FixedAssetSourceLink"("organizationId", "sourceEntityId", "sourceLineId");
 CREATE INDEX "FixedAssetDepreciationScheduleLine_organizationId_status_depreciationDate_idx" ON "FixedAssetDepreciationScheduleLine"("organizationId", "status", "depreciationDate");
-CREATE INDEX "FixedAssetDepreciationScheduleLine_organizationId_fixedAssetId_depreciationDate_idx" ON "FixedAssetDepreciationScheduleLine"("organizationId", "fixedAssetId", "depreciationDate");
+CREATE INDEX "fixed_asset_schedule_org_asset_date_idx" ON "FixedAssetDepreciationScheduleLine"("organizationId", "fixedAssetId", "depreciationDate");
 CREATE INDEX "FixedAssetDepreciationRun_organizationId_fiscalPeriodId_status_idx" ON "FixedAssetDepreciationRun"("organizationId", "fiscalPeriodId", "status");
 CREATE INDEX "FixedAssetDepreciationRun_organizationId_depreciationDate_idx" ON "FixedAssetDepreciationRun"("organizationId", "depreciationDate");
 CREATE INDEX "FixedAssetDepreciationRunLine_organizationId_runId_idx" ON "FixedAssetDepreciationRunLine"("organizationId", "runId");

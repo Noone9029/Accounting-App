@@ -39,7 +39,7 @@ describe("fixed-assets persistence schema", () => {
     expect(modelBlock("FixedAssetCategory")).toContain("@@unique([organizationId, code])");
     expect(modelBlock("FixedAsset")).toContain("@@unique([organizationId, assetNumber])");
     expect(modelBlock("FixedAssetSourceLink")).toContain("@@unique([organizationId, sourceType, sourceEntityId, sourceLineId])");
-    expect(modelBlock("FixedAssetDepreciationScheduleLine")).toContain("@@unique([organizationId, fixedAssetId, periodStart])");
+    expect(modelBlock("FixedAssetDepreciationScheduleLine")).toContain("@@unique([organizationId, fixedAssetId, periodStart], map: \"fixed_asset_schedule_org_asset_period_key\")");
     expect(modelBlock("FixedAssetDepreciationRunLine")).toContain("@@unique([organizationId, runId, fixedAssetId, scheduleLineId])");
     expect(modelBlock("FixedAssetCategory")).toMatch(/assetCostAccount\s+Account\s+@relation\("FixedAssetCategoryAssetCostAccount", fields: \[organizationId, assetCostAccountId\], references: \[organizationId, id\], onDelete: NoAction\)/);
   });
