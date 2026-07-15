@@ -227,22 +227,22 @@ export class OrganizationService {
   }
 
   private async createDefaultRoles(tx: Prisma.TransactionClient, organizationId: string): Promise<Map<string, { id: string }>> {
-    const roles = new Map<string, { id: string }>();
+    const roleNames = Object.keys(DEFAULT_ROLE_PERMISSIONS);
+    await tx.role.createMany({
+      data: Object.entries(DEFAULT_ROLE_PERMISSIONS).map(([name, permissions]) => ({
+        organizationId,
+        name,
+        permissions: [...permissions],
+        isSystem: true,
+      })),
+    });
 
-    for (const [name, permissions] of Object.entries(DEFAULT_ROLE_PERMISSIONS)) {
-      const role = await tx.role.create({
-        data: {
-          organizationId,
-          name,
-          permissions: [...permissions],
-          isSystem: true,
-        },
-        select: { id: true },
-      });
-      roles.set(name, role);
-    }
+    const roles = await tx.role.findMany({
+      where: { organizationId, name: { in: roleNames } },
+      select: { id: true, name: true },
+    });
 
-    return roles;
+    return new Map(roles.map((role) => [role.name, { id: role.id }]));
   }
 
   private requiredBaseCurrency(value: string): string {
@@ -256,9 +256,15 @@ export class OrganizationService {
   private async createFoundationData(tx: Prisma.TransactionClient, organizationId: string): Promise<void> {
     const accountIdsByCode = new Map<string, string>();
 
-    for (const account of DEFAULT_ACCOUNTS) {
-      const created = await tx.account.create({
-        data: {
+    let pendingAccounts = [...DEFAULT_ACCOUNTS];
+    while (pendingAccounts.length > 0) {
+      const readyAccounts = pendingAccounts.filter((account) => !account.parentCode || accountIdsByCode.has(account.parentCode));
+      if (readyAccounts.length === 0) {
+        throw new Error("Default account hierarchy could not be resolved.");
+      }
+
+      await tx.account.createMany({
+        data: readyAccounts.map((account) => ({
           organizationId,
           code: account.code,
           name: account.name,
@@ -266,9 +272,19 @@ export class OrganizationService {
           parentId: account.parentCode ? accountIdsByCode.get(account.parentCode) : undefined,
           allowPosting: account.allowPosting ?? true,
           isSystem: true,
-        },
+        })),
       });
-      accountIdsByCode.set(account.code, created.id);
+
+      const createdAccounts = await tx.account.findMany({
+        where: { organizationId, code: { in: readyAccounts.map((account) => account.code) } },
+        select: { id: true, code: true },
+      });
+      for (const account of createdAccounts) {
+        accountIdsByCode.set(account.code, account.id);
+      }
+
+      const readyCodes = new Set(readyAccounts.map((account) => account.code));
+      pendingAccounts = pendingAccounts.filter((account) => !readyCodes.has(account.code));
     }
 
     const organization = await tx.organization.findUnique({
@@ -276,48 +292,36 @@ export class OrganizationService {
       select: { baseCurrency: true },
     });
 
-    for (const profile of DEFAULT_BANK_ACCOUNT_PROFILES) {
-      const accountId = accountIdsByCode.get(profile.accountCode);
-      if (!accountId) {
-        continue;
-      }
+    await tx.bankAccountProfile.createMany({
+      data: DEFAULT_BANK_ACCOUNT_PROFILES.flatMap((profile) => {
+        const accountId = accountIdsByCode.get(profile.accountCode);
+        return accountId
+          ? [{ organizationId, accountId, type: profile.type, displayName: profile.displayName, currency: organization?.baseCurrency ?? "SAR" }]
+          : [];
+      }),
+    });
 
-      await tx.bankAccountProfile.create({
-        data: {
-          organizationId,
-          accountId,
-          type: profile.type,
-          displayName: profile.displayName,
-          currency: organization?.baseCurrency ?? "SAR",
-        },
-      });
-    }
+    await tx.taxRate.createMany({
+      data: DEFAULT_TAX_RATES.map((taxRate) => ({
+        organizationId,
+        name: taxRate.name,
+        scope: taxRate.scope,
+        category: taxRate.category,
+        rate: taxRate.rate,
+        description: taxRate.description,
+        isSystem: true,
+      })),
+    });
 
-    for (const taxRate of DEFAULT_TAX_RATES) {
-      await tx.taxRate.create({
-        data: {
-          organizationId,
-          name: taxRate.name,
-          scope: taxRate.scope,
-          category: taxRate.category,
-          rate: taxRate.rate,
-          description: taxRate.description,
-          isSystem: true,
-        },
-      });
-    }
-
-    for (const sequence of DEFAULT_NUMBER_SEQUENCES) {
-      await tx.numberSequence.create({
-        data: {
-          organizationId,
-          scope: sequence.scope,
-          prefix: sequence.prefix,
-          nextNumber: sequence.nextNumber,
-          padding: sequence.padding,
-        },
-      });
-    }
+    await tx.numberSequence.createMany({
+      data: DEFAULT_NUMBER_SEQUENCES.map((sequence) => ({
+        organizationId,
+        scope: sequence.scope,
+        prefix: sequence.prefix,
+        nextNumber: sequence.nextNumber,
+        padding: sequence.padding,
+      })),
+    });
 
     const year = new Date().getUTCFullYear();
     await tx.fiscalPeriod.create({
