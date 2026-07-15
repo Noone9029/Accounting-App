@@ -164,4 +164,54 @@ describe("FixedAssetService foundation", () => {
     expect(prisma.fixedAssetDepreciationScheduleLine.update).toHaveBeenCalledTimes(2);
     expect(prisma.fixedAssetMovement.create).toHaveBeenCalledTimes(2);
   });
+
+  it("restores each asset once when reversing a multi-line depreciation run", async () => {
+    const fixedAsset = {
+      id: "asset-1",
+      organizationId: "org-1",
+      version: 9,
+      status: "ACTIVE",
+      accumulatedDepreciation: "30.0000",
+      baseAcquisitionCost: "100.0000",
+      baseSalvageValue: "0.0000",
+    };
+    const run = {
+      id: "run-1",
+      organizationId: "org-1",
+      status: "POSTED",
+      version: 3,
+      journalEntryId: "journal-1",
+      depreciationDate: new Date("2026-03-01T00:00:00.000Z"),
+      lines: [
+        { fixedAssetId: "asset-1", scheduleLineId: "schedule-1", depreciationAmount: "10.0000", fixedAsset, scheduleLine: { id: "schedule-1", status: "POSTED" } },
+        { fixedAssetId: "asset-1", scheduleLineId: "schedule-2", depreciationAmount: "20.0000", fixedAsset, scheduleLine: { id: "schedule-2", status: "POSTED" } },
+      ],
+    };
+    const prisma = {
+      $transaction: jest.fn(async (callback: (tx: any) => Promise<unknown>) => callback(prisma)),
+      fixedAssetDepreciationRun: {
+        findFirst: jest.fn().mockResolvedValue(run),
+        update: jest.fn().mockResolvedValue({ ...run, status: "REVERSED", version: 4, _count: { lines: 2 } }),
+      },
+      fixedAssetMovement: { count: jest.fn().mockResolvedValue(0), create: jest.fn().mockResolvedValue({}) },
+      journalEntry: {
+        findFirst: jest.fn().mockResolvedValue({ id: "journal-1", entryNumber: "JE-1", currency: "SAR", status: "POSTED", lines: [{ accountId: "expense-1", debit: "30.0000", credit: "0.0000", description: "Depreciation" }] }),
+        update: jest.fn().mockResolvedValue({}),
+      },
+      fixedAsset: { update: jest.fn().mockResolvedValue({}) },
+      fixedAssetDepreciationScheduleLine: { update: jest.fn().mockResolvedValue({}) },
+    } as any;
+    const audit = { log: jest.fn().mockResolvedValue(undefined) } as any;
+    const service = new FixedAssetService(prisma, { next: jest.fn() } as any, audit, { assertPostingDateAllowed: jest.fn() } as any);
+    jest.spyOn(service as any, "createPostedJournal").mockResolvedValue({ id: "reversal-1" });
+
+    await expect(service.reverseDepreciationRun("org-1", "user-1", "run-1", { expectedVersion: 3 })).resolves.toEqual(expect.objectContaining({ status: "REVERSED" }));
+    expect(prisma.fixedAsset.update).toHaveBeenCalledTimes(1);
+    expect(prisma.fixedAsset.update).toHaveBeenCalledWith({ where: { id: "asset-1" }, data: { accumulatedDepreciation: expect.anything(), carryingAmount: expect.anything(), status: "ACTIVE", fullyDepreciatedAt: null, version: { increment: 1 } } });
+    const updateData = prisma.fixedAsset.update.mock.calls[0][0].data;
+    expect(String(updateData.accumulatedDepreciation)).toBe("0");
+    expect(String(updateData.carryingAmount)).toBe("100");
+    expect(prisma.fixedAssetDepreciationScheduleLine.update).toHaveBeenCalledTimes(2);
+    expect(prisma.fixedAssetMovement.create).toHaveBeenCalledTimes(2);
+  });
 });
