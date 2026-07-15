@@ -130,7 +130,7 @@ describe("sidebar create shortcut", () => {
     render(<MobileWorkflowNav />);
 
     fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
-    const drawer = screen.getByRole("complementary", { name: "Workspace navigation drawer" });
+    const drawer = screen.getByRole("dialog", { name: "Workspace navigation drawer" });
 
     expect(within(drawer).getByRole("button", { name: "Sales" })).toHaveAttribute("aria-expanded", "false");
     expect(within(drawer).queryByRole("link", { name: "Invoices" })).not.toBeInTheDocument();
@@ -145,10 +145,11 @@ describe("sidebar create shortcut", () => {
     render(<MobileWorkflowNav />);
 
     fireEvent.click(screen.getByRole("button", { name: "Open navigation" }));
-    expect(screen.getByRole("complementary", { name: "Workspace navigation drawer" })).toHaveAttribute("aria-modal", "true");
+    expect(screen.getByRole("dialog", { name: "Workspace navigation drawer" })).toHaveAttribute("aria-modal", "true");
 
     fireEvent.keyDown(document, { key: "Escape" });
 
-    expect(screen.queryByRole("complementary", { name: "Workspace navigation drawer" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Workspace navigation drawer" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open navigation" })).toHaveFocus();
   });
 });

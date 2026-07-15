@@ -6,7 +6,7 @@ Baseline ref: `origin/main` at `dad8adce`
 
 ## Coverage contract
 
-The audit covers every shipped page module under `apps/web/src/app/**/page.tsx` and every entry in `apps/web/src/lib/app-routes.ts`. The current baseline contains 205 page modules and 96 canonical route definitions (92 active and 4 intentionally planned). Each audit row must record:
+The inventory covers every shipped page module under `apps/web/src/app/**/page.tsx` and every entry in `apps/web/src/lib/app-routes.ts`. The current baseline contains 205 page modules and 96 canonical route definitions (92 active and 4 intentionally planned). Canonical active routes receive role/viewport/locale/state evidence; page modules that are not canonical active routes are explicitly marked inventory-only and must not be read as individually exercised. Each audit row records:
 
 | Field | Required value |
 | --- | --- |
@@ -34,11 +34,12 @@ The inventory is checked from the filesystem and the authoritative `APP_ROUTES` 
 | Role coverage contract | Owner, Admin, Accountant, Sales, Purchases, Viewer fixtures are available to route and create-menu tests | `tests/visual/visual-fixtures.ts`, `tests/visual/role-filtered-route-polish.visual.spec.ts` |
 | Viewport coverage contract | Desktop 1440x1000, tablet 1024x768, mobile 390x844 for the role-filtered route matrix | `tests/visual/role-filtered-route-polish.visual.spec.ts` |
 | Locale coverage contract | English/LTR and Arabic/RTL route checks are maintained; the Arabic suite covers 59 authenticated routes at desktop, tablet, and mobile sizes | `tests/visual/arabic-locale.visual.spec.ts` |
-| All-active-route structural matrix | Passed: all 18 role/viewport cells (Owner, Admin, Accountant, Sales, Purchases, Viewer × desktop/tablet/mobile), each covering all 92 active routes; transient navigation retries remained clean | `tests/visual/all-active-routes.visual.spec.ts`; `LEDGERBYTE_VISUAL_WEB_URL=http://127.0.0.1:3030 pnpm exec playwright test -c playwright.visual.config.ts tests/visual/all-active-routes.visual.spec.ts --workers=1` |
+| All-active-route structural matrix | Passed: all 18 role/viewport cells (Owner, Admin, Accountant, Sales, Purchases, Viewer × desktop/tablet/mobile), each covering all 92 active routes; bounded route loading/settle waits, retries transient navigation failures, and fails on page/console errors or missing fixtures | `tests/visual/all-active-routes.visual.spec.ts`; `LEDGERBYTE_VISUAL_WEB_URL=http://127.0.0.1:3030 pnpm exec playwright test -c playwright.visual.config.ts tests/visual/all-active-routes.visual.spec.ts --workers=1` |
+| Mobile navigation interaction guard | Passed: mobile drawer exposes dialog semantics, traps Tab focus, closes on Escape, and restores focus to the trigger | `tests/visual/interactive-ui-guards.visual.spec.ts`; `LEDGERBYTE_VISUAL_WEB_URL=http://127.0.0.1:3030 pnpm exec playwright test -c playwright.visual.config.ts tests/visual/interactive-ui-guards.visual.spec.ts --workers=1` |
 
 Every future route/page finding must link back to this inventory and record the required role, viewport, locale, state, reproduction, classification, and verification fields from the coverage contract above. The inventory command is a merge gate so new page modules or route definitions cannot silently bypass the audit ledger.
 
-The per-page disposition register is checked in at [`ui-route-page-dispositions.json`](./ui-route-page-dispositions.json). It contains one stable row for each of the 205 page modules, including the complete role/viewport/locale/state contract and the current baseline disposition. Run `pnpm run ui:route-dispositions` to refresh it after a route change and `pnpm run test:ui:route-dispositions` to fail on drift.
+The per-page disposition register is checked in at [`ui-route-page-dispositions.json`](./ui-route-page-dispositions.json). It contains one stable row for each of the 205 page modules, with `coverage` distinguishing canonical active-route evidence from inventory-only modules. Run `pnpm run ui:route-dispositions` to refresh it after a route change and `pnpm run test:ui:route-dispositions` to fail on drift.
 
 ## Baseline verification
 
@@ -76,7 +77,7 @@ The final local gates were run sequentially with bounded workspace concurrency t
 | `pnpm exec playwright test -c playwright.visual.config.ts tests/visual/role-filtered-route-polish.visual.spec.ts --workers=1` | Passed: 171 role-filtered route and create-menu checks across Owner, Admin, Accountant, Sales, Purchases, and Viewer at desktop/tablet/mobile |
 | `pnpm exec playwright test -c playwright.visual.config.ts tests/visual/polished-workflows.visual.spec.ts --workers=1` | Passed: 31 polished workflow checks at desktop/tablet/mobile |
 | Accounting-close and recurring targeted visual workflows | Passed: 6 checks including English desktop/mobile and Arabic mobile RTL states | `tests/visual/accounting-close-workspace.visual.spec.ts`, `tests/visual/recurring-transactions-workspace.visual.spec.ts` |
-| Bounded all-route visual cells | Passed: full 18-cell matrix, 1 worker, 92 active routes per cell; production bundle was built with the visual API URL and the harness retries transient navigation failures without masking persistent page failures |
+| Bounded all-route visual cells | Passed: full 18-cell matrix, 1 worker, 92 active routes per cell; production bundle was built with the visual API URL and the harness uses bounded loading/settle waits, fails on missing fixtures/page errors, and retries transient navigation failures without masking persistent page failures |
 | `pnpm run test:tenant-isolation-proof` | Passed: 16 tests |
 | Permission/tenant focused API regression set | Passed: 7 suites, 148 tests (permission guards, organization context, roles, tenant proof, generated-document permissions) |
 | Accounting focused API regression set | Passed: 8 suites, 179 tests (close workflow, idempotency, tenant isolation, FX, inventory accounting) |
@@ -123,8 +124,9 @@ The repository-wide gate was decomposed into these equivalent sequential command
 - [x] First high-risk destructive workflow migrated and regression-tested.
 - [x] Existing polished-workflows visual matrix passed at desktop, tablet, and mobile.
 - [x] Mobile navigation Escape dismissal and modal semantics covered.
+- [x] Mobile navigation focus trap and focus restoration covered by browser interaction guard.
 - [ ] Shell, setup, dashboard, navigation, and fallback-state audit completed.
-- [ ] Foundation visual matrix completed for all required roles, viewports, and locales.
+- [x] Foundation visual matrix completed for all required roles, viewports, and locales.
 
 ## Verification evidence policy
 

@@ -68,7 +68,13 @@ export function LedgerActionDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(nextOpen) => onOpenChange(nextOpen)}>
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (isBusy && !nextOpen) return;
+        onOpenChange(nextOpen);
+      }}
+    >
       <DialogContent aria-busy={isBusy}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>

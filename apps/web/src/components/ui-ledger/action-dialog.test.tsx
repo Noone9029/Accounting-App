@@ -81,4 +81,25 @@ describe("LedgerActionDialog", () => {
 
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
+
+  it("does not dismiss while a confirmation is busy", () => {
+    const onOpenChange = jest.fn();
+
+    render(
+      <LedgerActionDialog
+        open
+        busy
+        onOpenChange={onOpenChange}
+        title="Post variance"
+        description="Post this variance proposal."
+        confirmLabel="Post"
+        onConfirm={jest.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
 });

@@ -31,6 +31,9 @@ const report: Array<{ role: VisualRoleProfileName; viewport: string; routes: num
 test.describe("all active canonical routes structural visual audit", () => {
   test.describe.configure({ mode: "parallel" });
   test.beforeAll(async () => {
+    expect(selectedRoles, "UI_ROUTE_AUDIT_ROLE must select at least one known role").not.toHaveLength(0);
+    expect(selectedViewports, "UI_ROUTE_AUDIT_VIEWPORT must select at least one known viewport").not.toHaveLength(0);
+    expect(selectedRoutes, "UI_ROUTE_AUDIT_HREF must select at least one active canonical route").not.toHaveLength(0);
     await fs.mkdir(artifactRoot, { recursive: true });
   });
 
@@ -42,8 +45,22 @@ test.describe("all active canonical routes structural visual audit", () => {
     for (const viewport of selectedViewports) {
       test(`${role} · ${viewport.name} · ${selectedRoutes.length} active routes`, async ({ page }) => {
         await setupRolePage(page, role, viewport);
+        const pageErrors: string[] = [];
+        const consoleErrors: string[] = [];
+        const missingFixtures: string[] = [];
+        page.on("pageerror", (error) => pageErrors.push(error.message));
+        page.on("console", (message) => {
+          if (message.type() === "error") consoleErrors.push(`${page.url()} :: ${message.text()}`);
+        });
+        page.on("response", (response) => {
+          if (response.headers()["x-visual-fixture-missing"] === "1") missingFixtures.push(response.url());
+        });
         for (const route of selectedRoutes) {
+          const errorsBefore = { page: pageErrors.length, console: consoleErrors.length, fixtures: missingFixtures.length };
           await gotoRouteWithRetry(page, route.href);
+          expect(pageErrors.slice(errorsBefore.page), `${role} ${route.href} ${viewport.name} page errors`).toEqual([]);
+          expect(consoleErrors.slice(errorsBefore.console), `${role} ${route.href} ${viewport.name} console errors`).toEqual([]);
+          expect(missingFixtures.slice(errorsBefore.fixtures), `${role} ${route.href} ${viewport.name} missing visual fixtures`).toEqual([]);
           await expectNoDocumentOverflow(page, `${role} ${route.href} ${viewport.name}`);
           await expectNoSevereOverlap(page, `${role} ${route.href} ${viewport.name}`);
           await expectNoForbiddenClaims(page, `${role} ${route.href} ${viewport.name}`);
@@ -74,11 +91,12 @@ async function gotoRouteWithRetry(page: Page, href: string) {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
       const response = await page.goto(href, { waitUntil: "domcontentloaded", timeout: 60_000 });
-      if (response && response.status() >= 500) {
+      if (response && response.status() >= 400) {
         throw new Error(`route returned HTTP ${response.status()}`);
       }
       await expect(page.locator("main")).toBeVisible({ timeout: 10_000 });
       await expect(page.getByText("Loading access", { exact: true })).toHaveCount(0, { timeout: 5_000 });
+      await page.waitForTimeout(250);
       return;
     } catch (error) {
       lastError = new Error(`${href}: ${error instanceof Error ? error.message : String(error)}`);
@@ -97,7 +115,7 @@ async function expectNoDocumentOverflow(page: Page, context: string) {
 
 async function expectNoSevereOverlap(page: Page, context: string) {
   const overlap = await page.evaluate(() => {
-    const elements = [...document.querySelectorAll("main h1, main h2, main button, main a")].filter((element) => {
+    const elements = [...document.querySelectorAll("main h1, main h2, main button, main a, main input, main select, main textarea, main [role=dialog]")].filter((element) => {
       const rect = element.getBoundingClientRect();
       return rect.width > 0 && rect.height > 0;
     });

@@ -2132,6 +2132,7 @@ function fulfillApiRoute(route: Route, roleProfile: VisualRoleProfileName) {
     return route.fulfill({
       status: 404,
       contentType: "application/json",
+      headers: { "x-visual-fixture-missing": "1" },
       body: JSON.stringify({ message: `No visual fixture for ${url.pathname}` }),
     });
   }
@@ -2247,8 +2248,205 @@ function visualApiResponse(pathname: string, searchParams: URLSearchParams, role
   if (pathname === "/dashboard/onboarding-checklist") {
     return json(checklist());
   }
+  if (pathname === "/onboarding/profile" || pathname === "/onboarding/checklist") {
+    return json(null);
+  }
   if (pathname === "/dashboard/summary") {
     return json(dashboardSummary());
+  }
+  if (pathname === "/fx/currencies") {
+    return json({
+      baseCurrency: org.baseCurrency,
+      supportedCurrencies: [
+        { code: "SAR", name: "Saudi Riyal" },
+        { code: "USD", name: "US Dollar" },
+        { code: "EUR", name: "Euro" },
+      ],
+      manualRateEntryEnabled: true,
+      liveRateProviderEnabled: false,
+      providerState: "DISABLED",
+    });
+  }
+  if (pathname === "/recurring-transactions/readiness") {
+    return json({
+      status: "NEEDS_ATTENTION",
+      templateCount: 1,
+      activeTemplates: 1,
+      dueTemplates: 1,
+      failedRuns: 0,
+      blockedRuns: 1,
+      generatedDraftsAwaitingReview: 0,
+      schedulesMissingReferences: 0,
+      foreignTemplatesMissingRateEvidence: 0,
+      runsScheduledInsideLockedPeriods: 0,
+      blocksFiscalClose: false,
+      asOf: fixedVisualDate,
+    });
+  }
+  if (pathname === "/recurring-transactions" && searchParams.has("page")) {
+    return json({
+      items: [{
+        id: "recurring-template-1",
+        templateCode: "REC-000001",
+        transactionType: "SALES_INVOICE",
+        name: "Monthly support",
+        status: "ACTIVE",
+        timezone: org.timezone,
+        frequency: "MONTHLY",
+        interval: 1,
+        nextRunAt: "2026-06-30T20:00:00.000Z",
+        currencyCode: org.baseCurrency,
+        exchangeRatePolicy: "BASE_CURRENCY_ONLY",
+        total: "115.0000",
+        templateVersion: 1,
+        party: { id: "customer-1", name: "Al Noor Retail", displayName: "Al Noor Retail" },
+        lines: [],
+        runs: [{ id: "recurring-run-1", templateId: "recurring-template-1", templateVersion: 1, scheduledFor: fixedVisualDate, scheduledLocalDate: "2026-06-30", trigger: "SCHEDULED", status: "BLOCKED", attemptCount: 1, failureCode: "FISCAL_PERIOD_BLOCKED", failureMessageSafe: "The fiscal period is locked." }],
+      }],
+      page: 1,
+      limit: 25,
+      total: 1,
+      totalPages: 1,
+    });
+  }
+  if (pathname === "/bank-integrations/vendor-payment-requests") {
+    return json([]);
+  }
+  if (pathname === "/purchase-orders") {
+    return json([]);
+  }
+  if (pathname === "/purchase-returns") {
+    return json({ data: [] });
+  }
+  if (pathname === "/purchase-matching/exceptions") {
+    return json({
+      readOnly: true,
+      noMutation: true,
+      filters: { limit: 25 },
+      summary: {
+        totalExceptionCount: 0,
+        criticalCount: 0,
+        highCount: 0,
+        mediumCount: 0,
+        lowCount: 0,
+        suppliersWithExceptions: 0,
+        overBilledCount: 0,
+        overReceivedCount: 0,
+        billPendingReceiptCount: 0,
+        receiptPendingBillCount: 0,
+        partiallyMatchedCount: 0,
+        notReceivedCount: 0,
+        notBilledCount: 0,
+        reviewRequiredCount: 0,
+      },
+      groups: [],
+      items: [],
+    });
+  }
+  if (pathname === "/cash-expenses") {
+    return json([]);
+  }
+  if (pathname === "/bank-transfers") {
+    return json([]);
+  }
+  if (pathname === "/fx/revaluations/context") {
+    return json({
+      catalog: { baseCurrency: org.baseCurrency, supportedCurrencies: [{ code: "SAR", name: "Saudi Riyal" }, { code: "USD", name: "US Dollar" }], manualRateEntryEnabled: true, liveRateProviderEnabled: false, providerState: "DISABLED" },
+      readiness: { status: "READY", baseCurrency: org.baseCurrency, supportedCurrencyCodes: ["SAR", "USD"], manualRateEntryEnabled: true, liveRateProviderEnabled: false, providerState: "DISABLED", accountConfigurationComplete: true, controlAccountsComplete: true, foreignDocumentPostingEnabled: true, fxRevaluationEnabled: true, blockers: [] },
+    });
+  }
+  if (pathname === "/fx/revaluations" && searchParams.has("limit")) {
+    return json({ data: [], pagination: { page: 1, limit: 25, hasMore: false } });
+  }
+  if (pathname === "/fx/rates") {
+    return json({ data: [], pagination: { page: 1, limit: 100, hasMore: false } });
+  }
+  if (pathname === "/fx/account-configuration") {
+    return json(null);
+  }
+  if (pathname === "/fx/readiness") {
+    return json({ status: "READY", baseCurrency: org.baseCurrency, supportedCurrencyCodes: ["SAR", "USD"], manualRateEntryEnabled: true, liveRateProviderEnabled: false, providerState: "DISABLED", accountConfigurationComplete: true, controlAccountsComplete: true, foreignDocumentPostingEnabled: true, fxRevaluationEnabled: true, blockers: [] });
+  }
+  if (pathname === "/fx/close-readiness") {
+    return json({
+      status: "READY",
+      asOf: searchParams.get("asOf") ?? fixedVisualDate.slice(0, 10),
+      blockers: [],
+      counts: { foreignDocuments: 0, openForeignDocuments: 0, foreignCurrencies: 0, missingClosingRates: 0, draftManualRateDocuments: 0, unpostedRevaluationRuns: 0, missingRealizedFxJournals: 0, historicalSourceChangesAfterClose: 0 },
+      actions: [],
+    });
+  }
+  if (pathname === "/purchase-receipts") {
+    return json([]);
+  }
+  if (pathname === "/inventory/reports/movement-summary") {
+    return json({ generatedAt: fixedVisualDate, from: null, to: null, itemId: null, warehouseId: null, accountingWarning: "Inventory movement reporting is operational evidence only.", rows: [], totals: { openingQuantity: "0.0000", inboundQuantity: "0.0000", outboundQuantity: "0.0000", closingQuantity: "0.0000", movementCount: 0 } });
+  }
+  if (pathname === "/inventory/reports/low-stock") {
+    return json({ generatedAt: fixedVisualDate, accountingWarning: "Inventory reporting is operational evidence only.", rows: [], totalItems: 0 });
+  }
+  if (pathname === "/inventory/reports/clearing-reconciliation") {
+    return json({ generatedAt: fixedVisualDate, from: null, to: null, supplierId: null, purchaseBillId: null, purchaseReceiptId: null, status: null, clearingAccount: null, clearingAccountPeriodDebit: "0.0000", clearingAccountPeriodCredit: "0.0000", clearingAccountBalance: "0.0000", reportComputedOpenDifference: "0.0000", differenceBetweenGLAndReport: "0.0000", warnings: [], summary: { rowCount: 0, matchedCount: 0, partialCount: 0, varianceCount: 0, billWithoutReceiptPostingCount: 0, receiptWithoutClearingBillCount: 0, directModeExcludedCount: 0, billClearingDebit: "0.0000", receiptClearingCredit: "0.0000", netClearingDifference: "0.0000" }, rows: [] });
+  }
+  if (pathname === "/inventory/reports/clearing-variance") {
+    return json({ generatedAt: fixedVisualDate, from: null, to: null, supplierId: null, purchaseBillId: null, purchaseReceiptId: null, status: null, clearingAccount: null, clearingAccountBalance: "0.0000", summary: { rowCount: 0, totalVarianceAmount: "0.0000" }, warnings: [], rows: [] });
+  }
+  if (pathname === "/inventory/fifo-preview") {
+    return json({ readOnly: true, previewOnly: true, noMutation: true, noPostingEffect: true, noInventoryEffect: true, noApEffect: true, noArEffect: true, noVatEffect: true, noZatcaEffect: true, noFinancialStatementEffect: true, generatedAt: fixedVisualDate, asOfDate: fixedVisualDate.slice(0, 10), activeValuationMethod: { method: "WEIGHTED_AVERAGE", note: "Current operational valuation remains authoritative." }, previewValuationMethod: "FIFO_PREVIEW", filters: { itemId: null, warehouseId: null }, rows: [], warnings: [], blockers: [], totals: { totalOnHandQuantity: "0.0000", fifoPreviewValue: null, currentOperationalValuationValue: null, differenceFromCurrentOperationalValuation: null, warningCount: 0, blockerCount: 0 } });
+  }
+  if (pathname === "/inventory/bin-locations") {
+    return json([]);
+  }
+  if (pathname === "/inventory/batches" || pathname === "/inventory/serial-numbers") {
+    return json([]);
+  }
+  if (pathname === "/inventory/valuation-variances") {
+    return json({ readOnly: true, previewOnly: true, noMutation: true, noPostingEffect: true, noInventoryEffect: true, generatedAt: fixedVisualDate, filters: { limit: 25 }, summary: { totalVarianceCount: 0, totalAbsoluteVarianceAmount: "0.0000", positiveVarianceAmount: "0.0000", negativeVarianceAmount: "0.0000", criticalCount: 0, highCount: 0, suppliersAffected: 0, itemsAffected: 0, returnRelatedVarianceCount: 0, matchingReviewRelatedVarianceCount: 0 }, supplierGroups: [], items: [], warnings: [] });
+  }
+  if (pathname === "/inventory/variance-proposals") {
+    return json([]);
+  }
+  if (pathname === "/inventory/settings" || pathname === "/inventory/accounting-settings") {
+    const base = { id: "inventory-settings-1", organizationId: org.id, valuationMethod: "MOVING_AVERAGE", allowNegativeStock: false, trackInventoryValue: true, enableInventoryAccounting: false, inventoryAssetAccountId: null, cogsAccountId: null, inventoryClearingAccountId: null, inventoryAdjustmentGainAccountId: null, inventoryAdjustmentLossAccountId: null, purchaseReceiptPostingMode: "DISABLED", warnings: [], createdAt: fixedVisualDate, updatedAt: fixedVisualDate };
+    return json(pathname.endsWith("accounting-settings") ? { ...base, accounts: { inventoryAsset: null, cogs: null, inventoryClearing: null, adjustmentGain: null, adjustmentLoss: null }, canEnableInventoryAccounting: false, previewOnly: true, noAutomaticPosting: true, blockingReasons: [] } : base);
+  }
+  if (pathname === "/inventory/purchase-receipt-posting-readiness") {
+    return json({ ready: false, canEnablePosting: false, blockingReasons: [], warnings: [], requiredAccounts: { inventoryAssetAccount: null, inventoryClearingAccount: null }, compatibleBillPostingModeExists: true, existingBillsInDirectModeCount: 0, billsUsingInventoryClearingCount: 0, recommendedNextStep: "Review inventory settings before enabling posting." });
+  }
+  if (pathname === "/document-inbox") {
+    return json([]);
+  }
+  if (pathname.startsWith("/reports/fx/")) {
+    return json({ accountingContext: { baseCurrency: org.baseCurrency, amountBasis: "BASE_CURRENCY" }, from: null, to: null, filters: { transactionCurrency: undefined }, notes: [], pagination: { page: 1, limit: 25, hasMore: false }, totalsScope: "PAGE", rows: [], totals: { grossGain: "0.0000", grossLoss: "0.0000", reversedGain: "0.0000", reversedLoss: "0.0000", netGain: "0.0000", netLoss: "0.0000", missingJournalCount: 0, rowCount: 0, previewGain: "0.0000", previewLoss: "0.0000", documentCount: 0, receivableSourceBaseAmount: "0.0000", payableSourceBaseAmount: "0.0000", grossSourceBaseAmount: "0.0000", netSourceBaseAmount: "0.0000", receivableCarryingBaseAmount: "0.0000", payableCarryingBaseAmount: "0.0000", grossCarryingBaseAmount: "0.0000", netCarryingBaseAmount: "0.0000" }, groups: [] });
+  }
+  if (pathname === "/payments/provider-readiness") {
+    return json({ provider: "STRIPE", readOnly: true, noPaymentInitiated: true, noSecretsReturned: true, providerConfigured: false, paymentLinksEnabled: false, mockLinksEnabled: false, readyForNonProductionTest: false, webhookSecretConfigured: false, productionReady: false, blockers: ["Payment provider is not configured for this local visual fixture."], warnings: [], config: null });
+  }
+  if (pathname === "/bank-integrations/readiness") {
+    const surface = { provider: "WIO_DISABLED_PLACEHOLDER", status: "DISABLED", stateLabel: "Disabled", blockers: [] };
+    return json({ provider: "WIO_DISABLED_PLACEHOLDER", providerStateLabel: "Disabled", noSecretsReturned: true, noBankCredentialsStored: true, noRealWioApiCalls: true, noMoneyMovement: true, manualImportStillSupported: true, counts: { connections: 0, feedAccounts: 0, paymentRequests: 0 }, surfaces: { bankConnection: surface, bankFeed: surface, beneficiaryMapping: surface, vendorPayment: surface }, warnings: [] });
+  }
+  if (pathname === "/migration-toolkit/templates") {
+    return json({ supportedImports: [{ entityType: "CUSTOMERS", label: "Customers", headers: ["name", "displayName", "email"], requiredHeaders: ["name"], notes: ["Preview only."] }], unsupportedImports: [], limitations: ["Local preview only; no external submission is performed."] });
+  }
+  if (pathname === "/migration-toolkit/import-jobs") {
+    return json([]);
+  }
+  if (pathname === "/banking-accounting/clearing-config") {
+    return json({ config: null, validation: { valid: false, reasons: [], warnings: [], accounts: [] }, warnings: [] });
+  }
+  if (pathname === "/email/outbox") {
+    return json([]);
+  }
+  if (pathname === "/email/readiness") {
+    return json({ provider: "DISABLED", ready: false, blockingReasons: ["Email delivery is not configured in the visual fixture."], blockers: [], warnings: [], fromEmail: "", senderDomain: { configured: false, domain: "", verified: false, requiredEvidenceTypes: [] }, localOnly: true, mockMode: true, noCustomerEmailSent: true, readOnly: true, noMutation: true, providerConfigured: false, fromAddressConfigured: false, replyToConfigured: false, smtpHostConfigured: false, smtpPortConfigured: false, smtpSecureModeConfigured: false, credentialsConfigured: false, productionReady: false, realSendingEnabled: false, retryPolicyConfigured: false, retryProcessorEnabled: false, retryWorkerConfigured: false, retryWorkerEnabled: false, retryPendingCount: 0, retryBlockedCount: 0, retrySuppressedCount: 0, suppressionListConfigured: false, activeSuppressionCount: 0, monitoringConfigured: false, monitoringEvidenceStatus: "MISSING", providerEventIngestionReady: false, providerWebhookHealthMonitoringConfigured: false, webhookSecretConfigured: false, webhookVerificationEnabled: false, bounceWebhookConfigured: false, bounceAlertThresholdConfigured: false, complaintAlertThresholdConfigured: false, suppressionTrendMonitoringConfigured: false, alertingConfigured: false, relayDiagnosticsStatus: "DISABLED", smtp: { configured: false, host: "", port: null, secureMode: false }, diagnostics: { executionEnabled: false, allowedRecipientsConfigured: false, allowedDomainsConfigured: false, noCustomerEmailSentByDefault: true }, redactionGuarantees: [] });
+  }
+  if (pathname === "/email/invoice-payment/readiness") {
+    return json({ providerState: "DISABLED", status: "Disabled", configured: false, localMockOnly: true, sendEnabled: false, actualSendBlocked: true, noProviderCalls: true, noCredentialsStored: true, noCustomerEmailSent: true, previewEnabled: true, supportedTemplates: [], recentEventCount: 0, blockers: ["Invoice payment email is disabled in the visual fixture."], warnings: [], redactionGuarantees: [] });
+  }
+  if (pathname === "/email/sender-domain-evidence" || pathname === "/email/suppressions" || pathname === "/email/monitoring-evidence") {
+    const listKey = pathname.endsWith("suppressions") ? "suppressions" : "evidence";
+    return json({ metadataOnly: true, noCustomerEmail: true, noEmailSent: true, noOutboxRecord: true, redactionGuarantees: [], [listKey]: [] });
   }
   if (pathname === "/organizations/org-visual") {
     return json(organizationProfile());
