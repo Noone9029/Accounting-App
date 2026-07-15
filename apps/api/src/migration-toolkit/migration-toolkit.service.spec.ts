@@ -10,9 +10,12 @@ describe("MigrationToolkitService", () => {
     const { service } = makeService();
 
     expect(service.templates()).toMatchObject({
-      unsupportedImports: expect.arrayContaining(["Opening balances", "Posted journals", "Bank credentials"]),
+      unsupportedImports: expect.arrayContaining(["Posted journals", "Bank credentials"]),
       limitations: expect.arrayContaining([expect.stringContaining("No external provider upload")]),
     });
+    expect(service.templates().supportedImports).toEqual(expect.arrayContaining([
+      expect.objectContaining({ entityType: ImportEntityType.FIXED_ASSET_OPENING_BALANCES }),
+    ]));
     expect(service.templateCsv(ImportEntityType.CUSTOMERS)).toMatchObject({
       filename: "customers-import-template.csv",
       content: expect.stringContaining("name,displayName,email"),

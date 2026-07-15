@@ -12,6 +12,20 @@ Most business endpoints require JWT auth and `x-organization-id`. Auth endpoints
 - Missing permissions return HTTP 403 with `You do not have permission to perform this action.`
 - `GET /auth/me` exposes active memberships with role id/name/permissions so the frontend can filter routes and actions.
 
+## Fixed assets MVP
+
+| Method | Path | Purpose | Auth | Org header | Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| GET | `/fixed-assets` | List tenant fixed assets | Yes | Yes | Implemented | Requires `fixedAssets.read`; bounded register query. |
+| POST | `/fixed-assets` | Create fixed-asset draft | Yes | Yes | Implemented | Requires `fixedAssets.manage`; no journal mutation until capitalization. |
+| POST | `/fixed-assets/:id/capitalize` | Post reviewed manual acquisition | Yes | Yes | Implemented | Requires `fixedAssets.capitalize`; open-period and balanced-journal gates. |
+| POST | `/fixed-assets/from-bill-line` | Capitalize exact finalized purchase-bill line | Yes | Yes | Implemented | Source line and posted journal evidence are revalidated in-transaction. |
+| POST | `/fixed-assets/depreciation-runs/preview` | Build non-posting monthly preview | Yes | Yes | Implemented | Requires review permission and idempotency key. |
+| POST | `/fixed-assets/depreciation-runs/:id/post` | Post reviewed depreciation run | Yes | Yes | Implemented | Requires `fixedAssets.depreciation.post`; serializable asset-version claims. |
+| POST | `/fixed-assets/:id/dispose` | Post sale disposal | Yes | Yes | Implemented | Requires `fixedAssets.dispose`; gain/loss and schedule stop evidence. |
+| GET | `/reports/fixed-assets/reconciliation` | Compare register and GL balances | Yes | Yes | Implemented | Requires `fixedAssets.reports`; bounded, read-only reconciliation. |
+| POST | `/migration-toolkit/import-jobs` | Preview fixed-asset opening balances | Yes | Yes | Implemented | Use `FIXED_ASSET_OPENING_BALANCES`; reviewed commit posts opening evidence locally. |
+
 ## Auth
 
 | Method | Path | Purpose | Auth | Org header | Status | Notes |

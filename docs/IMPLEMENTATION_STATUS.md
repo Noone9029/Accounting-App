@@ -2,6 +2,12 @@
 
 Audit date: 2026-06-19
 
+## 2026-07-15 - Fixed assets and depreciation MVP foundation
+
+- Added tenant-scoped fixed-asset categories/register, manual and exact purchase-bill-line capitalization, opening-balance CSV preview/review/commit, monthly straight-line schedules, depreciation run lifecycle, disposal/write-off reversal, reports, reconciliation, close-readiness checks, permissions, API contracts, UI routes, and policy documentation.
+- The policy boundary remains explicit: no declining balance, daily prorating, multiple books, impairment, revaluation, components, leases, partial capitalization, cash-expense capitalization, provider/compliance automation, or hosted-production proof is implied by this local implementation.
+- Hosted deployment, burner-tenant auth smoke, independent review, merge, and final evidence remain release-gate work until freshly verified.
+
 ## 2026-07-09 - Local CSV import/export toolkit groundwork
 
 - Added tenant-scoped import preview metadata for customers, suppliers, products/services, and chart of accounts, with row validation issues, duplicate detection, explicit reviewed local commit, and safe CSV exports.

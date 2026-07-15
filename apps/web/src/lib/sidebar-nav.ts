@@ -80,6 +80,7 @@ const SIDEBAR_ROUTE_REFS: readonly SidebarItemRef[] = [
       { key: "accounting.journals" },
       { key: "accounting.accounts" },
       { key: "accounting.fiscalPeriods" },
+      { key: "accounting.fixedAssets" },
       { key: "contacts" },
     ],
   },
@@ -130,6 +131,7 @@ const SIDEBAR_ROUTE_REFS: readonly SidebarItemRef[] = [
       { key: "reports.vatReturn" },
       { key: "reports.agedReceivables" },
       { key: "reports.agedPayables" },
+      { key: "reports.fixedAssets" },
     ],
   },
   {

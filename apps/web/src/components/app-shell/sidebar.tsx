@@ -34,6 +34,7 @@ const iconsByHref: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
   "/purchases/bills": ShoppingCart,
   "/bank-accounts": Landmark,
   "/journal-entries": FileText,
+  "/fixed-assets": Package,
   "/inventory/balances": Package,
   "/tax": Calculator,
   "/reports": BarChart3,

@@ -11,6 +11,7 @@ const MAX_PREFIX_LENGTH = 12;
 const MIN_PADDING = 3;
 const MAX_PADDING = 10;
 const DEFAULT_SEQUENCE_SETTINGS: Partial<Record<NumberSequenceScope, { prefix: string; nextNumber: number; padding: number }>> = {
+  [NumberSequenceScope.FIXED_ASSET]: { prefix: "FA-", nextNumber: 1, padding: 6 },
   [NumberSequenceScope.SALES_QUOTE]: { prefix: "QUO-", nextNumber: 1, padding: 6 },
   [NumberSequenceScope.RECURRING_INVOICE_TEMPLATE]: { prefix: "REC-", nextNumber: 1, padding: 6 },
   [NumberSequenceScope.DELIVERY_NOTE]: { prefix: "DN-", nextNumber: 1, padding: 6 },

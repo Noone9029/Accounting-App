@@ -203,6 +203,10 @@ export const APP_ROUTES = [
   route("accounting.fxClose", "FX close readiness", "/fx-close", "accounting", "Review FX blockers before fiscal period close or lock.", [PERMISSIONS.reports.view], {
     sidebarGroup: "Accounting",
   }),
+  route("accounting.fixedAssets", "Fixed assets", "/fixed-assets", "accounting", "Fixed-asset register, depreciation, disposal, and close evidence.", [PERMISSIONS.fixedAssets.read], {
+    shellVisible: true,
+    activePrefix: "/fixed-assets",
+  }),
 
   route("inventory.items", "Products & services", "/items", "inventory", "Products and services item catalog.", [PERMISSIONS.items.view]),
   route("inventory.warehouses", "Warehouses", "/inventory/warehouses", "inventory", "Warehouse list and stock location setup.", [PERMISSIONS.warehouses.view]),
@@ -326,6 +330,9 @@ export const APP_ROUTES = [
   }),
   route("reports.agedPayables", "Aged Payables", "/reports/aged-payables", "reports", "Aged payables report.", [PERMISSIONS.reports.view], {
     sidebarGroup: "Aging",
+  }),
+  route("reports.fixedAssets", "Fixed asset reports", "/reports/fixed-assets", "reports", "Register, depreciation, disposal, and GL reconciliation reports.", [PERMISSIONS.fixedAssets.reports], {
+    sidebarGroup: "Fixed assets",
   }),
   route("settings.organization", "Organization profile", "/organization/setup", "settings", "Organization profile and setup route.", [
     PERMISSIONS.organization.view,

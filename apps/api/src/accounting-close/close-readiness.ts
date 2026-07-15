@@ -41,6 +41,38 @@ type RecurringReadiness = {
   sourceUpdatedAt?: string;
 };
 
+export type FixedAssetReadiness = {
+  activeAssetCount: number;
+  draftAssetCount: number;
+  missingScheduleCount: number;
+  unpostedDepreciationLineCount: number;
+  openDepreciationRunCount: number;
+  failedDepreciationRunCount: number;
+  invalidCarryingAmountCount: number;
+  categoryMappingIssueCount: number;
+  sourceUpdatedAt?: string;
+};
+
+type FixedAssetCountField = Exclude<keyof FixedAssetReadiness, "sourceUpdatedAt">;
+
+export function normalizeFixedAssetReadiness(readiness: FixedAssetReadiness): AccountingCloseCheck[] {
+  const blockers: Array<[FixedAssetCountField, string, string, string]> = [
+    ["missingScheduleCount", "FIXED_ASSET_SCHEDULE_MISSING", "Active fixed assets are missing depreciation schedules.", "/fixed-assets"],
+    ["unpostedDepreciationLineCount", "FIXED_ASSET_DEPRECIATION_UNPOSTED", "Depreciation schedule lines dated in this period remain unposted.", "/fixed-assets/depreciation-runs"],
+    ["openDepreciationRunCount", "FIXED_ASSET_RUN_OPEN", "Depreciation runs dated in this period require review or posting.", "/fixed-assets/depreciation-runs"],
+    ["failedDepreciationRunCount", "FIXED_ASSET_RUN_FAILED", "A depreciation run failed and requires accountant review.", "/fixed-assets/depreciation-runs"],
+    ["invalidCarryingAmountCount", "FIXED_ASSET_CARRYING_AMOUNT_INVALID", "Fixed-asset carrying amounts fail the salvage-value invariant.", "/fixed-assets"],
+    ["categoryMappingIssueCount", "FIXED_ASSET_CATEGORY_MAPPING_INVALID", "A fixed-asset category has an inactive or invalid account mapping.", "/settings/fixed-assets"],
+  ];
+  const checks = blockers.filter(([field]) => readiness[field] > 0).map(([field, code, message, href]) => ({
+    ...check(`fixedAssets.${String(field)}`, "Fixed-asset close readiness", "BLOCKER", "BLOCKED", code, message, readiness[field] as number, href, false),
+    sourceUpdatedAt: readiness.sourceUpdatedAt,
+  }));
+  if (readiness.draftAssetCount > 0) checks.push({ ...check("fixedAssets.draftAssets", "Fixed-asset close readiness", "WARNING", "OPEN", "FIXED_ASSET_DRAFTS", "Draft fixed assets dated in this fiscal period require review.", readiness.draftAssetCount, "/fixed-assets", false), sourceUpdatedAt: readiness.sourceUpdatedAt });
+  if (checks.length > 0) return checks;
+  return [{ ...check("fixedAssets.ready", "Fixed-asset close readiness", "INFORMATION", "READY", "FIXED_ASSETS_READY", readiness.activeAssetCount > 0 ? "Fixed-asset schedules and depreciation posting are ready for this period." : "No active fixed assets require close review for this period.", 0, "/fixed-assets", false), sourceUpdatedAt: readiness.sourceUpdatedAt }];
+}
+
 export type ManualJournalReadiness = {
   draftCount: number;
   sourceUpdatedAt?: string;
