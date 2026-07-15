@@ -56,14 +56,14 @@ The smoke loaded the approved DPAPI-backed burner credential in process memory o
 | Mobile navigation | Passed; drawer exposed `role=dialog` and `aria-modal=true`, Escape dismissed it, and focus returned to the trigger |
 | Arabic RTL mobile | Passed; `dir=rtl`, no document-level horizontal overflow |
 | Desktop/mobile/RTL browser errors | 0 page errors and 0 console errors in the bounded proof; no document-level overflow |
-| Destructive dialog on hosted records | Not exercised: the burner session did not expose a destructive record action without creating or mutating data. Shared destructive-dialog behavior is covered by local Jest and the interactive UI guard; no hosted record was created solely for this check. |
+| Destructive dialog on hosted records | Passed on `/purchases/cash-expenses` using an existing seeded record (`EXP-000008`): `Void` opened the shared danger dialog, the dialog rendered the record-specific warning, `Cancel` dismissed it, and no confirm/write request was sent. |
 
 The repository-wide legacy deployed E2E command was also attempted with the same credential guard. It produced 22 passed, 4 failed, and 7 skipped in 8 minutes. The failures were limited to two strict locators that matched persistent loading headings, one transient `/bank-accounts` HTTP 500 during the run (a direct recheck returned 200), and a ZATCA page heading wait. That run is not counted as a full hosted-E2E pass; the bounded stabilization-specific proof above is the authoritative hosted UI result for this rollout.
 
 ## Safety and limitations
 
 - This is burner user-testing evidence, not a production-readiness, compliance, provider, backup/restore, or real banking/payment claim.
-- Hosted proof used the existing seeded organization context and did not create invoices, bills, journals, attachments, payments, or other business records.
+- Hosted proof used the existing seeded organization context and did not create invoices, bills, journals, attachments, payments, cash expenses, or other business records.
 - Role/viewport breadth is proven by the merged local visual matrices; the hosted browser session itself used the approved owner credential plus the two-organization switch.
 - The next product arc remains Fixed Assets and Depreciation; it is outside this rollout.
 - The protected root checkout `E:\Accounting App` remained dirty only in `BANK_STATEMENT_IMPORT_PROOF_REVIEW.md` and was not touched.
