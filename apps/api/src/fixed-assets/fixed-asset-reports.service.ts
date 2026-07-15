@@ -95,7 +95,7 @@ export class FixedAssetReportsService {
     const expenseAccounts = [...new Set(categories.map((category) => category.depreciationExpenseAccountId))];
     const accounts = [...new Set([...costAccounts, ...accumulatedAccounts, ...expenseAccounts])];
     const [registerTotals, glLines, depreciationMovements] = await Promise.all([
-      this.prisma.fixedAsset.aggregate({ where: { organizationId }, _sum: { baseAcquisitionCost: true, accumulatedDepreciation: true, carryingAmount: true } }),
+      this.prisma.fixedAsset.aggregate({ where: { organizationId, status: { in: ["ACTIVE", "FULLY_DEPRECIATED"] } }, _sum: { baseAcquisitionCost: true, accumulatedDepreciation: true, carryingAmount: true } }),
       accounts.length ? this.prisma.journalLine.groupBy({ by: ["accountId"], where: { organizationId, accountId: { in: accounts }, journalEntry: { status: { in: ["POSTED", "REVERSED"] } } }, _sum: { debit: true, credit: true } }) : Promise.resolve([]),
       this.prisma.fixedAssetMovement.aggregate({ where: { organizationId, movementType: FixedAssetMovementType.DEPRECIATION }, _sum: { baseAmount: true } }),
     ]);
