@@ -1,7 +1,7 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { hasPermission, PERMISSIONS } from "@ledgerbyte/shared";
 import { createHash } from "node:crypto";
-import { BankDepositBatchStatus, BankReconciliationStatus, BankStatementTransactionStatus, CardSettlementStatus, CashExpenseStatus, ChequeInstrumentStatus, CreditNoteStatus, CustomerPaymentStatus, DocumentInboxStatus, FiscalPeriodStatus, GeneratedDocumentStatus, InventoryAdjustmentStatus, InventoryVarianceProposalStatus, JournalEntryStatus, Prisma, PurchaseBillStatus, PurchaseDebitNoteStatus, ReportPackStatus, SalesInvoiceStatus, SupplierPaymentStatus } from "@prisma/client";
+import { BankDepositBatchStatus, BankReconciliationStatus, BankStatementTransactionStatus, CardSettlementStatus, CashExpenseStatus, ChequeInstrumentStatus, CreditNoteStatus, CustomerPaymentStatus, DocumentInboxStatus, FiscalPeriodStatus, FixedAssetDepreciationRunStatus, FixedAssetScheduleLineStatus, FixedAssetStatus, GeneratedDocumentStatus, InventoryAdjustmentStatus, InventoryVarianceProposalStatus, JournalEntryStatus, Prisma, PurchaseBillStatus, PurchaseDebitNoteStatus, ReportPackStatus, SalesInvoiceStatus, SupplierPaymentStatus } from "@prisma/client";
 import { FxCloseReadinessService } from "../foreign-exchange/fx-close-readiness.service";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -29,6 +29,7 @@ import {
   normalizeFxReadiness,
   normalizeManualJournalReadiness,
   normalizeRecurringReadiness,
+  normalizeFixedAssetReadiness,
   normalizePurchaseBillReadiness,
   normalizePurchaseDebitNoteReadiness,
   normalizeSalesInvoiceReadiness,
@@ -1114,6 +1115,11 @@ export class AccountingCloseService {
     } catch {
       checks.push(unavailableCheck("documents.inbox.error", "Document inbox review", "DOCUMENT_INBOX_READINESS_UNAVAILABLE"));
     }
+    try {
+      checks.push(...await this.fixedAssetReadiness(organizationId, fiscalPeriod, executor));
+    } catch {
+      checks.push(unavailableCheck("fixedAssets.error", "Fixed-asset close readiness", "FIXED_ASSET_READINESS_UNAVAILABLE"));
+    }
     checks.sort((left, right) => left.key.localeCompare(right.key));
     const blockerCount = count(checks, "BLOCKER");
     const warningCount = count(checks, "WARNING");
@@ -1134,6 +1140,32 @@ export class AccountingCloseService {
       checkCount: checks.filter((check) => check.severity !== "NOT_APPLICABLE").length,
       canonicalHash: canonicalReadinessHash(checks),
     };
+  }
+
+  private async fixedAssetReadiness(
+    organizationId: string,
+    fiscalPeriod: { startsOn: Date; endsOn: Date },
+    executor?: Prisma.TransactionClient,
+  ) {
+    const client = executor ?? this.prisma;
+    if (!("fixedAsset" in client)) {
+      return normalizeFixedAssetReadiness({ activeAssetCount: 0, draftAssetCount: 0, missingScheduleCount: 0, unpostedDepreciationLineCount: 0, openDepreciationRunCount: 0, failedDepreciationRunCount: 0, invalidCarryingAmountCount: 0, categoryMappingIssueCount: 0 });
+    }
+    const activeWhere = { organizationId, status: { in: [FixedAssetStatus.ACTIVE, FixedAssetStatus.FULLY_DEPRECIATED] } };
+    const periodDate = { gte: fiscalPeriod.startsOn, lte: fiscalPeriod.endsOn };
+    const [activeAssetCount, draftAssetCount, missingScheduleCount, unpostedDepreciationLineCount, openDepreciationRunCount, failedDepreciationRunCount, categoryMappingIssueCount, assets, latestAsset] = await Promise.all([
+      client.fixedAsset.count({ where: activeWhere }),
+      client.fixedAsset.count({ where: { organizationId, status: FixedAssetStatus.DRAFT, acquisitionDate: periodDate } }),
+      client.fixedAsset.count({ where: { ...activeWhere, scheduleLines: { none: {} } } }),
+      client.fixedAssetDepreciationScheduleLine.count({ where: { organizationId, status: FixedAssetScheduleLineStatus.UNPOSTED, depreciationDate: periodDate, fixedAsset: { organizationId } } }),
+      client.fixedAssetDepreciationRun.count({ where: { organizationId, status: { in: [FixedAssetDepreciationRunStatus.DRAFT, FixedAssetDepreciationRunStatus.REVIEWED] }, depreciationDate: periodDate } }),
+      client.fixedAssetDepreciationRun.count({ where: { organizationId, status: FixedAssetDepreciationRunStatus.FAILED, depreciationDate: periodDate } }),
+      client.fixedAssetCategory.count({ where: { organizationId, status: "ACTIVE", OR: [{ assetCostAccount: { OR: [{ isActive: false }, { allowPosting: false }] } }, { accumulatedDepreciationAccount: { OR: [{ isActive: false }, { allowPosting: false }] } }, { depreciationExpenseAccount: { OR: [{ isActive: false }, { allowPosting: false }] } }, { disposalGainAccount: { OR: [{ isActive: false }, { allowPosting: false }] } }, { disposalLossAccount: { OR: [{ isActive: false }, { allowPosting: false }] } }] } }),
+      client.fixedAsset.findMany({ where: activeWhere, select: { carryingAmount: true, baseSalvageValue: true }, take: 5000 }),
+      client.fixedAsset.findFirst({ where: { organizationId }, orderBy: { updatedAt: "desc" }, select: { updatedAt: true } }),
+    ]);
+    const invalidCarryingAmountCount = assets.filter((asset) => asset.carryingAmount.lt(asset.baseSalvageValue)).length;
+    return normalizeFixedAssetReadiness({ activeAssetCount, draftAssetCount, missingScheduleCount, unpostedDepreciationLineCount, openDepreciationRunCount, failedDepreciationRunCount, invalidCarryingAmountCount, categoryMappingIssueCount, sourceUpdatedAt: latestAsset?.updatedAt.toISOString() });
   }
 
   private async manualJournalReadiness(

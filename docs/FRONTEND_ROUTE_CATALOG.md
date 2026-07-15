@@ -20,6 +20,7 @@ Route QA polish pass on 2026-05-15:
 - Route protection shows an access-denied panel when a user lacks the page permission.
 - High-risk buttons such as approve, convert, finalize, void, delete, apply/reverse allocation, bank account archive/reactivate, opening-balance posting, bank transfer voiding, statement import/match/categorize/ignore, reconciliation close/void, warehouse archive/reactivate, stock movement create, inventory adjustment approve/void, warehouse transfer void, fiscal period lock, number sequence save, ZATCA generate/check, attachment upload/download/delete/manage, and document settings save are hidden unless the active role has the matching permission.
 - Dashboard navigation is gated by `dashboard.view`.
+- Fixed-asset navigation is gated by `fixedAssets.read`; fixed-asset reports additionally require `fixedAssets.reports`. Register, schedule, depreciation review/post, disposal, and category actions follow their matching permission contracts.
 - Settings/Admin nav now includes Team Members for `users.view`, Roles & Permissions for `roles.view`, Document settings for `documentSettings.view`, Storage for `documentSettings.view` or `attachments.manage`, Email outbox/readiness for `emailOutbox.view`, Audit logs for `auditLogs.view`, and Number sequences for `numberSequences.view`; audit CSV export/retention controls, backup/restore evidence controls, and number-sequence editing are additionally gated by `auditLogs.export`, `auditLogs.manageRetention`, and `numberSequences.manage`.
 
 ## Auth And Setup
@@ -33,6 +34,10 @@ Route QA polish pass on 2026-05-15:
 | `/password-reset` | Password reset request. | None before submit. | Submit email and show generic response. | Implemented | Real provider delivery and MFA are not implemented. |
 | `/password-reset/confirm` | Password reset confirmation. | Token from URL. | Set new password with reset token. | Implemented | No session invalidation UI. |
 | `/organization/setup` | Create/select organization setup. | Auth user/org state. | Create organization. | Implemented | Rich onboarding checklist missing. |
+| `/fixed-assets` | Tenant-scoped fixed-asset register. | Fixed assets and categories. | Search, drill into detail, start draft asset. | Implemented | Full capitalization/disposal dialogs remain a follow-up UI slice. |
+| `/fixed-assets/[id]` | Fixed-asset accounting snapshot. | Asset, source, movement, and schedule evidence. | Open schedule and register links. | Implemented | Posting action rail remains API-first in this slice. |
+| `/fixed-assets/depreciation-runs` | Monthly depreciation review queue. | Depreciation runs. | Open preview/detail. | Implemented | Post/reverse controls remain a follow-up UI slice. |
+| `/reports/fixed-assets` | Register and GL reconciliation reports. | Fixed-asset report endpoints. | Read-only review. | Implemented | CSV download controls remain a follow-up UI slice. |
 
 ## Core App
 

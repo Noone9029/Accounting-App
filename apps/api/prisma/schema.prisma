@@ -346,6 +346,54 @@ enum JournalEntryStatus {
   REVERSED
 }
 
+enum FixedAssetCategoryStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum FixedAssetStatus {
+  DRAFT
+  READY_FOR_REVIEW
+  ACTIVE
+  FULLY_DEPRECIATED
+  DISPOSED
+  WRITTEN_OFF
+}
+
+enum FixedAssetAcquisitionSource {
+  MANUAL
+  PURCHASE_BILL
+  OPENING_BALANCE
+}
+
+enum FixedAssetDepreciationMethod {
+  STRAIGHT_LINE
+}
+
+enum FixedAssetScheduleLineStatus {
+  UNPOSTED
+  POSTED
+  REVERSED
+}
+
+enum FixedAssetDepreciationRunStatus {
+  DRAFT
+  REVIEWED
+  POSTED
+  REVERSED
+  FAILED
+}
+
+enum FixedAssetMovementType {
+  ACQUISITION
+  OPENING_BALANCE
+  DEPRECIATION
+  DEPRECIATION_REVERSAL
+  DISPOSAL
+  WRITE_OFF
+  DISPOSAL_REVERSAL
+}
+
 enum ItemType {
   SERVICE
   PRODUCT
@@ -944,6 +992,7 @@ enum ImportEntityType {
   SUPPLIERS
   PRODUCTS_SERVICES
   CHART_OF_ACCOUNTS
+  FIXED_ASSET_OPENING_BALANCES
   RECURRING_SALES_INVOICE_TEMPLATES
   RECURRING_PURCHASE_BILL_TEMPLATES
   RECURRING_EXPENSE_TEMPLATES
@@ -1258,6 +1307,7 @@ enum AccountingCloseSnapshotStatus {
 
 enum NumberSequenceScope {
   JOURNAL_ENTRY
+  FIXED_ASSET
   INVOICE
   SALES_QUOTE
   RECURRING_INVOICE_TEMPLATE
@@ -1622,6 +1672,13 @@ model Organization {
   onboardingChecklists                      OnboardingChecklist[]
   onboardingChecklistItems                  OnboardingChecklistItem[]
   onboardingChecklistEvents                 OnboardingChecklistEvent[]
+  fixedAssetCategories                       FixedAssetCategory[]
+  fixedAssets                                FixedAsset[]
+  fixedAssetSourceLinks                      FixedAssetSourceLink[]
+  fixedAssetScheduleLines                    FixedAssetDepreciationScheduleLine[]
+  fixedAssetDepreciationRuns                 FixedAssetDepreciationRun[]
+  fixedAssetDepreciationRunLines             FixedAssetDepreciationRunLine[]
+  fixedAssetMovements                         FixedAssetMovement[]
 }
 
 model OrganizationDocumentSettings {
@@ -3012,11 +3069,222 @@ model Account {
   fxRealizedLossAccountConfigurations  FxAccountConfiguration[]   @relation("FxAccountConfigurationRealizedLossAccount")
   fxUnrealizedGainAccountConfigurations FxAccountConfiguration[]  @relation("FxAccountConfigurationUnrealizedGainAccount")
   fxUnrealizedLossAccountConfigurations FxAccountConfiguration[]  @relation("FxAccountConfigurationUnrealizedLossAccount")
+  fixedAssetCategoriesAssetCost          FixedAssetCategory[] @relation("FixedAssetCategoryAssetCostAccount")
+  fixedAssetCategoriesAccumulated        FixedAssetCategory[] @relation("FixedAssetCategoryAccumulatedDepreciationAccount")
+  fixedAssetCategoriesExpense            FixedAssetCategory[] @relation("FixedAssetCategoryDepreciationExpenseAccount")
+  fixedAssetCategoriesDisposalGain       FixedAssetCategory[] @relation("FixedAssetCategoryDisposalGainAccount")
+  fixedAssetCategoriesDisposalLoss       FixedAssetCategory[] @relation("FixedAssetCategoryDisposalLossAccount")
 
   @@unique([organizationId, code])
   @@unique([organizationId, id])
   @@index([organizationId])
   @@index([parentId])
+}
+
+model FixedAssetCategory {
+  id                                  String                    @id @default(uuid()) @db.Uuid
+  organizationId                      String                    @db.Uuid
+  code                                String
+  name                                String
+  description                         String?
+  status                              FixedAssetCategoryStatus  @default(ACTIVE)
+  assetCostAccountId                  String                    @db.Uuid
+  accumulatedDepreciationAccountId    String                    @db.Uuid
+  depreciationExpenseAccountId        String                    @db.Uuid
+  disposalGainAccountId               String                    @db.Uuid
+  disposalLossAccountId               String                    @db.Uuid
+  defaultUsefulLifeMonths             Int
+  defaultSalvageValue                 Decimal                   @db.Decimal(20, 4)
+  createdByUserId                     String?                   @db.Uuid
+  updatedByUserId                     String?                   @db.Uuid
+  createdAt                           DateTime                  @default(now())
+  updatedAt                           DateTime                  @updatedAt
+  archivedAt                          DateTime?
+  organization                        Organization              @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assetCostAccount                    Account                   @relation("FixedAssetCategoryAssetCostAccount", fields: [organizationId, assetCostAccountId], references: [organizationId, id], onDelete: NoAction)
+  accumulatedDepreciationAccount      Account                   @relation("FixedAssetCategoryAccumulatedDepreciationAccount", fields: [organizationId, accumulatedDepreciationAccountId], references: [organizationId, id], onDelete: NoAction)
+  depreciationExpenseAccount          Account                   @relation("FixedAssetCategoryDepreciationExpenseAccount", fields: [organizationId, depreciationExpenseAccountId], references: [organizationId, id], onDelete: NoAction)
+  disposalGainAccount                 Account                   @relation("FixedAssetCategoryDisposalGainAccount", fields: [organizationId, disposalGainAccountId], references: [organizationId, id], onDelete: NoAction)
+  disposalLossAccount                 Account                   @relation("FixedAssetCategoryDisposalLossAccount", fields: [organizationId, disposalLossAccountId], references: [organizationId, id], onDelete: NoAction)
+  assets                              FixedAsset[]
+
+  @@unique([organizationId, code])
+  @@unique([organizationId, id])
+  @@index([organizationId, status])
+}
+
+model FixedAsset {
+  id                         String                       @id @default(uuid()) @db.Uuid
+  organizationId             String                       @db.Uuid
+  assetNumber                String
+  categoryId                 String                       @db.Uuid
+  name                       String
+  description                String?
+  serialNumber               String?
+  tagNumber                  String?
+  location                   String?
+  custodianName              String?
+  status                     FixedAssetStatus             @default(DRAFT)
+  acquisitionSource          FixedAssetAcquisitionSource
+  acquisitionDate            DateTime
+  inServiceDate              DateTime
+  baseCurrencyCode           String
+  transactionCurrencyCode    String?
+  exchangeRate               Decimal?                     @db.Decimal(18, 8)
+  rateDate                   DateTime?                    @db.Date
+  rateSource                 String?
+  rateSnapshotId             String?                      @db.Uuid
+  transactionAcquisitionCost Decimal?                     @db.Decimal(20, 4)
+  baseAcquisitionCost        Decimal                      @db.Decimal(20, 4)
+  baseSalvageValue           Decimal                      @db.Decimal(20, 4)
+  usefulLifeMonths           Int
+  depreciationMethod         FixedAssetDepreciationMethod @default(STRAIGHT_LINE)
+  accumulatedDepreciation    Decimal                      @db.Decimal(20, 4)
+  carryingAmount             Decimal                      @db.Decimal(20, 4)
+  costCenterId               String?                      @db.Uuid
+  projectId                  String?                      @db.Uuid
+  capitalizationJournalEntryId String?                    @db.Uuid
+  disposalJournalEntryId     String?                      @db.Uuid
+  version                    Int                          @default(1)
+  createdByUserId            String?                      @db.Uuid
+  updatedByUserId            String?                      @db.Uuid
+  createdAt                  DateTime                     @default(now())
+  updatedAt                  DateTime                     @updatedAt
+  activatedAt                DateTime?
+  fullyDepreciatedAt         DateTime?
+  disposedAt                 DateTime?
+  writtenOffAt               DateTime?
+  organization               Organization                 @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  category                   FixedAssetCategory            @relation(fields: [organizationId, categoryId], references: [organizationId, id], onDelete: NoAction)
+  costCenter                 CostCenter?                  @relation("FixedAssetCostCenter", fields: [organizationId, costCenterId], references: [organizationId, id], onDelete: NoAction)
+  project                    Project?                     @relation("FixedAssetProject", fields: [organizationId, projectId], references: [organizationId, id], onDelete: NoAction)
+  sourceLinks                FixedAssetSourceLink[]
+  scheduleLines              FixedAssetDepreciationScheduleLine[]
+  runLines                   FixedAssetDepreciationRunLine[]
+  movements                  FixedAssetMovement[]
+
+  @@unique([organizationId, assetNumber])
+  @@unique([organizationId, id])
+  @@index([organizationId, status, acquisitionDate])
+  @@index([organizationId, categoryId])
+  @@index([organizationId, inServiceDate])
+}
+
+model FixedAssetSourceLink {
+  id                    String      @id @default(uuid()) @db.Uuid
+  organizationId        String      @db.Uuid
+  fixedAssetId          String      @db.Uuid
+  sourceType            String
+  sourceEntityId        String      @db.Uuid
+  sourceLineId          String?     @db.Uuid
+  sourceJournalEntryId  String?     @db.Uuid
+  capitalizedBaseAmount Decimal     @db.Decimal(20, 4)
+  transactionAmount     Decimal?    @db.Decimal(20, 4)
+  currencyCode          String?
+  createdAt             DateTime    @default(now())
+  organization          Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fixedAsset            FixedAsset  @relation(fields: [organizationId, fixedAssetId], references: [organizationId, id], onDelete: NoAction)
+
+  @@unique([organizationId, sourceType, sourceEntityId, sourceLineId])
+  @@index([organizationId, fixedAssetId])
+  @@index([organizationId, sourceEntityId, sourceLineId])
+}
+
+model FixedAssetDepreciationScheduleLine {
+  id                         String                         @id @default(uuid()) @db.Uuid
+  organizationId             String                         @db.Uuid
+  fixedAssetId               String                         @db.Uuid
+  periodStart                DateTime
+  periodEnd                  DateTime
+  depreciationDate           DateTime
+  openingCarryingAmount      Decimal                        @db.Decimal(20, 4)
+  depreciationAmount         Decimal                        @db.Decimal(20, 4)
+  accumulatedDepreciationAfter Decimal                      @db.Decimal(20, 4)
+  closingCarryingAmount      Decimal                        @db.Decimal(20, 4)
+  status                     FixedAssetScheduleLineStatus   @default(UNPOSTED)
+  depreciationRunLineId      String?                        @db.Uuid
+  journalEntryId             String?                        @db.Uuid
+  createdAt                  DateTime                       @default(now())
+  postedAt                   DateTime?
+  organization               Organization                   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fixedAsset                 FixedAsset                     @relation(fields: [organizationId, fixedAssetId], references: [organizationId, id], onDelete: NoAction)
+  runLines                   FixedAssetDepreciationRunLine[]
+
+  @@unique([organizationId, fixedAssetId, periodStart])
+  @@unique([organizationId, id])
+  @@index([organizationId, status, depreciationDate])
+  @@index([organizationId, fixedAssetId, depreciationDate])
+}
+
+model FixedAssetDepreciationRun {
+  id               String                         @id @default(uuid()) @db.Uuid
+  organizationId   String                         @db.Uuid
+  fiscalPeriodId   String                         @db.Uuid
+  depreciationDate DateTime
+  status            FixedAssetDepreciationRunStatus @default(DRAFT)
+  assetCount        Int                            @default(0)
+  totalDepreciation Decimal                        @db.Decimal(20, 4)
+  idempotencyKey   String
+  version          Int                            @default(1)
+  reviewedByUserId String?                        @db.Uuid
+  postedByUserId   String?                        @db.Uuid
+  journalEntryId   String?                        @db.Uuid
+  createdAt        DateTime                       @default(now())
+  reviewedAt       DateTime?
+  postedAt         DateTime?
+  reversedAt       DateTime?
+  organization     Organization                   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fiscalPeriod     FiscalPeriod                   @relation(fields: [organizationId, fiscalPeriodId], references: [organizationId, id], onDelete: NoAction)
+  lines            FixedAssetDepreciationRunLine[]
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, fiscalPeriodId, status])
+  @@index([organizationId, depreciationDate])
+}
+
+model FixedAssetDepreciationRunLine {
+  id                         String                         @id @default(uuid()) @db.Uuid
+  organizationId             String                         @db.Uuid
+  runId                     String                         @db.Uuid
+  fixedAssetId               String                         @db.Uuid
+  scheduleLineId             String                         @db.Uuid
+  depreciationAmount         Decimal                        @db.Decimal(20, 4)
+  expenseAccountId           String                         @db.Uuid
+  accumulatedDepreciationAccountId String                    @db.Uuid
+  costCenterId               String?                        @db.Uuid
+  projectId                  String?                        @db.Uuid
+  createdAt                  DateTime                       @default(now())
+  organization               Organization                   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  run                        FixedAssetDepreciationRun       @relation(fields: [organizationId, runId], references: [organizationId, id], onDelete: NoAction)
+  fixedAsset                 FixedAsset                     @relation(fields: [organizationId, fixedAssetId], references: [organizationId, id], onDelete: NoAction)
+  scheduleLine               FixedAssetDepreciationScheduleLine @relation(fields: [organizationId, scheduleLineId], references: [organizationId, id], onDelete: NoAction)
+
+  @@unique([organizationId, runId, fixedAssetId, scheduleLineId])
+  @@unique([organizationId, id])
+  @@index([organizationId, runId])
+  @@index([organizationId, fixedAssetId])
+}
+
+model FixedAssetMovement {
+  id                 String                  @id @default(uuid()) @db.Uuid
+  organizationId     String                  @db.Uuid
+  fixedAssetId       String                  @db.Uuid
+  movementType       FixedAssetMovementType
+  effectiveDate      DateTime
+  baseAmount         Decimal                 @db.Decimal(20, 4)
+  journalEntryId     String?                 @db.Uuid
+  reversedMovementId String?                 @db.Uuid
+  reason             String?
+  createdByUserId    String?                 @db.Uuid
+  createdAt          DateTime                @default(now())
+  postedAt           DateTime?
+  organization       Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fixedAsset         FixedAsset              @relation(fields: [organizationId, fixedAssetId], references: [organizationId, id], onDelete: NoAction)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, fixedAssetId, effectiveDate])
+  @@index([organizationId, movementType, effectiveDate])
 }
 
 model CostCenter {
@@ -3035,6 +3303,7 @@ model CostCenter {
   salesInvoiceLines                 SalesInvoiceLine[]                  @relation("SalesInvoiceLineCostCenter")
   purchaseBillLines                 PurchaseBillLine[]                  @relation("PurchaseBillLineCostCenter")
   cashExpenseLines                  CashExpenseLine[]                   @relation("CashExpenseLineCostCenter")
+  fixedAssets                        FixedAsset[]                         @relation("FixedAssetCostCenter")
 
   @@unique([organizationId, code])
   @@unique([organizationId, id])
@@ -3058,6 +3327,7 @@ model Project {
   salesInvoiceLines                 SalesInvoiceLine[]                  @relation("SalesInvoiceLineProject")
   purchaseBillLines                 PurchaseBillLine[]                  @relation("PurchaseBillLineProject")
   cashExpenseLines                  CashExpenseLine[]                   @relation("CashExpenseLineProject")
+  fixedAssets                        FixedAsset[]                         @relation("FixedAssetProject")
 
   @@unique([organizationId, code])
   @@unique([organizationId, id])
@@ -6400,6 +6670,7 @@ model FiscalPeriod {
   organization   Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   closeCycles AccountingCloseCycle[] @relation("FiscalPeriodAccountingCloseCycles")
   closeSnapshots AccountingCloseReadinessSnapshot[] @relation("FiscalPeriodAccountingCloseSnapshots")
+  fixedAssetDepreciationRuns FixedAssetDepreciationRun[]
 
   @@unique([organizationId, name])
   @@unique([organizationId, id])

@@ -69,6 +69,14 @@ describe("AccountingCloseService", () => {
         count: jest.fn().mockResolvedValue(0),
         findFirst: jest.fn().mockResolvedValue(null),
       },
+      fixedAsset: {
+        count: jest.fn().mockResolvedValue(0),
+        findMany: jest.fn().mockResolvedValue([]),
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+      fixedAssetDepreciationScheduleLine: { count: jest.fn().mockResolvedValue(0) },
+      fixedAssetDepreciationRun: { count: jest.fn().mockResolvedValue(0) },
+      fixedAssetCategory: { count: jest.fn().mockResolvedValue(0) },
       apiIdempotencyRecord: {
         findUnique: jest.fn().mockResolvedValue(null),
         create: jest.fn().mockResolvedValue({ id: "idempotency-1" }),
@@ -999,6 +1007,8 @@ describe("AccountingCloseService", () => {
       reportPack: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
       cashExpense: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
       documentInboxItem: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
+      fixedAsset: { count: jest.fn().mockResolvedValue(0), findMany: jest.fn().mockResolvedValue([]), findFirst: jest.fn().mockResolvedValue(null) },
+      fixedAssetDepreciationScheduleLine: { count: jest.fn().mockResolvedValue(0) }, fixedAssetDepreciationRun: { count: jest.fn().mockResolvedValue(0) }, fixedAssetCategory: { count: jest.fn().mockResolvedValue(0) },
       accountingCloseTask: { findFirst: jest.fn().mockResolvedValue(null) },
       accountingCloseReadinessSnapshot: { create: jest.fn().mockResolvedValue(snapshot) },
     };
@@ -1062,6 +1072,8 @@ describe("AccountingCloseService", () => {
       reportPack: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
       cashExpense: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
       documentInboxItem: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
+      fixedAsset: { count: jest.fn().mockResolvedValue(0), findMany: jest.fn().mockResolvedValue([]), findFirst: jest.fn().mockResolvedValue(null) },
+      fixedAssetDepreciationScheduleLine: { count: jest.fn().mockResolvedValue(0) }, fixedAssetDepreciationRun: { count: jest.fn().mockResolvedValue(0) }, fixedAssetCategory: { count: jest.fn().mockResolvedValue(0) },
       accountingCloseReadinessSnapshot: { findFirst: jest.fn().mockResolvedValue({ id: "snapshot-1", canonicalHash: readinessHash }), updateMany: jest.fn().mockResolvedValue({ count: 1 }) },
     };
     Object.assign(prisma, { $transaction: jest.fn((callback) => callback(tx)) });
@@ -1186,6 +1198,8 @@ describe("AccountingCloseService", () => {
       reportPack: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
       cashExpense: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
       documentInboxItem: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
+      fixedAsset: { count: jest.fn().mockResolvedValue(0), findMany: jest.fn().mockResolvedValue([]), findFirst: jest.fn().mockResolvedValue(null) },
+      fixedAssetDepreciationScheduleLine: { count: jest.fn().mockResolvedValue(0) }, fixedAssetDepreciationRun: { count: jest.fn().mockResolvedValue(0) }, fixedAssetCategory: { count: jest.fn().mockResolvedValue(0) },
       accountingCloseReadinessSnapshot: { create: jest.fn().mockResolvedValue(snapshot) },
     };
     Object.assign(prisma, { $transaction: jest.fn((callback) => callback(tx)) });
@@ -1317,6 +1331,8 @@ describe("AccountingCloseService", () => {
       reportPack: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
       cashExpense: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
       documentInboxItem: { count: jest.fn().mockResolvedValue(0), findFirst: jest.fn().mockResolvedValue(null) },
+      fixedAsset: { count: jest.fn().mockResolvedValue(0), findMany: jest.fn().mockResolvedValue([]), findFirst: jest.fn().mockResolvedValue(null) },
+      fixedAssetDepreciationScheduleLine: { count: jest.fn().mockResolvedValue(0) }, fixedAssetDepreciationRun: { count: jest.fn().mockResolvedValue(0) }, fixedAssetCategory: { count: jest.fn().mockResolvedValue(0) },
       accountingCloseReadinessSnapshot: { create: jest.fn().mockResolvedValue({ id: "snapshot-close" }) },
       apiIdempotencyRecord: { findUnique: jest.fn().mockResolvedValue(null), create: jest.fn().mockResolvedValue({ id: "idempotency-close" }) },
     };

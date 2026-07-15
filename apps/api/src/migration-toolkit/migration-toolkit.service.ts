@@ -21,6 +21,7 @@ import { AuditLogService } from "../audit-log/audit-log.service";
 import { ObservabilityContextService } from "../observability/observability-context.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { RecurringTemplateService } from "../recurring-transactions/recurring-template.service";
+import { FixedAssetService } from "../fixed-assets/fixed-asset.service";
 import { toCsv, type CsvFile } from "../reports/report-csv";
 import { CommitImportJobDto, CreateImportJobDto } from "./dto/migration-toolkit.dto";
 
@@ -89,6 +90,14 @@ const IMPORT_TEMPLATES: ImportTemplateDefinition[] = [
     notes: ["Creates local non-system accounts only after explicit reviewed commit.", "Opening balances, journals, VAT mappings, and official filing data are not imported."],
     sample: { code: "410", name: "Service revenue", type: "REVENUE", description: "Imported local account", allowPosting: "true", isActive: "true", parentCode: "" },
   },
+  {
+    entityType: ImportEntityType.FIXED_ASSET_OPENING_BALANCES,
+    label: "Fixed-asset opening balances",
+    headers: ["name", "categoryCode", "openingBalanceAccountCode", "acquisitionDate", "inServiceDate", "baseAcquisitionCost", "baseSalvageValue", "accumulatedDepreciation", "usefulLifeMonths", "reason"],
+    requiredHeaders: ["name", "categoryCode", "openingBalanceAccountCode", "acquisitionDate", "inServiceDate", "baseAcquisitionCost", "usefulLifeMonths"],
+    notes: ["Creates active fixed assets and one posted opening-balance journal only after explicit reviewed commit.", "Category and opening-balance accounts must already exist in this tenant; previews are revalidated at commit."],
+    sample: { name: "Existing laptop", categoryCode: "IT-EQUIPMENT", openingBalanceAccountCode: "3200", acquisitionDate: "2026-01-01", inServiceDate: "2026-01-01", baseAcquisitionCost: "1000.0000", baseSalvageValue: "0.0000", accumulatedDepreciation: "250.0000", usefulLifeMonths: "36", reason: "Opening balance migration" },
+  },
   recurringTemplateDefinition(ImportEntityType.RECURRING_SALES_INVOICE_TEMPLATES, "Recurring sales invoice templates", {
     name: "Monthly support", partyName: "Acme Trading", accountCode: "410", description: "Support retainer", unitPrice: "100.0000",
   }),
@@ -124,6 +133,7 @@ export class MigrationToolkitService {
     private readonly auditLogService: AuditLogService,
     private readonly observabilityContext?: ObservabilityContextService,
     private readonly recurringTemplates?: RecurringTemplateService,
+    private readonly fixedAssetService?: FixedAssetService,
   ) {}
 
   templates() {
@@ -135,7 +145,7 @@ export class MigrationToolkitService {
         requiredHeaders: template.requiredHeaders,
         notes: template.notes,
       })),
-      unsupportedImports: ["Opening balances", "Posted journals", "Sales invoices", "Purchase bills", "Bank credentials", "Provider payloads"],
+      unsupportedImports: ["Posted journals", "Sales invoices", "Purchase bills", "Bank credentials", "Provider payloads"],
       limitations: [
         "CSV files are parsed locally through the API request only.",
         "No external provider upload, hosted mutation, or production migration proof is performed.",
@@ -453,6 +463,9 @@ export class MigrationToolkitService {
     if (entityType === ImportEntityType.PRODUCTS_SERVICES) {
       return normalizeItemRow(row, context);
     }
+    if (entityType === ImportEntityType.FIXED_ASSET_OPENING_BALANCES) {
+      return normalizeFixedAssetOpeningBalanceRow(row, context);
+    }
     return normalizeAccountRow(row, context);
   }
 
@@ -463,10 +476,11 @@ export class MigrationToolkitService {
     executor: ValidationExecutor = this.prisma,
   ): Promise<ValidationContext> {
     const recurring = isRecurringTemplateEntity(entityType);
+    const fixedAssetOpening = entityType === ImportEntityType.FIXED_ASSET_OPENING_BALANCES;
     const rateSnapshotIds = entityType === ImportEntityType.PRODUCTS_SERVICES || recurring
       ? [...new Set(rows.map((row) => normalizeUuid(row.raw.rateSnapshotId)).filter((id): id is string => Boolean(id)))]
       : [];
-    const [contacts, items, accounts, organization, rateSnapshots, costCenters, projects, taxRates, branches, recurringTemplates] = await Promise.all([
+    const [contacts, items, accounts, organization, rateSnapshots, costCenters, projects, taxRates, branches, recurringTemplates, fixedAssetCategories] = await Promise.all([
       entityType === ImportEntityType.CUSTOMERS || entityType === ImportEntityType.SUPPLIERS || recurring
         ? executor.contact.findMany({ where: { organizationId }, select: { id: true, name: true, type: true, isActive: true } })
         : Promise.resolve([]),
@@ -485,6 +499,7 @@ export class MigrationToolkitService {
       recurring ? executor.taxRate.findMany({ where: { organizationId }, select: { id: true, name: true, isActive: true } }) : Promise.resolve([]),
       recurring ? executor.branch.findMany({ where: { organizationId }, select: { id: true, name: true } }) : Promise.resolve([]),
       recurring ? executor.recurringTransactionTemplate.findMany({ where: { organizationId }, select: { name: true } }) : Promise.resolve([]),
+      fixedAssetOpening ? executor.fixedAssetCategory.findMany({ where: { organizationId, status: "ACTIVE" }, select: { id: true, code: true } }) : Promise.resolve([]),
     ]);
     const baseCurrency = entityType === ImportEntityType.PRODUCTS_SERVICES || recurring
       ? normalizeSupportedCurrencyCode(organization?.baseCurrency)
@@ -507,6 +522,7 @@ export class MigrationToolkitService {
       taxRatesByName: new Map(taxRates.map((taxRate: any) => [normalizeKey(taxRate.name), taxRate])),
       branchesByName: new Map(branches.map((branch: any) => [normalizeKey(branch.name), branch])),
       recurringTemplateNames: new Set(recurringTemplates.map((template: any) => normalizeKey(template.name))),
+      fixedAssetCategoriesByCode: new Map(fixedAssetCategories.map((category: any) => [normalizeKey(category.code), category])),
     };
   }
 
@@ -515,7 +531,7 @@ export class MigrationToolkitService {
     actorUserId: string,
     entityType: ImportEntityType,
     row: Record<string, string | boolean | null>,
-    executor: Pick<Prisma.TransactionClient, "contact" | "item" | "account"> = this.prisma,
+    executor: Prisma.TransactionClient | PrismaService = this.prisma,
   ) {
     if (isRecurringTemplateEntity(entityType)) {
       if (!this.recurringTemplates) throw new ConflictException("Recurring template import service is unavailable.");
@@ -575,6 +591,23 @@ export class MigrationToolkitService {
       });
     }
 
+    if (entityType === ImportEntityType.FIXED_ASSET_OPENING_BALANCES) {
+      if (!this.fixedAssetService || !("fixedAsset" in executor)) throw new ConflictException("Fixed-asset opening-balance import service is unavailable.");
+      const created = await this.fixedAssetService.createOpeningBalanceInTransaction(executor as Prisma.TransactionClient, organizationId, actorUserId, {
+        name: requireString(row.name),
+        categoryId: requireString(row.categoryId),
+        openingBalanceAccountId: requireString(row.openingBalanceAccountId),
+        acquisitionDate: new Date(requireString(row.acquisitionDate)),
+        inServiceDate: new Date(requireString(row.inServiceDate)),
+        baseAcquisitionCost: requireString(row.baseAcquisitionCost),
+        baseSalvageValue: optionalString(row.baseSalvageValue) ?? "0.0000",
+        accumulatedDepreciation: optionalString(row.accumulatedDepreciation) ?? "0.0000",
+        usefulLifeMonths: Number(requireString(row.usefulLifeMonths)),
+        reason: optionalString(row.reason) ?? undefined,
+      });
+      return { id: created.id };
+    }
+
     const parentCode = optionalString(row.parentCode);
     const parent = parentCode
       ? await executor.account.findFirst({ where: { organizationId, code: parentCode }, select: { id: true } })
@@ -628,11 +661,12 @@ interface ValidationContext {
   taxRatesByName: Map<string, { id: string; name: string; isActive: boolean }>;
   branchesByName: Map<string, { id: string; name: string }>;
   recurringTemplateNames: Set<string>;
+  fixedAssetCategoriesByCode: Map<string, { id: string; code: string }>;
 }
 
 type ValidationExecutor = Pick<
   Prisma.TransactionClient,
-  "contact" | "item" | "account" | "organization" | "currencyRateSnapshot" | "costCenter" | "project" | "taxRate" | "branch" | "recurringTransactionTemplate"
+  "contact" | "item" | "account" | "organization" | "currencyRateSnapshot" | "costCenter" | "project" | "taxRate" | "branch" | "recurringTransactionTemplate" | "fixedAssetCategory"
 >;
 
 function isRecurringTemplateEntity(entityType: ImportEntityType): boolean {
@@ -932,6 +966,63 @@ function normalizeItemMonetaryFields(
     rateSource,
     rateSnapshotId,
   };
+}
+
+function normalizeFixedAssetOpeningBalanceRow(row: ParsedImportRow, context: ValidationContext): NormalizedImportRow {
+  const name = cleanCell(row.raw.name);
+  const categoryCode = cleanCell(row.raw.categoryCode);
+  const openingBalanceAccountCode = cleanCell(row.raw.openingBalanceAccountCode);
+  const acquisitionDate = cleanCell(row.raw.acquisitionDate);
+  const inServiceDate = cleanCell(row.raw.inServiceDate);
+  const baseAcquisitionCost = cleanCell(row.raw.baseAcquisitionCost);
+  const baseSalvageValue = cleanCell(row.raw.baseSalvageValue) || "0.0000";
+  const accumulatedDepreciation = cleanCell(row.raw.accumulatedDepreciation) || "0.0000";
+  const usefulLifeMonths = cleanCell(row.raw.usefulLifeMonths);
+  const issues: ImportValidationIssueInput[] = [];
+  required(row, issues, "name", name);
+  required(row, issues, "categoryCode", categoryCode);
+  required(row, issues, "openingBalanceAccountCode", openingBalanceAccountCode);
+  required(row, issues, "acquisitionDate", acquisitionDate);
+  required(row, issues, "inServiceDate", inServiceDate);
+  required(row, issues, "baseAcquisitionCost", baseAcquisitionCost);
+  required(row, issues, "usefulLifeMonths", usefulLifeMonths);
+  const category = context.fixedAssetCategoriesByCode.get(normalizeKey(categoryCode));
+  const offset = context.accountsByCode.get(normalizeKey(openingBalanceAccountCode));
+  if (categoryCode && !category) issues.push(error(row.rowNumber, "categoryCode", "INVALID_REFERENCE", "Category code must resolve to an active fixed-asset category in this tenant."));
+  if (openingBalanceAccountCode && (!offset || !offset.isActive || !offset.allowPosting)) issues.push(error(row.rowNumber, "openingBalanceAccountCode", "INVALID_REFERENCE", "Opening-balance account must be an active posting account in this tenant."));
+  if (baseAcquisitionCost && !isNonNegativeDecimal(baseAcquisitionCost)) issues.push(error(row.rowNumber, "baseAcquisitionCost", "INVALID_DECIMAL", "Acquisition cost must be a non-negative decimal with at most four places."));
+  if (baseSalvageValue && !isNonNegativeDecimal(baseSalvageValue)) issues.push(error(row.rowNumber, "baseSalvageValue", "INVALID_DECIMAL", "Salvage value must be a non-negative decimal with at most four places."));
+  if (accumulatedDepreciation && !isNonNegativeDecimal(accumulatedDepreciation)) issues.push(error(row.rowNumber, "accumulatedDepreciation", "INVALID_DECIMAL", "Accumulated depreciation must be a non-negative decimal with at most four places."));
+  if (usefulLifeMonths && !/^\d+$/.test(usefulLifeMonths)) issues.push(error(row.rowNumber, "usefulLifeMonths", "INVALID_INTEGER", "Useful life must be a positive whole number of months."));
+  if (usefulLifeMonths && Number(usefulLifeMonths) <= 0) issues.push(error(row.rowNumber, "usefulLifeMonths", "INVALID_INTEGER", "Useful life must be a positive whole number of months."));
+  if (acquisitionDate && !isValidDateOnly(acquisitionDate)) issues.push(error(row.rowNumber, "acquisitionDate", "INVALID_DATE", "Acquisition date must be a valid YYYY-MM-DD date."));
+  if (inServiceDate && !isValidDateOnly(inServiceDate)) issues.push(error(row.rowNumber, "inServiceDate", "INVALID_DATE", "In-service date must be a valid YYYY-MM-DD date."));
+  if (isValidDateOnly(acquisitionDate) && isValidDateOnly(inServiceDate) && inServiceDate < acquisitionDate) issues.push(error(row.rowNumber, "inServiceDate", "INVALID_DATE_ORDER", "In-service date cannot be before acquisition date."));
+  if (isNonNegativeDecimal(baseAcquisitionCost) && isNonNegativeDecimal(baseSalvageValue) && isNonNegativeDecimal(accumulatedDepreciation)) {
+    const cost = new Prisma.Decimal(baseAcquisitionCost);
+    const salvage = new Prisma.Decimal(baseSalvageValue);
+    const accumulated = new Prisma.Decimal(accumulatedDepreciation);
+    if (salvage.gt(cost)) issues.push(error(row.rowNumber, "baseSalvageValue", "INVALID_RANGE", "Salvage value cannot exceed acquisition cost."));
+    if (accumulated.gt(cost.sub(salvage))) issues.push(error(row.rowNumber, "accumulatedDepreciation", "INVALID_RANGE", "Accumulated depreciation cannot exceed depreciable cost."));
+  }
+  const fingerprint = `fixed-asset-opening:${normalizeKey(name)}:${normalizeKey(categoryCode)}`;
+  const duplicate = context.seenFingerprints.has(fingerprint);
+  if (duplicate) issues.push(error(row.rowNumber, "name", "DUPLICATE", "Fixed-asset opening row is duplicated in this import."));
+  context.seenFingerprints.add(fingerprint);
+  return normalized(row, {
+    name,
+    categoryCode,
+    categoryId: category?.id ?? null,
+    openingBalanceAccountCode,
+    openingBalanceAccountId: offset?.id ?? null,
+    acquisitionDate,
+    inServiceDate,
+    baseAcquisitionCost,
+    baseSalvageValue,
+    accumulatedDepreciation,
+    usefulLifeMonths,
+    reason: cleanOptionalCell(row.raw.reason),
+  }, fingerprint, duplicate, issues);
 }
 
 function normalizeAccountRow(row: ParsedImportRow, context: ValidationContext): NormalizedImportRow {
