@@ -1,8 +1,8 @@
 # Product UI Stabilization Ledger
 
-Status: foundation batch in progress
-Branch: `codex/ui-stabilization-foundation`
-Baseline ref: `origin/main` at `dad8adce`
+Status: merged; burner deployment and hosted UI proof recorded
+Implementation branch: `codex/ui-stabilization-foundation` (PR #356, merged)
+Final merged ref: `origin/main` at `536049e742bf5a7aae65c6378a9f964f94b6c45d`
 
 ## Coverage contract
 
@@ -135,3 +135,11 @@ Generated visual evidence belongs under the ignored path `artifacts/visual-qa/pr
 ## Remaining native-dialog inventory
 
 No native `window.confirm` or `window.prompt` call sites remain under `apps/web/src`. Future destructive or reasoned workflow actions must use `LedgerActionDialog` so keyboard, focus, busy, and validation behavior remain consistent.
+
+## Release and hosted proof
+
+The stabilization implementation was merged through [PR #356](https://github.com/Noone9029/Accounting-App/pull/356) as merge commit `536049e742bf5a7aae65c6378a9f964f94b6c45d`. The final feature head `3bc71b2ea2aa141cb277bee4c4f2b056b3092c42` is an ancestor of `origin/main`.
+
+The approved burner deployment was built from that merged `origin/main` worktree. Web deployment `dpl_73bmZq7jbkNSymXXrCoJEKBq1mN2` is READY and serves `https://ledgerbyte-web-test.vercel.app`. API deployment `dpl_S89AFCJzBsxonMqWtE5zvHT5UjC1` is READY and serves `https://ledgerbyte-api-test.vercel.app`; no database migration, schema change, environment-variable change, provider change, or Supabase mutation was performed.
+
+The authenticated hosted UI proof is documented in [`USER_TESTING_PRODUCT_UI_STABILIZATION_ROLLOUT_20260715.md`](../deployment/USER_TESTING_PRODUCT_UI_STABILIZATION_ROLLOUT_20260715.md). It records API health/authentication, owner-session route rendering, two-organization switching, mobile drawer Escape/focus restoration, desktop/mobile/Arabic RTL overflow checks, and the exact limitation that no destructive record was created solely to force a hosted destructive-dialog interaction. Shared destructive-dialog behavior remains covered by the local Jest and interaction suites.
