@@ -45,4 +45,69 @@ describe("FixedAssetService foundation", () => {
     }));
     expect(prisma).not.toHaveProperty("journalEntry.create");
   });
+
+  it("persists preview run lines with an explicit run id and returns their count", async () => {
+    const run = {
+      id: "run-1",
+      organizationId: "org-1",
+      fiscalPeriodId: "period-1",
+      depreciationDate: new Date("2026-02-01T00:00:00.000Z"),
+      status: "DRAFT",
+      assetCount: 1,
+      totalDepreciation: "100.0000",
+      idempotencyKey: "preview-1",
+      version: 1,
+    };
+    const runWithCount = { ...run, _count: { lines: 1 } };
+    const scheduleLine = {
+      id: "schedule-1",
+      fixedAssetId: "asset-1",
+      depreciationAmount: "100.0000",
+      fixedAsset: {
+        category: { depreciationExpenseAccountId: "expense-1", accumulatedDepreciationAccountId: "accumulated-1" },
+        costCenterId: null,
+        projectId: null,
+        status: "ACTIVE",
+      },
+    };
+    const prisma = {
+      $transaction: jest.fn(async (callback: (tx: any) => Promise<unknown>) => callback(prisma)),
+      fixedAsset: { findMany: jest.fn().mockResolvedValue([]) },
+      fixedAssetDepreciationRun: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue(run),
+        findUniqueOrThrow: jest.fn().mockResolvedValue(runWithCount),
+      },
+      fiscalPeriod: { findFirst: jest.fn().mockResolvedValue({ id: "period-1", status: "OPEN", startsOn: new Date("2026-01-01"), endsOn: new Date("2026-12-31") }) },
+      fixedAssetDepreciationScheduleLine: { findMany: jest.fn().mockResolvedValue([scheduleLine]) },
+      fixedAssetDepreciationRunLine: { createMany: jest.fn().mockResolvedValue({ count: 1 }) },
+    } as any;
+    const audit = { log: jest.fn().mockResolvedValue(undefined) } as any;
+    const service = new FixedAssetService(prisma, { next: jest.fn() } as any, audit, { assertPostingDateAllowed: jest.fn() } as any);
+
+    const result = await service.previewDepreciationRun("org-1", "user-1", {
+      fiscalPeriodId: "period-1",
+      depreciationDate: "2026-02-01T00:00:00.000Z",
+      idempotencyKey: "preview-1",
+    });
+
+    expect(result).toEqual(expect.objectContaining({ id: "run-1", totalDepreciation: "100.0000" }));
+    expect(prisma.fixedAssetDepreciationRunLine.createMany).toHaveBeenCalledWith({
+      data: [expect.objectContaining({ organizationId: "org-1", runId: "run-1", fixedAssetId: "asset-1", scheduleLineId: "schedule-1" })],
+    });
+  });
+
+  it("rejects posting an empty reviewed run with a controlled business error", async () => {
+    const prisma = {
+      $transaction: jest.fn(async (callback: (tx: any) => Promise<unknown>) => callback(prisma)),
+      fixedAssetDepreciationRun: {
+        findFirst: jest.fn().mockResolvedValue({ id: "run-1", organizationId: "org-1", status: "REVIEWED", version: 2, lines: [] }),
+      },
+    } as any;
+    const service = new FixedAssetService(prisma, { next: jest.fn() } as any, { log: jest.fn() } as any, { assertPostingDateAllowed: jest.fn() } as any);
+
+    await expect(service.postDepreciationRun("org-1", "user-1", "run-1", { expectedVersion: 2 })).rejects.toThrow(
+      "Depreciation run has no eligible schedule lines for the selected period.",
+    );
+  });
 });

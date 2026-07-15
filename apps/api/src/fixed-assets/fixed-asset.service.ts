@@ -433,9 +433,13 @@ export class FixedAssetService {
       await this.ensureSchedules(organizationId, tx);
       const scheduleLines = await tx.fixedAssetDepreciationScheduleLine.findMany({ where: { organizationId, status: FixedAssetScheduleLineStatus.UNPOSTED, depreciationDate: { gte: period.startsOn, lte: depreciationDate }, fixedAsset: { organizationId, status: { in: [FixedAssetStatus.ACTIVE, FixedAssetStatus.FULLY_DEPRECIATED] } } }, orderBy: [{ depreciationDate: "asc" }, { fixedAssetId: "asc" }], take: 5000, include: { fixedAsset: { include: { category: true } } } });
       const total = scheduleLines.reduce((sum, line) => sum.plus(line.depreciationAmount), toMoney("0"));
-      const run = await tx.fixedAssetDepreciationRun.create({ data: { organizationId, fiscalPeriodId: period.id, depreciationDate, status: FixedAssetDepreciationRunStatus.DRAFT, assetCount: new Set(scheduleLines.map((line) => line.fixedAssetId)).size, totalDepreciation: total, idempotencyKey: dto.idempotencyKey, lines: { create: scheduleLines.map((line) => ({ organizationId, fixedAssetId: line.fixedAssetId, scheduleLineId: line.id, depreciationAmount: line.depreciationAmount, expenseAccountId: line.fixedAsset.category.depreciationExpenseAccountId, accumulatedDepreciationAccountId: line.fixedAsset.category.accumulatedDepreciationAccountId, costCenterId: line.fixedAsset.costCenterId, projectId: line.fixedAsset.projectId })) } }, include: { _count: { select: { lines: true } } } });
-      await this.auditLogService.log({ organizationId, actorUserId, action: "PREVIEW", entityType: "FixedAssetDepreciationRun", entityId: run.id, after: { assetCount: run.assetCount, totalDepreciation: String(run.totalDepreciation), fiscalPeriodId: run.fiscalPeriodId } }, tx);
-      return this.toRun(run);
+      const run = await tx.fixedAssetDepreciationRun.create({ data: { organizationId, fiscalPeriodId: period.id, depreciationDate, status: FixedAssetDepreciationRunStatus.DRAFT, assetCount: new Set(scheduleLines.map((line) => line.fixedAssetId)).size, totalDepreciation: total, idempotencyKey: dto.idempotencyKey } });
+      if (scheduleLines.length > 0) {
+        await tx.fixedAssetDepreciationRunLine.createMany({ data: scheduleLines.map((line) => ({ organizationId, runId: run.id, fixedAssetId: line.fixedAssetId, scheduleLineId: line.id, depreciationAmount: line.depreciationAmount, expenseAccountId: line.fixedAsset.category.depreciationExpenseAccountId, accumulatedDepreciationAccountId: line.fixedAsset.category.accumulatedDepreciationAccountId, costCenterId: line.fixedAsset.costCenterId, projectId: line.fixedAsset.projectId })) });
+      }
+      const runWithCount = await tx.fixedAssetDepreciationRun.findUniqueOrThrow({ where: { id: run.id }, include: { _count: { select: { lines: true } } } });
+      await this.auditLogService.log({ organizationId, actorUserId, action: "PREVIEW", entityType: "FixedAssetDepreciationRun", entityId: runWithCount.id, after: { assetCount: runWithCount.assetCount, totalDepreciation: String(runWithCount.totalDepreciation), fiscalPeriodId: runWithCount.fiscalPeriodId } }, tx);
+      return this.toRun(runWithCount);
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
 
@@ -456,6 +460,7 @@ export class FixedAssetService {
       if (run.status === FixedAssetDepreciationRunStatus.POSTED) return this.toRun(run);
       if (run.status !== FixedAssetDepreciationRunStatus.REVIEWED) throw new ConflictException("Depreciation run must be reviewed before posting.");
       if (run.version !== dto.expectedVersion) throw new ConflictException("Depreciation run changed. Reload and retry.");
+      if (run.lines.length === 0) throw new BadRequestException("Depreciation run has no eligible schedule lines for the selected period.");
       const period = await tx.fiscalPeriod.findFirst({ where: { id: run.fiscalPeriodId, organizationId } });
       if (!period) throw new NotFoundException("Fiscal period not found.");
       if (period.status !== "OPEN") throw new BadRequestException("Depreciation cannot be posted into a closed or locked period.");
