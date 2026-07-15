@@ -611,10 +611,8 @@ export class FixedAssetService {
 
   private async ensureSchedules(organizationId: string, executor: Prisma.TransactionClient) {
     const assets = await executor.fixedAsset.findMany({ where: { organizationId, status: FixedAssetStatus.ACTIVE, scheduleLines: { none: {} } }, orderBy: { acquisitionDate: "asc" }, take: 500, select: { id: true, inServiceDate: true, baseAcquisitionCost: true, baseSalvageValue: true, usefulLifeMonths: true } });
-    for (const asset of assets) {
-      const lines = buildStraightLineSchedule({ inServiceDate: asset.inServiceDate, baseAcquisitionCost: toMoney(String(asset.baseAcquisitionCost)), baseSalvageValue: toMoney(String(asset.baseSalvageValue)), usefulLifeMonths: asset.usefulLifeMonths });
-      for (const line of lines) await executor.fixedAssetDepreciationScheduleLine.create({ data: { organizationId, fixedAssetId: asset.id, ...line, status: FixedAssetScheduleLineStatus.UNPOSTED } });
-    }
+    const rows = assets.flatMap((asset) => buildStraightLineSchedule({ inServiceDate: asset.inServiceDate, baseAcquisitionCost: toMoney(String(asset.baseAcquisitionCost)), baseSalvageValue: toMoney(String(asset.baseSalvageValue)), usefulLifeMonths: asset.usefulLifeMonths }).map((line) => ({ organizationId, fixedAssetId: asset.id, ...line, status: FixedAssetScheduleLineStatus.UNPOSTED })));
+    if (rows.length > 0) await executor.fixedAssetDepreciationScheduleLine.createMany({ data: rows });
   }
 
   private async assertCategory(organizationId: string, id: string, executor: Executor) {
