@@ -2,7 +2,13 @@
 
 [![Deployed E2E Smoke](https://github.com/Noone9029/Accounting-App/actions/workflows/deployed-e2e.yml/badge.svg)](https://github.com/Noone9029/Accounting-App/actions/workflows/deployed-e2e.yml)
 
-LedgerByte accounting SaaS foundation with a Next.js frontend, NestJS API, Prisma/PostgreSQL persistence, Redis-ready queue infrastructure, and package boundaries for accounting, ZATCA, PDF, shared types, and UI.
+LedgerByte is an accounting SaaS foundation with a Next.js frontend, NestJS API, Prisma/PostgreSQL persistence, Redis-ready queue infrastructure, and package boundaries for accounting, ZATCA, PDF, shared types, and UI.
+
+## Project snapshot
+
+LedgerByte is the primary product I am building as a founding developer. The repository demonstrates end-to-end product work across accounting workflows, tenant-aware business operations, reporting, documents, banking foundations, UI systems, proof-driven testing, and deployment preparation.
+
+The current deployment posture is **controlled beta and user testing**, not a production-launched SaaS. Production hosting, provider integrations, compliance certification, and customer-data readiness remain separate workstreams and are not implied by the local or beta evidence in this repository.
 
 This is an original implementation inspired by common accounting workflows. It does not copy Wafeq branding, proprietary text, logos, UI assets, or copyrighted material.
 
