@@ -65,7 +65,9 @@ describe("FixedAssetReportsService", () => {
         ]),
       },
       fixedAssetMovement: {
-        aggregate: jest.fn().mockResolvedValue({ _sum: { baseAmount: new Prisma.Decimal("10.0000") } }),
+        groupBy: jest.fn().mockResolvedValue([
+          { movementType: "DEPRECIATION", _sum: { baseAmount: new Prisma.Decimal("10.0000") } },
+        ]),
       },
     };
     const service = new FixedAssetReportsService(prisma as never);
@@ -74,6 +76,45 @@ describe("FixedAssetReportsService", () => {
     expect(prisma.fixedAsset.aggregate).toHaveBeenCalledWith({
       where: { organizationId: "org-1", status: { in: ["ACTIVE", "FULLY_DEPRECIATED"] } },
       _sum: { baseAcquisitionCost: true, accumulatedDepreciation: true, carryingAmount: true },
+    });
+  });
+
+  it("nets depreciation reversal movements when reconciling expense", async () => {
+    const prisma = {
+      fixedAssetCategory: {
+        findMany: jest.fn().mockResolvedValue([
+          { assetCostAccountId: "cost-account", accumulatedDepreciationAccountId: "accum-account", depreciationExpenseAccountId: "expense-account" },
+        ]),
+      },
+      fixedAsset: {
+        aggregate: jest.fn().mockResolvedValue({
+          _sum: {
+            baseAcquisitionCost: new Prisma.Decimal("100.0000"),
+            accumulatedDepreciation: new Prisma.Decimal("0.0000"),
+            carryingAmount: new Prisma.Decimal("100.0000"),
+          },
+        }),
+      },
+      journalLine: {
+        groupBy: jest.fn().mockResolvedValue([
+          { accountId: "cost-account", _sum: { debit: new Prisma.Decimal("100.0000"), credit: new Prisma.Decimal("0.0000") } },
+          { accountId: "accum-account", _sum: { debit: new Prisma.Decimal("0.0000"), credit: new Prisma.Decimal("0.0000") } },
+          { accountId: "expense-account", _sum: { debit: new Prisma.Decimal("0.0000"), credit: new Prisma.Decimal("0.0000") } },
+        ]),
+      },
+      fixedAssetMovement: {
+        groupBy: jest.fn().mockResolvedValue([
+          { movementType: "DEPRECIATION", _sum: { baseAmount: new Prisma.Decimal("10.0000") } },
+          { movementType: "DEPRECIATION_REVERSAL", _sum: { baseAmount: new Prisma.Decimal("10.0000") } },
+        ]),
+      },
+    };
+    const service = new FixedAssetReportsService(prisma as never);
+
+    await expect(service.reconciliation("org-1")).resolves.toMatchObject({
+      reconciled: true,
+      register: { depreciationExpense: "0" },
+      generalLedger: { depreciationExpense: "0" },
     });
   });
 });
