@@ -8,7 +8,7 @@ import { OrganizationContextGuard } from "../auth/guards/organization-context.gu
 import { PermissionGuard } from "../auth/guards/permission.guard";
 import type { AuthenticatedUser } from "../auth/auth.types";
 import { FixedAssetService } from "./fixed-asset.service";
-import { BillLineCapitalizationDto, CreateFixedAssetCategoryDto, CreateFixedAssetDto, DepreciationRunPreviewDto, DisposalDto, ExpectedVersionDto, FixedAssetListQueryDto, ManualCapitalizationDto, ScheduleQueryDto, UpdateFixedAssetCategoryDto, UpdateFixedAssetDto } from "./dto/fixed-asset.dto";
+import { BillLineCapitalizationDto, CreateFixedAssetCategoryDto, CreateFixedAssetDto, DepreciationRunPreviewDto, DisposalDto, DisposalReviewDto, ExpectedVersionDto, FixedAssetListQueryDto, ManualCapitalizationDto, ScheduleQueryDto, UpdateFixedAssetCategoryDto, UpdateFixedAssetDto } from "./dto/fixed-asset.dto";
 
 @Controller("fixed-assets")
 @UseGuards(JwtAuthGuard, OrganizationContextGuard, PermissionGuard)
@@ -80,6 +80,9 @@ export class FixedAssetController {
 
   @Post(":id/dispose") @RequirePermissions(PERMISSIONS.fixedAssets.dispose)
   dispose(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string, @Body() dto: DisposalDto) { return this.service.dispose(organizationId, user.id, id, dto); }
+
+  @Post(":id/disposal-review") @RequirePermissions(PERMISSIONS.fixedAssets.dispose)
+  reviewDisposal(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string, @Body() dto: DisposalReviewDto) { return this.service.reviewDisposal(organizationId, user.id, id, dto); }
 
   @Post(":id/write-off") @RequirePermissions(PERMISSIONS.fixedAssets.dispose)
   writeOff(@CurrentOrganizationId() organizationId: string, @CurrentUser() user: AuthenticatedUser, @Param("id") id: string, @Body() dto: DisposalDto) { return this.service.writeOff(organizationId, user.id, id, dto); }

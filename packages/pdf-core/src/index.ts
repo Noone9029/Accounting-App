@@ -847,6 +847,16 @@ export interface AccountingCloseEvidencePdfData {
   evidence: Array<{ id: string; evidenceType: string; reportType?: string | null; generatedDocumentId?: string | null; safeLabel: string; addedAt: string | Date }>;
 }
 
+export interface FixedAssetReportPdfData {
+  organization: PdfOrganization;
+  currency: string;
+  title: string;
+  generatedAt: string | Date;
+  columns: Array<{ label: string; width: number; align?: "left" | "right" | "center" }>;
+  reportRows: string[][];
+  reportSummary?: Array<[string, string]>;
+}
+
 export interface DocumentRenderSettings {
   title?: string;
   footerText?: string;
@@ -2086,6 +2096,16 @@ export async function renderAccountingCloseEvidencePdf(data: AccountingCloseEvid
     drawTable(doc, [{ label: "Check", width: 130 }, { label: "Status", width: 75 }, { label: "Severity", width: 75 }, { label: "Safe message", width: 200 }], data.checks.length ? data.checks.map((check) => [check.checkKey, check.status, check.severity, check.safeMessage]) : [["No readiness snapshot recorded.", "-", "-", "-"]], renderSettings);
     writeSectionTitle(doc, "Evidence", renderSettings);
     drawTable(doc, [{ label: "Evidence ID", width: 80 }, { label: "Report reference", width: 120 }, { label: "Document ref", width: 100 }, { label: "Safe label", width: 180 }], data.evidence.length ? data.evidence.map((item) => [item.id, item.reportType ?? item.evidenceType, item.generatedDocumentId ?? "-", item.safeLabel]) : [["No evidence recorded.", "-", "-", "-"]], renderSettings);
+  }, renderSettings);
+}
+
+export async function renderFixedAssetReportPdf(data: FixedAssetReportPdfData, settings?: DocumentRenderSettings): Promise<Buffer> {
+  const renderSettings = resolveSettings(settings, data.title);
+  return renderPdf((doc) => {
+    writeHeader(doc, data.organization, renderSettings, data.generatedAt);
+    writeReportMeta(doc, data.currency, data.reportSummary ?? [], data.generatedAt, renderSettings);
+    writeSectionTitle(doc, data.title, renderSettings);
+    drawTable(doc, data.columns, data.reportRows.length ? data.reportRows : [["No fixed-asset records."]], renderSettings);
   }, renderSettings);
 }
 

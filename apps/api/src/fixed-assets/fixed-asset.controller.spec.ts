@@ -13,6 +13,7 @@ describe("fixed-asset controller permission contracts", () => {
     expect(required(FixedAssetController.prototype, "reviewDepreciation")).toEqual([PERMISSIONS.fixedAssets.depreciationReview]);
     expect(required(FixedAssetController.prototype, "postDepreciation")).toEqual([PERMISSIONS.fixedAssets.depreciationPost]);
     expect(required(FixedAssetController.prototype, "dispose")).toEqual([PERMISSIONS.fixedAssets.dispose]);
+    expect(required(FixedAssetController.prototype, "reviewDisposal")).toEqual([PERMISSIONS.fixedAssets.dispose]);
   });
 
   it("protects category administration and fixed-asset reports", () => {

@@ -48,6 +48,18 @@ export function cashExpensePdfPath(expenseId: string): string {
   return `/cash-expenses/${encodeURIComponent(expenseId)}/pdf`;
 }
 
+export function fixedAssetRegisterPdfPath(): string {
+  return "/reports/fixed-assets/register.pdf";
+}
+
+export function fixedAssetDepreciationReportPdfPath(): string {
+  return "/reports/fixed-assets/depreciation.pdf";
+}
+
+export function fixedAssetReconciliationReportPdfPath(): string {
+  return "/reports/fixed-assets/reconciliation.pdf";
+}
+
 export function bankReconciliationReportPdfPath(reconciliationId: string): string {
   return `/bank-reconciliations/${encodeURIComponent(reconciliationId)}/report.pdf`;
 }

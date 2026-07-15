@@ -17,13 +17,25 @@ Most business endpoints require JWT auth and `x-organization-id`. Auth endpoints
 | Method | Path | Purpose | Auth | Org header | Status | Notes |
 | --- | --- | --- | --- | --- | --- | --- |
 | GET | `/fixed-assets` | List tenant fixed assets | Yes | Yes | Implemented | Requires `fixedAssets.read`; bounded register query. |
+| GET | `/fixed-assets/:id` | Read asset detail, schedule, movement, source, and dimension evidence | Yes | Yes | Implemented | Tenant-scoped composite lookup. |
 | POST | `/fixed-assets` | Create fixed-asset draft | Yes | Yes | Implemented | Requires `fixedAssets.manage`; no journal mutation until capitalization. |
+| PATCH | `/fixed-assets/:id` | Edit draft fixed asset | Yes | Yes | Implemented | Posted/reviewed assets are immutable. |
+| POST | `/fixed-assets/:id/review` | Review acquisition draft | Yes | Yes | Implemented | Moves a draft to ready-for-review. |
 | POST | `/fixed-assets/:id/capitalize` | Post reviewed manual acquisition | Yes | Yes | Implemented | Requires `fixedAssets.capitalize`; open-period and balanced-journal gates. |
 | POST | `/fixed-assets/from-bill-line` | Capitalize exact finalized purchase-bill line | Yes | Yes | Implemented | Source line and posted journal evidence are revalidated in-transaction. |
 | POST | `/fixed-assets/depreciation-runs/preview` | Build non-posting monthly preview | Yes | Yes | Implemented | Requires review permission and idempotency key. |
 | POST | `/fixed-assets/depreciation-runs/:id/post` | Post reviewed depreciation run | Yes | Yes | Implemented | Requires `fixedAssets.depreciation.post`; serializable asset-version claims. |
+| POST | `/fixed-assets/depreciation-runs/:id/reverse` | Reverse posted depreciation run | Yes | Yes | Implemented | Reverses the journal and reopens affected schedule lines. |
+| POST | `/fixed-assets/:id/disposal-review` | Review sale/write-off package | Yes | Yes | Implemented | Stores reviewer, timestamp, and reason before any disposal journal. |
 | POST | `/fixed-assets/:id/dispose` | Post sale disposal | Yes | Yes | Implemented | Requires `fixedAssets.dispose`; gain/loss and schedule stop evidence. |
+| POST | `/fixed-assets/:id/write-off` | Post zero-proceeds write-off | Yes | Yes | Implemented | Requires disposal review and zero proceeds. |
+| GET | `/reports/fixed-assets/register` | Register report | Yes | Yes | Implemented | Bounded tenant report. |
+| GET | `/reports/fixed-assets/depreciation` | Depreciation schedule report | Yes | Yes | Implemented | Bounded tenant report. |
+| GET | `/reports/fixed-assets/disposals` | Sale/write-off report | Yes | Yes | Implemented | Includes proceeds, gain/loss, reason, and journal evidence. |
 | GET | `/reports/fixed-assets/reconciliation` | Compare register and GL balances | Yes | Yes | Implemented | Requires `fixedAssets.reports`; bounded, read-only reconciliation. |
+| GET | `/reports/fixed-assets/register.pdf` | Register PDF | Yes | Yes | Implemented | Authenticated bounded PDF download. |
+| GET | `/reports/fixed-assets/depreciation.pdf` | Depreciation PDF | Yes | Yes | Implemented | Authenticated bounded PDF download. |
+| GET | `/reports/fixed-assets/reconciliation.pdf` | GL reconciliation PDF | Yes | Yes | Implemented | Authenticated bounded PDF download. |
 | POST | `/migration-toolkit/import-jobs` | Preview fixed-asset opening balances | Yes | Yes | Implemented | Use `FIXED_ASSET_OPENING_BALANCES`; reviewed commit posts opening evidence locally. |
 
 ## Auth
