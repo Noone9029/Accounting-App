@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowRight, ClipboardCheck, Plus, RefreshCw, Settings2 } from "lucide-react";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
@@ -70,13 +70,20 @@ export function FixedAssetsPage() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const requestId = useRef(0);
   const load = () => {
-    if (!organizationId) return;
+    const currentRequestId = ++requestId.current;
+    setAssets([]);
+    if (!organizationId) {
+      setLoading(false);
+      setError("");
+      return;
+    }
     setLoading(true); setError("");
     apiRequest<{ data: FixedAsset[]; total: number }>(`/fixed-assets?search=${encodeURIComponent(search)}`)
-      .then((result) => setAssets(result.data))
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : "Unable to load fixed assets."))
-      .finally(() => setLoading(false));
+      .then((result) => { if (currentRequestId === requestId.current) setAssets(result.data); })
+      .catch((e: unknown) => { if (currentRequestId === requestId.current) { setAssets([]); setError(e instanceof Error ? e.message : "Unable to load fixed assets."); } })
+      .finally(() => { if (currentRequestId === requestId.current) setLoading(false); });
   };
   useEffect(load, [organizationId, search]);
   const active = assets.filter((asset) => asset.status === "ACTIVE" || asset.status === "FULLY_DEPRECIATED").length;
