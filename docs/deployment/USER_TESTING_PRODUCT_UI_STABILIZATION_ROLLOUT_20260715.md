@@ -10,7 +10,7 @@ Environment: approved non-production burner user-testing deployment only
 - Reviewed feature head: `3bc71b2ea2aa141cb277bee4c4f2b056b3092c42`
 - Implementation merge commit: `536049e742bf5a7aae65c6378a9f964f94b6c45d`
 - Final `origin/main`: `536049e742bf5a7aae65c6378a9f964f94b6c45d`
-- Ancestor proof: the reviewed feature head is reachable from final `origin/main`
+- Merge proof: final `origin/main` contains squash merge commit `536049e742bf5a7aae65c6378a9f964f94b6c45d`; the pre-squash feature tip is recorded for review identity, while direct ancestry is not asserted because PR #356 used the repository's squash merge convention
 
 ## Stabilization scope
 

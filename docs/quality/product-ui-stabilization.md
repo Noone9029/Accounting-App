@@ -138,7 +138,7 @@ No native `window.confirm` or `window.prompt` call sites remain under `apps/web/
 
 ## Release and hosted proof
 
-The stabilization implementation was merged through [PR #356](https://github.com/Noone9029/Accounting-App/pull/356) as merge commit `536049e742bf5a7aae65c6378a9f964f94b6c45d`. The final feature head `3bc71b2ea2aa141cb277bee4c4f2b056b3092c42` is an ancestor of `origin/main`.
+The stabilization implementation was merged through [PR #356](https://github.com/Noone9029/Accounting-App/pull/356) as squash merge commit `536049e742bf5a7aae65c6378a9f964f94b6c45d`. The reviewed feature head was `3bc71b2ea2aa141cb277bee4c4f2b056b3092c42`; because the repository merge convention squashes PRs, the squash merge commit is the canonical final-main proof rather than a literal ancestry claim for the pre-squash branch tip.
 
 The approved burner deployment was built from that merged `origin/main` worktree. Web deployment `dpl_73bmZq7jbkNSymXXrCoJEKBq1mN2` is READY and serves `https://ledgerbyte-web-test.vercel.app`. API deployment `dpl_S89AFCJzBsxonMqWtE5zvHT5UjC1` is READY and serves `https://ledgerbyte-api-test.vercel.app`; no database migration, schema change, environment-variable change, provider change, or Supabase mutation was performed.
 
