@@ -19,6 +19,9 @@ import {
   supplierPaymentReceiptPdfPath,
   supplierRefundPdfPath,
   downloadAuthenticatedFile,
+  fixedAssetDepreciationReportPdfPath,
+  fixedAssetReconciliationReportPdfPath,
+  fixedAssetRegisterPdfPath,
 } from "./pdf-download";
 
 jest.mock("./api", () => ({
@@ -73,6 +76,12 @@ describe("PDF download helpers", () => {
   it("builds bank reconciliation report download paths", () => {
     expect(bankReconciliationReportPdfPath("rec 1")).toBe("/bank-reconciliations/rec%201/report.pdf");
     expect(bankReconciliationReportCsvPath("rec 1")).toBe("/bank-reconciliations/rec%201/report.csv");
+  });
+
+  it("builds fixed-asset report download paths", () => {
+    expect(fixedAssetRegisterPdfPath()).toBe("/reports/fixed-assets/register.pdf");
+    expect(fixedAssetDepreciationReportPdfPath()).toBe("/reports/fixed-assets/depreciation.pdf");
+    expect(fixedAssetReconciliationReportPdfPath()).toBe("/reports/fixed-assets/reconciliation.pdf");
   });
 
   it("builds encoded close evidence JSON, CSV, and PDF download paths", () => {

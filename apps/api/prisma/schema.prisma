@@ -3145,6 +3145,9 @@ model FixedAsset {
   projectId                  String?                      @db.Uuid
   capitalizationJournalEntryId String?                    @db.Uuid
   disposalJournalEntryId     String?                      @db.Uuid
+  disposalReviewedByUserId   String?                      @db.Uuid
+  disposalReviewedAt         DateTime?
+  disposalReviewReason       String?
   version                    Int                          @default(1)
   createdByUserId            String?                      @db.Uuid
   updatedByUserId            String?                      @db.Uuid
@@ -3273,6 +3276,9 @@ model FixedAssetMovement {
   movementType       FixedAssetMovementType
   effectiveDate      DateTime
   baseAmount         Decimal                 @db.Decimal(20, 4)
+  proceedsAmount     Decimal?                @db.Decimal(20, 4)
+  gainAmount         Decimal?                @db.Decimal(20, 4)
+  lossAmount         Decimal?                @db.Decimal(20, 4)
   journalEntryId     String?                 @db.Uuid
   reversedMovementId String?                 @db.Uuid
   reason             String?

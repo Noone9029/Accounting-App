@@ -2,6 +2,7 @@ import { Decimal } from "decimal.js";
 import {
   buildStraightLineSchedule,
   calculateDisposal,
+  reopenedScheduleLineState,
   validateFixedAssetInput,
 } from "./fixed-asset-rules";
 
@@ -65,5 +66,9 @@ describe("fixed asset accounting rules", () => {
         usefulLifeMonths: 0,
       }),
     ).toThrow("Salvage value cannot exceed acquisition cost.");
+  });
+
+  it("reopens the original schedule line after depreciation reversal", () => {
+    expect(reopenedScheduleLineState()).toEqual({ status: "UNPOSTED", journalEntryId: null, postedAt: null });
   });
 });

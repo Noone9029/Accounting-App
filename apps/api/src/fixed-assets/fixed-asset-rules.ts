@@ -90,6 +90,10 @@ export function calculateDisposal(input: {
   };
 }
 
+export function reopenedScheduleLineState(): { status: "UNPOSTED"; journalEntryId: null; postedAt: null } {
+  return { status: "UNPOSTED", journalEntryId: null, postedAt: null };
+}
+
 function money(value: Decimal): Decimal {
   return value.toDecimalPlaces(MONEY_SCALE, Decimal.ROUND_HALF_UP);
 }

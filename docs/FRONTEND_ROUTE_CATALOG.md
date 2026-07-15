@@ -35,8 +35,13 @@ Route QA polish pass on 2026-05-15:
 | `/password-reset/confirm` | Password reset confirmation. | Token from URL. | Set new password with reset token. | Implemented | No session invalidation UI. |
 | `/organization/setup` | Create/select organization setup. | Auth user/org state. | Create organization. | Implemented | Rich onboarding checklist missing. |
 | `/fixed-assets` | Tenant-scoped fixed-asset register. | Fixed assets and categories. | Search, drill into detail, start draft asset. | Implemented | Full capitalization/disposal dialogs remain a follow-up UI slice. |
-| `/fixed-assets/[id]` | Fixed-asset accounting snapshot. | Asset, source, movement, and schedule evidence. | Open schedule and register links. | Implemented | Posting action rail remains API-first in this slice. |
+| `/fixed-assets/new` | Draft fixed-asset entry. | Categories and accounting dimensions. | Create draft for review. | Implemented | Capitalization action rail remains a follow-up UI slice. |
+| `/fixed-assets/[id]` | Fixed-asset accounting snapshot. | Asset, source, movement, dimension, and schedule evidence. | Open schedule, register, and draft edit links. | Implemented | Disposal/review action rail remains a follow-up UI slice. |
+| `/fixed-assets/[id]/edit` | Draft fixed-asset edit form. | Draft asset detail. | Save validated draft changes. | Implemented | Only draft records are editable. |
+| `/fixed-assets/[id]/schedule` | Asset depreciation schedule. | Schedule lines and movements. | Filter schedule evidence. | Implemented | Posting controls remain on depreciation workspace. |
 | `/fixed-assets/depreciation-runs` | Monthly depreciation review queue. | Depreciation runs. | Open preview/detail. | Implemented | Post/reverse controls remain a follow-up UI slice. |
+| `/fixed-assets/depreciation-runs/new` | Fiscal-period depreciation preview. | Open fiscal periods. | Select period and preview run. | Implemented | Run detail actions remain a follow-up UI slice. |
+| `/fixed-assets/depreciation-runs/[id]` | Depreciation run review. | Run lines and journal evidence. | Review, post, or reverse. | Implemented | — |
 | `/reports/fixed-assets` | Register and GL reconciliation reports. | Fixed-asset report endpoints. | Read-only review. | Implemented | CSV download controls remain a follow-up UI slice. |
 
 ## Core App

@@ -111,3 +111,7 @@ export class DisposalDto {
   @IsOptional() @IsUUID() proceedsAccountId?: string;
   @IsString() @MaxLength(240) reason!: string;
 }
+
+export class DisposalReviewDto {
+  @IsString() @MaxLength(240) reason!: string;
+}

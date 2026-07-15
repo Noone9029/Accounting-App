@@ -18,7 +18,7 @@ import { AuditLogService } from "../audit-log/audit-log.service";
 import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
 import { PrismaService } from "../prisma/prisma.service";
-import { buildStraightLineSchedule, calculateDisposal, validateFixedAssetInput } from "./fixed-asset-rules";
+import { buildStraightLineSchedule, calculateDisposal, reopenedScheduleLineState, validateFixedAssetInput } from "./fixed-asset-rules";
 import {
   BillLineCapitalizationDto,
   CreateFixedAssetCategoryDto,
@@ -27,6 +27,7 @@ import {
   ManualCapitalizationDto,
   DepreciationRunPreviewDto,
   DisposalDto,
+  DisposalReviewDto,
   ExpectedVersionDto,
   ScheduleQueryDto,
   UpdateFixedAssetCategoryDto,
@@ -406,7 +407,7 @@ export class FixedAssetService {
 
   async movements(organizationId: string, id: string) {
     const movements = await this.prisma.fixedAssetMovement.findMany({ where: { organizationId, fixedAssetId: id }, orderBy: { effectiveDate: "asc" }, take: 200 });
-    return movements.map((movement) => ({ ...movement, baseAmount: String(movement.baseAmount) }));
+    return movements.map((movement) => this.toMovement(movement));
   }
 
   async listDepreciationRuns(organizationId: string) {
@@ -507,7 +508,7 @@ export class FixedAssetService {
         const accumulated = toMoney(String(line.fixedAsset.accumulatedDepreciation)).minus(line.depreciationAmount);
         const carrying = toMoney(String(line.fixedAsset.baseAcquisitionCost)).minus(accumulated);
         await tx.fixedAsset.update({ where: { id: line.fixedAssetId }, data: { accumulatedDepreciation: accumulated, carryingAmount: carrying, status: FixedAssetStatus.ACTIVE, fullyDepreciatedAt: null, version: { increment: 1 } } });
-        await tx.fixedAssetDepreciationScheduleLine.update({ where: { id: line.scheduleLineId }, data: { status: FixedAssetScheduleLineStatus.REVERSED, journalEntryId: reversal.id } });
+        await tx.fixedAssetDepreciationScheduleLine.update({ where: { id: line.scheduleLineId }, data: reopenedScheduleLineState() });
         await tx.fixedAssetMovement.create({ data: { organizationId, fixedAssetId: line.fixedAssetId, movementType: FixedAssetMovementType.DEPRECIATION_REVERSAL, effectiveDate: new Date(), baseAmount: line.depreciationAmount, journalEntryId: reversal.id, reversedMovementId: line.scheduleLineId, createdByUserId: actorUserId, postedAt: new Date() } });
       }
       const reversed = await tx.fixedAssetDepreciationRun.update({ where: { id }, data: { status: FixedAssetDepreciationRunStatus.REVERSED, reversedAt: new Date(), version: { increment: 1 } }, include: { _count: { select: { lines: true } } } });
@@ -518,6 +519,19 @@ export class FixedAssetService {
 
   async dispose(organizationId: string, actorUserId: string, id: string, dto: DisposalDto) {
     return this.disposeInternal(organizationId, actorUserId, id, dto, FixedAssetMovementType.DISPOSAL, FixedAssetStatus.DISPOSED);
+  }
+
+  async reviewDisposal(organizationId: string, actorUserId: string, id: string, dto: DisposalReviewDto) {
+    const reason = dto.reason.trim();
+    if (!reason) throw new BadRequestException("Disposal review reason is required.");
+    return this.prisma.$transaction(async (tx) => {
+      const asset = await tx.fixedAsset.findFirst({ where: { id, organizationId }, include: { category: { select: { id: true, code: true, name: true } } } });
+      if (!asset) throw new NotFoundException("Fixed asset not found.");
+      if (asset.status !== FixedAssetStatus.ACTIVE && asset.status !== FixedAssetStatus.FULLY_DEPRECIATED) throw new ConflictException("Only active fixed assets can be reviewed for disposal.");
+      const reviewed = await tx.fixedAsset.update({ where: { id }, data: { disposalReviewedByUserId: actorUserId, disposalReviewedAt: new Date(), disposalReviewReason: reason, updatedByUserId: actorUserId }, include: { category: { select: { id: true, code: true, name: true } } } });
+      await this.auditLogService.log({ organizationId, actorUserId, action: "REVIEW_DISPOSAL", entityType: "FixedAsset", entityId: id, before: this.toAsset(asset), after: this.toAsset(reviewed) }, tx);
+      return this.toAsset(reviewed);
+    });
   }
 
   async writeOff(organizationId: string, actorUserId: string, id: string, dto: Omit<DisposalDto, "proceedsAccountId">) {
@@ -537,7 +551,7 @@ export class FixedAssetService {
       if (!original) throw new ConflictException("Disposal journal is already reversed or unavailable.");
       const reversal = await this.createPostedJournal(organizationId, actorUserId, { entryDate: new Date(), description: `Reversal of ${original.entryNumber}`, reference: original.entryNumber, currency: original.currency, lines: original.lines.map((line) => this.line(line.accountId, String(line.credit), String(line.debit), `Reversal: ${line.description ?? original.description}`, line.costCenterId, line.projectId)) }, tx);
       await tx.journalEntry.update({ where: { id: original.id }, data: { status: JournalEntryStatus.REVERSED } });
-      const restored = await tx.fixedAsset.update({ where: { id }, data: { status: asset.carryingAmount.eq(asset.baseSalvageValue) ? FixedAssetStatus.FULLY_DEPRECIATED : FixedAssetStatus.ACTIVE, disposalJournalEntryId: null, disposedAt: null, writtenOffAt: null, version: { increment: 1 } }, include: { category: { select: { id: true, code: true, name: true } } } });
+      const restored = await tx.fixedAsset.update({ where: { id }, data: { status: asset.carryingAmount.eq(asset.baseSalvageValue) ? FixedAssetStatus.FULLY_DEPRECIATED : FixedAssetStatus.ACTIVE, disposalJournalEntryId: null, disposalReviewedByUserId: null, disposalReviewedAt: null, disposalReviewReason: null, disposedAt: null, writtenOffAt: null, version: { increment: 1 } }, include: { category: { select: { id: true, code: true, name: true } } } });
       await tx.fixedAssetMovement.create({ data: { organizationId, fixedAssetId: id, movementType: FixedAssetMovementType.DISPOSAL_REVERSAL, effectiveDate: new Date(), baseAmount: asset.carryingAmount, journalEntryId: reversal.id, createdByUserId: actorUserId, postedAt: new Date() } });
       await this.auditLogService.log({ organizationId, actorUserId, action: "REVERSE", entityType: "FixedAsset", entityId: id, after: { status: restored.status, reversalJournalEntryId: reversal.id } }, tx);
       return this.toAsset(restored);
@@ -549,6 +563,7 @@ export class FixedAssetService {
       const asset = await tx.fixedAsset.findFirst({ where: { id, organizationId }, include: { category: true } });
       if (!asset) throw new NotFoundException("Fixed asset not found.");
       if (asset.status !== FixedAssetStatus.ACTIVE && asset.status !== FixedAssetStatus.FULLY_DEPRECIATED) throw new ConflictException("Only active fixed assets can be disposed.");
+      if (!asset.disposalReviewedAt) throw new ConflictException("Disposal must be reviewed before posting.");
       const disposalDate = this.parseDate(dto.disposalDate, "Disposal date");
       await this.fiscalPeriodGuardService.assertPostingDateAllowed(organizationId, disposalDate, tx);
       const proceeds = toMoney(dto.proceeds);
@@ -565,7 +580,7 @@ export class FixedAssetService {
       const journal = await this.createPostedJournal(organizationId, actorUserId, { entryDate: disposalDate, description: `${movementType === FixedAssetMovementType.DISPOSAL ? "Sale" : "Write-off"} of fixed asset ${asset.assetNumber}`, reference: asset.assetNumber, currency: asset.baseCurrencyCode, lines }, tx);
       await tx.fixedAssetDepreciationScheduleLine.updateMany({ where: { organizationId, fixedAssetId: id, status: FixedAssetScheduleLineStatus.UNPOSTED, depreciationDate: { gte: disposalDate } }, data: { status: FixedAssetScheduleLineStatus.REVERSED } });
       const updated = await tx.fixedAsset.update({ where: { id }, data: { status, disposalJournalEntryId: journal.id, disposedAt: movementType === FixedAssetMovementType.DISPOSAL ? disposalDate : null, writtenOffAt: movementType === FixedAssetMovementType.WRITE_OFF ? disposalDate : null, version: { increment: 1 } }, include: { category: { select: { id: true, code: true, name: true } } } });
-      await tx.fixedAssetMovement.create({ data: { organizationId, fixedAssetId: id, movementType, effectiveDate: disposalDate, baseAmount: asset.carryingAmount, journalEntryId: journal.id, reason: dto.reason, createdByUserId: actorUserId, postedAt: new Date() } });
+      await tx.fixedAssetMovement.create({ data: { organizationId, fixedAssetId: id, movementType, effectiveDate: disposalDate, baseAmount: asset.carryingAmount, proceedsAmount: proceeds, gainAmount: amounts.gain, lossAmount: amounts.loss, journalEntryId: journal.id, reason: dto.reason, createdByUserId: actorUserId, postedAt: new Date() } });
       await this.auditLogService.log({ organizationId, actorUserId, action: movementType === FixedAssetMovementType.DISPOSAL ? "DISPOSE" : "WRITE_OFF", entityType: "FixedAsset", entityId: id, after: { status, journalEntryId: journal.id, carryingAmount: amounts.carryingAmount, proceeds: String(proceeds), gain: amounts.gain, loss: amounts.loss } }, tx);
       return { ...this.toAsset(updated), disposal: amounts, journalEntryId: journal.id };
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
@@ -649,7 +664,11 @@ export class FixedAssetService {
   }
 
   private toAsset(asset: any) {
-    return { ...asset, baseAcquisitionCost: String(asset.baseAcquisitionCost), baseSalvageValue: String(asset.baseSalvageValue), accumulatedDepreciation: String(asset.accumulatedDepreciation), carryingAmount: String(asset.carryingAmount), transactionAcquisitionCost: asset.transactionAcquisitionCost == null ? null : String(asset.transactionAcquisitionCost), exchangeRate: asset.exchangeRate == null ? null : String(asset.exchangeRate), sourceLinks: asset.sourceLinks?.map((link: any) => ({ ...link, capitalizedBaseAmount: String(link.capitalizedBaseAmount), transactionAmount: link.transactionAmount == null ? null : String(link.transactionAmount) })) ?? undefined, scheduleLines: asset.scheduleLines?.map((line: any) => this.toScheduleLine(line)) ?? undefined, movements: asset.movements?.map((movement: any) => ({ ...movement, baseAmount: String(movement.baseAmount) })) ?? undefined };
+    return { ...asset, baseAcquisitionCost: String(asset.baseAcquisitionCost), baseSalvageValue: String(asset.baseSalvageValue), accumulatedDepreciation: String(asset.accumulatedDepreciation), carryingAmount: String(asset.carryingAmount), transactionAcquisitionCost: asset.transactionAcquisitionCost == null ? null : String(asset.transactionAcquisitionCost), exchangeRate: asset.exchangeRate == null ? null : String(asset.exchangeRate), sourceLinks: asset.sourceLinks?.map((link: any) => ({ ...link, capitalizedBaseAmount: String(link.capitalizedBaseAmount), transactionAmount: link.transactionAmount == null ? null : String(link.transactionAmount) })) ?? undefined, scheduleLines: asset.scheduleLines?.map((line: any) => this.toScheduleLine(line)) ?? undefined, movements: asset.movements?.map((movement: any) => this.toMovement(movement)) ?? undefined };
+  }
+
+  private toMovement(movement: any) {
+    return { ...movement, baseAmount: String(movement.baseAmount), proceedsAmount: movement.proceedsAmount == null ? null : String(movement.proceedsAmount), gainAmount: movement.gainAmount == null ? null : String(movement.gainAmount), lossAmount: movement.lossAmount == null ? null : String(movement.lossAmount) };
   }
 
   private toScheduleLine(line: any) {

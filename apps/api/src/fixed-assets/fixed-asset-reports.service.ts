@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { FixedAssetMovementType, Prisma } from "@prisma/client";
+import { renderFixedAssetReportPdf } from "@ledgerbyte/pdf-core";
 import { PrismaService } from "../prisma/prisma.service";
 
 @Injectable()
@@ -18,7 +19,73 @@ export class FixedAssetReportsService {
 
   async disposals(organizationId: string) {
     const movements = await this.prisma.fixedAssetMovement.findMany({ where: { organizationId, movementType: { in: [FixedAssetMovementType.DISPOSAL, FixedAssetMovementType.WRITE_OFF] } }, orderBy: { effectiveDate: "desc" }, take: 1000, include: { fixedAsset: { select: { id: true, assetNumber: true, name: true, baseAcquisitionCost: true, accumulatedDepreciation: true, carryingAmount: true, category: { select: { code: true, name: true } } } } } });
-    return movements.map((movement) => ({ assetId: movement.fixedAssetId, assetNumber: movement.fixedAsset.assetNumber, assetName: movement.fixedAsset.name, category: movement.fixedAsset.category, disposalDate: movement.effectiveDate, cost: String(movement.fixedAsset.baseAcquisitionCost), accumulatedDepreciation: String(movement.fixedAsset.accumulatedDepreciation), carryingAmount: String(movement.baseAmount), movementType: movement.movementType, reason: movement.reason, journalEntryId: movement.journalEntryId }));
+    return movements.map((movement) => ({ assetId: movement.fixedAssetId, assetNumber: movement.fixedAsset.assetNumber, assetName: movement.fixedAsset.name, category: movement.fixedAsset.category, disposalDate: movement.effectiveDate, cost: String(movement.fixedAsset.baseAcquisitionCost), accumulatedDepreciation: String(movement.fixedAsset.accumulatedDepreciation), carryingAmount: String(movement.baseAmount), proceeds: movement.proceedsAmount === null ? "0.0000" : String(movement.proceedsAmount), gain: movement.gainAmount === null ? "0.0000" : String(movement.gainAmount), loss: movement.lossAmount === null ? "0.0000" : String(movement.lossAmount), movementType: movement.movementType, reason: movement.reason, journalEntryId: movement.journalEntryId }));
+  }
+
+  async registerPdf(organizationId: string, categoryId?: string) {
+    const rows = await this.register(organizationId, categoryId);
+    const organization = await this.organizationPdf(organizationId);
+    return renderFixedAssetReportPdf({
+      organization,
+      currency: organization.baseCurrency,
+      title: "Fixed Asset Register",
+      generatedAt: new Date(),
+      columns: [
+        { label: "Asset", width: 70 },
+        { label: "Name", width: 105 },
+        { label: "Category", width: 85 },
+        { label: "Cost", width: 80, align: "right" },
+        { label: "Accum. dep.", width: 80, align: "right" },
+        { label: "Carrying", width: 79, align: "right" },
+      ],
+      reportRows: rows.map((row) => [row.assetNumber, row.name, row.category?.code ?? "-", row.originalCost, row.accumulatedDepreciation, row.carryingAmount]),
+      reportSummary: [["Rows", String(rows.length)]],
+    }, { title: "Fixed Asset Register" });
+  }
+
+  async depreciationPdf(organizationId: string, from?: string, to?: string) {
+    const rows = await this.depreciation(organizationId, from, to);
+    const organization = await this.organizationPdf(organizationId);
+    return renderFixedAssetReportPdf({
+      organization,
+      currency: organization.baseCurrency,
+      title: "Fixed Asset Depreciation Schedule",
+      generatedAt: new Date(),
+      columns: [
+        { label: "Period", width: 55 },
+        { label: "Asset", width: 75 },
+        { label: "Category", width: 80 },
+        { label: "Opening", width: 75, align: "right" },
+        { label: "Depreciation", width: 85, align: "right" },
+        { label: "Closing", width: 75, align: "right" },
+        { label: "Status", width: 54 },
+      ],
+      reportRows: rows.map((row) => [row.period, row.assetNumber, row.category.code, row.openingCarryingAmount, row.depreciationAmount, row.closingCarryingAmount, row.status]),
+      reportSummary: [["Rows", String(rows.length)]],
+    }, { title: "Fixed Asset Depreciation Schedule" });
+  }
+
+  async reconciliationPdf(organizationId: string) {
+    const report = await this.reconciliation(organizationId);
+    const organization = await this.organizationPdf(organizationId);
+    return renderFixedAssetReportPdf({
+      organization,
+      currency: organization.baseCurrency,
+      title: "Fixed Asset GL Reconciliation",
+      generatedAt: new Date(),
+      columns: [
+        { label: "Measure", width: 180 },
+        { label: "Register", width: 105, align: "right" },
+        { label: "General ledger", width: 105, align: "right" },
+        { label: "Difference", width: 109, align: "right" },
+      ],
+      reportRows: [
+        ["Fixed-asset cost", report.register.cost, report.generalLedger.fixedAssetCost, report.differences.cost],
+        ["Accumulated depreciation", report.register.accumulatedDepreciation, report.generalLedger.accumulatedDepreciation, report.differences.accumulatedDepreciation],
+        ["Depreciation expense", report.register.depreciationExpense, report.generalLedger.depreciationExpense, report.differences.depreciationExpense],
+      ],
+      reportSummary: [["Status", report.reconciled ? "Reconciled" : "Difference requires review"]],
+    }, { title: "Fixed Asset GL Reconciliation" });
   }
 
   async reconciliation(organizationId: string) {
@@ -42,7 +109,7 @@ export class FixedAssetReportsService {
     const depreciationRuns = depreciationMovements._sum.baseAmount ?? new Prisma.Decimal(0);
     const glExpense = sumNet(expenseAccounts, true);
     return {
-      register: { cost: String(registerCost), accumulatedDepreciation: String(registerAccumulated), carryingAmount: String(registerCarrying) },
+      register: { cost: String(registerCost), accumulatedDepreciation: String(registerAccumulated), carryingAmount: String(registerCarrying), depreciationExpense: String(depreciationRuns) },
       generalLedger: { fixedAssetCost: String(glCost), accumulatedDepreciation: String(glAccumulated), depreciationExpense: String(glExpense) },
       differences: { cost: String(registerCost.minus(glCost)), accumulatedDepreciation: String(registerAccumulated.minus(glAccumulated)), depreciationExpense: String(depreciationRuns.minus(glExpense)) },
       reconciled: registerCost.eq(glCost) && registerAccumulated.eq(glAccumulated) && depreciationRuns.eq(glExpense),
@@ -63,5 +130,11 @@ export class FixedAssetReportsService {
     const raw = value === null || value === undefined ? "" : typeof value === "object" ? JSON.stringify(value) : String(value);
     const safe = /^[=+\-@]/.test(raw) ? `'${raw}` : raw;
     return /[",\n]/.test(safe) ? `"${safe.replaceAll('"', '""')}"` : safe;
+  }
+
+  private async organizationPdf(organizationId: string) {
+    const organization = await this.prisma.organization.findUnique({ where: { id: organizationId }, select: { id: true, name: true, legalName: true, taxNumber: true, countryCode: true, baseCurrency: true } });
+    if (!organization) throw new Error("Organization not found.");
+    return organization;
   }
 }

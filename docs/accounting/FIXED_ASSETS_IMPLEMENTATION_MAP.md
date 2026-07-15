@@ -3,7 +3,7 @@
 ## Existing seams
 
 - `apps/api/prisma/schema.prisma` owns tenant-scoped accounting, dimensions, purchase bills, journals, fiscal periods, imports, and close persistence.
-- `AccountingService.createDraftInTransaction` validates balanced lines, account/dimension ownership, base-currency posting context, and audit evidence. Fixed-asset posting will use the same journal line shape and number sequence inside the authoritative transaction; it will not introduce a second journal model.
+- Fixed-asset posting uses the existing `JournalEntry`/`JournalLine` persistence shape, number sequence, fiscal-period guard, and audit path inside the authoritative transaction; the remaining architectural follow-up is to consolidate the fixed-asset journal helper with the public accounting posting service.
 - `FiscalPeriodGuardService.assertPostingDateAllowed` is the posting-period gate and will be called with the transaction executor for acquisitions, depreciation, and disposals.
 - `PurchaseBillLine` stores exact base `taxableAmount` and transaction amounts. `buildPurchaseBillJournalLines` proves the posted line debit and separates recoverable tax; capitalization will link to the posted bill journal and reclassify only the selected line's proven base amount.
 - `AuditLogService.log` is the existing tenant-scoped audit path. Fixed-asset mutations will write safe IDs and accounting evidence in the same transaction.
@@ -32,4 +32,5 @@ Cost model only; straight-line monthly depreciation; `START_NEXT_MONTH`; exact d
 - Posted acquisition, depreciation, and disposal history is immutable; corrections use existing journal reversal semantics.
 - Draft/reviewed states never silently post. Posting locks the asset/source/run evidence, rechecks the open period and source amounts, and is idempotent.
 - No source purchase document is modified; source line/journal evidence remains linked permanently.
+- Sale and write-off posting requires an explicit tenant-scoped disposal review with reviewer, timestamp, and reason; reversal clears stale review state and preserves the reversal audit trail.
 - The protected root checkout and `BANK_STATEMENT_IMPORT_PROOF_REVIEW.md` are outside this worktree and are never touched.
