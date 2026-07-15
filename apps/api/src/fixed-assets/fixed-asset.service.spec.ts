@@ -158,6 +158,9 @@ describe("FixedAssetService foundation", () => {
       where: { id: "asset-1", organizationId: "org-1", version: 7, status: { in: ["ACTIVE", "FULLY_DEPRECIATED"] } },
       data: { accumulatedDepreciation: expect.anything(), carryingAmount: expect.anything(), status: "ACTIVE", fullyDepreciatedAt: null, version: { increment: 1 } },
     });
+    const updateData = prisma.fixedAsset.updateMany.mock.calls[0][0].data;
+    expect(String(updateData.accumulatedDepreciation)).toBe("30");
+    expect(String(updateData.carryingAmount)).toBe("70");
     expect(prisma.fixedAssetDepreciationScheduleLine.update).toHaveBeenCalledTimes(2);
     expect(prisma.fixedAssetMovement.create).toHaveBeenCalledTimes(2);
   });
