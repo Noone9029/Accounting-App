@@ -97,7 +97,7 @@ export class FixedAssetReportsService {
     const [registerTotals, glLines, depreciationMovements] = await Promise.all([
       this.prisma.fixedAsset.aggregate({ where: { organizationId, status: { in: ["ACTIVE", "FULLY_DEPRECIATED"] } }, _sum: { baseAcquisitionCost: true, accumulatedDepreciation: true, carryingAmount: true } }),
       accounts.length ? this.prisma.journalLine.groupBy({ by: ["accountId"], where: { organizationId, accountId: { in: accounts }, journalEntry: { status: { in: ["POSTED", "REVERSED"] } } }, _sum: { debit: true, credit: true } }) : Promise.resolve([]),
-      this.prisma.fixedAssetMovement.aggregate({ where: { organizationId, movementType: FixedAssetMovementType.DEPRECIATION }, _sum: { baseAmount: true } }),
+      this.prisma.fixedAssetMovement.groupBy({ by: ["movementType"], where: { organizationId, movementType: { in: [FixedAssetMovementType.DEPRECIATION, FixedAssetMovementType.DEPRECIATION_REVERSAL] } }, _sum: { baseAmount: true } }),
     ]);
     const glByAccount = new Map(glLines.map((line) => [line.accountId, { debit: line._sum.debit ?? new Prisma.Decimal(0), credit: line._sum.credit ?? new Prisma.Decimal(0) }]));
     const sumNet = (ids: string[], debitPositive: boolean) => ids.reduce((total, id) => { const line = glByAccount.get(id); if (!line) return total; return total.plus(debitPositive ? line.debit.minus(line.credit) : line.credit.minus(line.debit)); }, new Prisma.Decimal(0));
@@ -106,7 +106,10 @@ export class FixedAssetReportsService {
     const registerCarrying = registerTotals._sum.carryingAmount ?? new Prisma.Decimal(0);
     const glCost = sumNet(costAccounts, true);
     const glAccumulated = sumNet(accumulatedAccounts, false);
-    const depreciationRuns = depreciationMovements._sum.baseAmount ?? new Prisma.Decimal(0);
+    const depreciationRuns = depreciationMovements.reduce((total, movement) => {
+      const amount = movement._sum.baseAmount ?? new Prisma.Decimal(0);
+      return total.plus(movement.movementType === FixedAssetMovementType.DEPRECIATION ? amount : amount.negated());
+    }, new Prisma.Decimal(0));
     const glExpense = sumNet(expenseAccounts, true);
     return {
       register: { cost: String(registerCost), accumulatedDepreciation: String(registerAccumulated), carryingAmount: String(registerCarrying), depreciationExpense: String(depreciationRuns) },
