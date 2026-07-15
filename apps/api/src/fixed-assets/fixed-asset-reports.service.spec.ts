@@ -116,5 +116,10 @@ describe("FixedAssetReportsService", () => {
       register: { depreciationExpense: "0" },
       generalLedger: { depreciationExpense: "0" },
     });
+    expect(prisma.fixedAssetMovement.groupBy).toHaveBeenCalledWith({
+      by: ["movementType"],
+      where: { organizationId: "org-1", movementType: { in: ["DEPRECIATION", "DEPRECIATION_REVERSAL"] } },
+      _sum: { baseAmount: true },
+    });
   });
 });
