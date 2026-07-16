@@ -47,8 +47,8 @@ The complete scoped diff was reviewed for credentials, SMTP secrets, authorizati
 
 - Approved baseline: `3f5c31bc0ad96b3af2deba1348f55b7cead84888`.
 - Branch: `codex/sme-document-delivery-03`.
-- Durable isolated worktree currently has the implementation/docs changes uncommitted at `b9a21459`, because the managed filesystem denied Git's administrative index lock for the sibling worktree.
-- A temporary writable clone produced local commits `741b6fc6`, `bea607b0`, and `0f28eb40`, but GitHub publication was not possible: the stored GitHub token is invalid and Git push has no available credentials. No draft PR URL or remote SHA is claimed.
+- Durable isolated worktree is clean at `fb6f3273` after the small implementation, lifecycle, and documentation commits.
+- GitHub publication remains blocked: the stored GitHub token is invalid and Git push has no available credentials. No draft PR URL or remote SHA is claimed.
 - No merge, deployment, hosted migration/proof, real SMTP/provider call, production credential/data access, mailbox access, accounting mutation, ZATCA, UAE FTA, or Peppol behavior was performed.
 
 Remaining gates are the real local PostgreSQL race proof and cleanup/stop evidence, Git administrative commit/push capability, final SHA capture, and draft PR creation. Production provider rollout, hosted proof, deployment, and merge remain out of scope.
