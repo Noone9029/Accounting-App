@@ -9,6 +9,7 @@ import { UaeEinvoiceReadinessPanel } from "@/components/compliance/uae-einvoice-
 import { RelatedDeliveryNotesPanel } from "@/components/delivery-notes/related-delivery-notes-panel";
 import { SourceDocumentGuidance } from "@/components/documents/document-guidance";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
+import { InvoiceEmailDeliveryPanel } from "@/components/sales-invoices/invoice-email-delivery-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { LedgerActionDialog } from "@/components/ui-ledger/action-dialog";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
@@ -586,6 +587,7 @@ export default function SalesInvoiceDetailPage() {
   const canCreateCustomerPayment = can(PERMISSIONS.customerPayments.create);
   const canCreateCreditNote = can(PERMISSIONS.creditNotes.create);
   const canCreateStockIssue = can(PERMISSIONS.salesStockIssue.create);
+  const canSendInvoice = can(PERMISSIONS.salesInvoices.send);
   const canViewZatca = showKsaZatca && can(PERMISSIONS.zatca.view);
   const canGenerateZatca = showKsaZatca && can(PERMISSIONS.zatca.generateXml);
   const canRunZatcaChecks = showKsaZatca && can(PERMISSIONS.zatca.runChecks);
@@ -685,6 +687,8 @@ export default function SalesInvoiceDetailPage() {
       />
 
           <AttachmentPanel linkedEntityType="SALES_INVOICE" linkedEntityId={invoice.id} />
+
+          <InvoiceEmailDeliveryPanel invoice={invoice} organizationId={organizationId} canSend={canSendInvoice} />
 
           <RelatedDeliveryNotesPanel sourceKind="invoice" deliveryNotes={relatedDeliveryNotes} loading={relatedDeliveryNotesLoading} />
 

@@ -46,7 +46,7 @@ import { UpdateSalesInvoiceDto } from "./dto/update-sales-invoice.dto";
 import { buildSalesInvoiceJournalLines } from "./sales-invoice-accounting";
 
 const salesInvoiceInclude = {
-  customer: { select: { id: true, name: true, displayName: true, type: true, taxNumber: true } },
+  customer: { select: { id: true, name: true, displayName: true, email: true, type: true, taxNumber: true } },
   branch: { select: { id: true, name: true, displayName: true, taxNumber: true } },
   journalEntry: { select: { id: true, entryNumber: true, status: true, totalDebit: true, totalCredit: true, reversedBy: { select: { id: true, entryNumber: true } } } },
   reversalJournalEntry: { select: { id: true, entryNumber: true, status: true } },
