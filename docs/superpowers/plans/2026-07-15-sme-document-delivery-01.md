@@ -100,13 +100,13 @@ Create or modify only the files justified by the tasks below. Exact generated Pr
 - Normalize email, reject invalid/empty recipient, reject CR/LF subject, cap subject at 200 and message at 5,000, require a 16–128 character bounded idempotency key, and hash it with SHA-256 before persistence.
 - Add positive-integer attachment-size config with default `10485760`; invalid production-like configuration fails closed.
 
-- [ ] Write the failing provider, template, status, and DTO tests, including HTML escaping and no-sensitive-output assertions.
-- [ ] Run each focused suite and observe the intended failures.
-- [ ] Implement the minimum provider/template/validation/status/config changes.
-- [ ] Run focused API tests, typecheck, and existing email/provider suites.
-- [ ] Commit: `feat: support email document attachments`.
+- [x] Write the failing provider, template, status, and DTO tests, including HTML escaping and no-sensitive-output assertions.
+- [x] Run each focused suite and observe the intended failures.
+- [x] Implement the minimum provider/template/validation/status/config changes.
+- [x] Run focused API tests, typecheck, and existing email/provider suites.
+- [x] Commit: `feat: support email document attachments` (`50ca93b6`).
 
-**Checkpoint:** Record the committed SHA and confirm all local provider tests make zero network calls.
+**Checkpoint:** Commit `50ca93b6` added optional provider attachments, Nodemailer mapping, escaped sales-invoice defaults, bounded DTO validation, centralized truthful status labels, and local attachment-size/lock config defaults. Focused provider tests use a stubbed transport and the mock provider; no external network call was made.
 
 ### Task 3: Generic document-delivery service and sales-invoice queue API
 
@@ -124,20 +124,20 @@ Create or modify only the files justified by the tasks below. Exact generated Pr
 - Add `POST /sales-invoices/:id/email-deliveries` with `salesInvoices.send` and `GET /sales-invoices/:id/email-deliveries` with `salesInvoices.view`.
 - Add explicit safe audit events for queued, replayed, blocked, attempted, provider-accepted, and failed delivery. Audit metadata is masked/hashed presence only.
 
-- [ ] Write failing service/controller tests for finalized-only eligibility, tenant and permission guards, recipient/defaults/overrides, validation, PDF archive reference, no PDF duplication, provider readiness, suppression blocking, idempotent replay/conflict, safe audit metadata, and the exact POST zero-provider-call boundary.
-- [ ] Run the tests and observe failure before implementing production services.
-- [ ] Implement the queue path with the idempotency unique constraint as the concurrency backstop; catch only the expected unique-key race and resolve it to replay/conflict after re-reading the tenant-scoped row.
-- [ ] Add route/controller wiring and safe response mappers.
-- [ ] Run focused API suites and `git diff --check`.
-- [ ] Commit: `feat: queue sales invoice email deliveries`.
+- [x] Write failing service/controller tests for finalized-only eligibility, tenant and permission guards, recipient/defaults/overrides, validation, PDF archive reference, no PDF duplication, provider readiness, suppression blocking, idempotent replay/conflict, safe audit metadata, and the exact POST zero-provider-call boundary.
+- [x] Run the tests and observe failure before implementing production services.
+- [x] Implement the queue path with the idempotency unique constraint as the concurrency backstop; catch only the expected unique-key race and resolve it to replay/conflict after re-reading the tenant-scoped row.
+- [x] Add route/controller wiring and safe response mappers.
+- [x] Run focused API suites and `git diff --check`.
+- [x] Commit: `feat: queue sales invoice email deliveries` (`784be85b`).
 
-**Checkpoint:** Record queue API test counts, confirm POST provider calls are zero, and state that only finalized invoices create queued deliveries.
+**Checkpoint:** Commit `784be85b`; focused queue/controller coverage is 3 suites and 6 tests. The finalized-invoice queue path archives one PDF reference, creates one `QUEUED` outbox row, and makes zero provider calls; active suppression, unusable provider readiness, replay, and request conflicts fail before a new row or provider work.
 
 ### Task 4: Attachment worker verification and atomic retry claiming
 
 **Files:**
 - Create: `apps/api/src/email/email-retry-worker.service.ts`, `apps/api/src/email/email-retry-worker.service.spec.ts`, and the local DB integration spec using the repository's existing test database guard.
-- Modify: `apps/api/src/email/email.service.ts`, `apps/api/src/email/email.controller.ts`, `apps/api/src/email/email.module.ts`, `.env.example`, `docs/email/EMAIL_DELIVERY_ARCHITECTURE.md`.
+- Modify: `apps/api/src/email/email.service.ts`, `apps/api/src/email/email.controller.ts`, `apps/api/src/email/email.module.ts`, `apps/api/src/generated-documents/generated-document.service.ts`, `.env.example`, `docs/email/EMAIL_DELIVERY_ARCHITECTURE.md`.
 
 **Interfaces:**
 - `EmailRetryWorkerService.process(organizationId, actorUserId, limit)` selects due candidates only as a bounded batch, then atomically claims each with a conditional `updateMany`; only `count === 1` may send.
@@ -147,13 +147,13 @@ Create or modify only the files justified by the tasks below. Exact generated Pr
 - On success set `SENT_MOCK` or `SENT_PROVIDER`, provider marker/message ID, attempt metadata, and clear lock. On retryable provider failure increment attempt, set safe error, schedule retry while below max, and clear lock. On max failure, clear future retry. On suppression or attachment verification failure, record safe terminal failure/block and clear lock without provider contact.
 - Existing `/email/retry-process` and `/email/retry-worker/run` behavior remains compatible; default disabled flags remain fail-closed and no hosted scheduler is added.
 
-- [ ] Write failing unit tests for exact attachment delivery, hash/size/limit/MIME/source mismatch no-send, suppression added after queueing, retry metadata, max attempts, recent-lock skip, stale-lock recovery, success/failure lock release, and two worker executions.
-- [ ] Write and run a failing local PostgreSQL integration test that inserts one queued outbox row and runs two concurrent worker calls against the same database; assert one provider send, one claim winner, and one final state update. If local DB infrastructure is unavailable, preserve the failing integration test and report the external local-only blocker rather than claiming concurrency safety.
-- [ ] Implement atomic claim, stale-lock recovery, attachment loading, and compatibility delegation.
-- [ ] Run focused worker/provider suites, then the DB integration test with only the local Docker Compose Postgres target if available. Never use hosted `DATABASE_URL` or `DIRECT_URL`.
-- [ ] Commit: `fix: claim email retry rows atomically`.
+- [x] Write failing unit tests for exact attachment delivery, hash/size/limit/MIME/source mismatch no-send, suppression added after queueing, retry metadata, max attempts, recent-lock skip, stale-lock recovery, success/failure lock release, and two worker executions.
+- [x] Write and run a failing local PostgreSQL integration test that inserts one queued outbox row and runs two concurrent worker calls against the same database; assert one provider send, one claim winner, and one final state update. If local DB infrastructure is unavailable, preserve the failing integration test and report the external local-only blocker rather than claiming concurrency safety.
+- [x] Implement atomic claim, stale-lock recovery, attachment loading, and compatibility delegation.
+- [x] Run focused worker/provider suites, then the DB integration test with only the local Docker Compose Postgres target if available. Never use hosted `DATABASE_URL` or `DIRECT_URL`.
+- [x] Commit: `fix: claim email retry rows atomically` (`6078ef6b`).
 
-**Checkpoint:** Record claim SQL/predicate, stale timeout, local DB integration result, and provider send count for the race test.
+**Checkpoint:** Commit `6078ef6b`; worker tests are 6 tests green and the broader email/generated-document compatibility run is 55 tests green. Claiming uses tenant/status/due/suppression/attempt predicates plus unlocked-or-stale lock state, with `updateMany` `count === 1` as the only send authority and token-matched terminal updates. Stale lock default is 900000 ms. The guarded local PostgreSQL race test was executed against `localhost:5432` and failed because no local database server was reachable; no concurrency safety claim is made beyond unit coverage, and the integration test remains preserved for a local database run.
 
 ### Task 5: Invoice detail send dialog and delivery history
 
@@ -169,13 +169,13 @@ Create or modify only the files justified by the tasks below. Exact generated Pr
 - Organization changes clear history immediately and late responses are ignored using the same cancellation/organization token pattern already used on the page.
 - Dialog controls use the existing accessible `LedgerActionDialog`/form primitives and remain keyboard operable.
 
-- [ ] Write failing frontend tests for visibility, finalized/draft/voided gating, prefilled/blank recipient, defaults, DTO/idempotency key retry behavior, double-submit prevention, queued copy, history states/labels, bounce/complaint, organization change, stale response, and keyboard accessibility.
-- [ ] Run the focused web tests and observe the intended failures.
-- [ ] Implement the smallest coherent panel and page wiring without changing the broader invoice layout or compliance surfaces.
-- [ ] Run focused web tests, web typecheck, and invoice route tests.
-- [ ] Commit: `feat: add invoice email delivery interface`.
+- [x] Write failing frontend tests for visibility, finalized/draft/voided gating, prefilled/blank recipient, defaults, DTO/idempotency key retry behavior, double-submit prevention, queued copy, history states/labels, bounce/complaint, organization change, stale response, and keyboard accessibility.
+- [x] Run the focused web tests and observe the intended failures.
+- [x] Implement the smallest coherent panel and page wiring without changing the broader invoice layout or compliance surfaces.
+- [x] Run focused web tests, web typecheck, and invoice route tests.
+- [x] Commit: `feat: add invoice email delivery interface` (`dd2b4af3`).
 
-**Checkpoint:** Record focused web test counts and confirm the UI never presents provider acceptance as delivery.
+**Checkpoint:** Commit `dd2b4af3`; focused UI coverage is 3 tests green, invoice-detail route coverage is 12 tests green, and web/API typechecks pass. The panel only exposes sending for finalized invoices with `salesInvoices.send`, preserves the same idempotency key after a failed submit, and uses “Invoice queued for email delivery.” without claiming that provider acceptance is delivery.
 
 ### Task 6: Local mock-only lifecycle integration proof
 
@@ -190,12 +190,12 @@ Create or modify only the files justified by the tasks below. Exact generated Pr
 - Replay the same normalized request; assert same delivery, `idempotentReplay: true`, no new outbox row, and no second provider call.
 - Query history and assert newest-first tenant-safe metadata with no body/PDF/raw key.
 
-- [ ] Write the failing integration test and run it against the local target only.
-- [ ] Implement any narrow fixture/wiring changes required by the failing proof.
-- [ ] Run the safe mock-only flow separately and capture sanitized output counts.
-- [ ] Commit: `test: prove invoice document delivery lifecycle`.
+- [x] Write the failing integration test and run it against the local target only.
+- [x] Implement any narrow fixture/wiring changes required by the failing proof.
+- [x] Run the safe mock-only flow separately and capture sanitized output counts.
+- [x] Commit: `test: prove invoice document delivery lifecycle` (`138f88ee`).
 
-**Checkpoint:** Record exact local-only proof boundary: provider `mock`, POST sends `0`, worker sends `1`, replay creates `0` additional rows and sends `0` additional emails.
+**Checkpoint:** Commit `138f88ee`; mock-only lifecycle proof passes with provider `mock`, POST sends `0`, worker sends `1` verified PDF attachment, replay creates `0` additional rows, sends `0` additional emails, and avoids a second PDF archive generation. The separate database-backed race proof remains blocked only by unavailable local PostgreSQL.
 
 ### Task 7: Documentation and closure evidence
 
@@ -209,16 +209,18 @@ Create or modify only the files justified by the tasks below. Exact generated Pr
 - Remaining work: provider-specific webhook verification, real scheduler/worker hosting, sender-domain proof, monitoring/production gates, reminders, WhatsApp, and broader document types.
 - Correct only stale documentation directly encountered in this feature scope; do not perform unrelated documentation archaeology.
 
-- [ ] Update docs from verified implementation and command results only.
-- [ ] Run documentation contract tests, `git diff --check`, and secret/body-language scans over the diff.
-- [ ] Commit: `docs: close SME document delivery arc`.
+- [x] Update docs from verified implementation and command results only.
+- [x] Run documentation contract tests, `git diff --check`, and secret/body-language scans over the diff.
+- [x] Commit: `docs: close SME document delivery arc`.
+
+**Checkpoint:** Documentation now records the finalized-invoice queue/history contract, atomic claim and attachment invariants, truthful status language, local mock-only lifecycle evidence, and the unavailable-local-PostgreSQL boundary. The sprint closure is `docs/development/SME_DOCUMENT_DELIVERY_01_SPRINT_CLOSURE.md`; its final SHA is filled after the final documentation checkpoint commit.
 
 ### Task 8: Final verification, review, publish draft PR, and closeout
 
 **Files:**
 - No new production files unless review fixes require a focused change; review fixes get their own commit.
 
-- [ ] Inspect `git status --short`, review every changed file, and scan the diff for credentials, SMTP passwords, tokens, raw provider payloads, customer emails in fixtures, PDF/base64 bodies in outbox records, and misleading “Delivered” labels.
+- [x] Inspect `git status --short`, review every changed file, and scan the diff for credentials, SMTP passwords, tokens, raw provider payloads, customer emails in fixtures, PDF/base64 bodies in outbox records, and misleading “Delivered” labels.
 - [ ] Run `corepack pnpm install --frozen-lockfile`.
 - [ ] Run `corepack pnpm --filter @ledgerbyte/api db:generate`.
 - [ ] Run `corepack pnpm --filter @ledgerbyte/api exec prisma validate`.
