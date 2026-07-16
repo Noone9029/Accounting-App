@@ -38,7 +38,7 @@ Passed focused evidence:
 - API and web typechecks passed; API build passed; Prisma client generation and schema validation passed; `git diff --check` passed.
 - Full repository test gate: API 265 suites passed with 2,579 passing and 36 skipped tests; web 190 suites passed with 868 passing tests. Full lint, build, `verify:diff`, and `verify:ci:local` passed; the local CI mirror also passed credential-environment (5 tests) and user-testing cleanup (6 tests) guards.
 
-The guarded local PostgreSQL concurrency test was executed against `postgresql://localhost:5432/accounting` and failed at connection because no local PostgreSQL server was reachable. The test remains in the repository. Therefore this closure makes no database-backed concurrency-safety claim from unit mocks alone; the atomic claim implementation is documented and locally mock-tested, but the two-worker database proof remains a follow-up requiring an available local database.
+The guarded local PostgreSQL concurrency test was subsequently executed against the repository's local Docker PostgreSQL service at `postgresql://localhost:5432/accounting` and passed: 1 test, one provider send, one claim winner, and one final state update. The temporary outbox row was removed by test teardown. This is local database-backed evidence only; it is not hosted, production, or provider-delivery proof.
 
 ## Review findings and resolutions
 
@@ -47,7 +47,7 @@ The final review was performed in-line against base `2cff1238` without subagents
 - Idempotent replay originally risked regenerating the PDF before the existing row was found; the public replay lookup now runs before PDF generation, and the lifecycle test proves one archive.
 - The queue boundary was kept provider-free; the lifecycle test proves the POST path makes zero provider calls.
 - History and audit mapping were checked for raw body, PDF, key, credential, and provider-payload leakage; only masked/safe metadata is returned.
-- Database race proof could not be completed because local PostgreSQL was unavailable; this is retained as an explicit blocker rather than inferred from mocks.
+- The initial database race attempt found the Docker engine stopped; after starting the local engine and using the already-present local PostgreSQL image, the race proof passed. No hosted system or external provider was used.
 
 ## Explicit non-scope and remaining gates
 

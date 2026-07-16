@@ -153,7 +153,7 @@ Create or modify only the files justified by the tasks below. Exact generated Pr
 - [x] Run focused worker/provider suites, then the DB integration test with only the local Docker Compose Postgres target if available. Never use hosted `DATABASE_URL` or `DIRECT_URL`.
 - [x] Commit: `fix: claim email retry rows atomically` (`6078ef6b`).
 
-**Checkpoint:** Commit `6078ef6b`; worker tests are 6 tests green and the broader email/generated-document compatibility run is 55 tests green. Claiming uses tenant/status/due/suppression/attempt predicates plus unlocked-or-stale lock state, with `updateMany` `count === 1` as the only send authority and token-matched terminal updates. Stale lock default is 900000 ms. The guarded local PostgreSQL race test was executed against `localhost:5432` and failed because no local database server was reachable; no concurrency safety claim is made beyond unit coverage, and the integration test remains preserved for a local database run.
+**Checkpoint:** Commit `6078ef6b`; worker tests are 6 tests green and the broader email/generated-document compatibility run is 55 tests green. Claiming uses tenant/status/due/suppression/attempt predicates plus unlocked-or-stale lock state, with `updateMany` `count === 1` as the only send authority and token-matched terminal updates. Stale lock default is 900000 ms. The guarded local PostgreSQL race test now passes against the repository's local Docker PostgreSQL service: 1 test, one provider send, one claim winner, and one final state update; the temporary test row was removed during teardown.
 
 ### Task 5: Invoice detail send dialog and delivery history
 
@@ -195,7 +195,7 @@ Create or modify only the files justified by the tasks below. Exact generated Pr
 - [x] Run the safe mock-only flow separately and capture sanitized output counts.
 - [x] Commit: `test: prove invoice document delivery lifecycle` (`138f88ee`).
 
-**Checkpoint:** Commit `138f88ee`; mock-only lifecycle proof passes with provider `mock`, POST sends `0`, worker sends `1` verified PDF attachment, replay creates `0` additional rows, sends `0` additional emails, and avoids a second PDF archive generation. The separate database-backed race proof remains blocked only by unavailable local PostgreSQL.
+**Checkpoint:** Commit `138f88ee`; mock-only lifecycle proof passes with provider `mock`, POST sends `0`, worker sends `1` verified PDF attachment, replay creates `0` additional rows, sends `0` additional emails, and avoids a second PDF archive generation. The separate database-backed race proof was subsequently completed against the local Docker PostgreSQL service and is now recorded in the Task 4 checkpoint.
 
 ### Task 7: Documentation and closure evidence
 
@@ -213,7 +213,7 @@ Create or modify only the files justified by the tasks below. Exact generated Pr
 - [x] Run documentation contract tests, `git diff --check`, and secret/body-language scans over the diff.
 - [x] Commit: `docs: close SME document delivery arc`.
 
-**Checkpoint:** Commit `770fd183` records the finalized-invoice queue/history contract, atomic claim and attachment invariants, truthful status language, local mock-only lifecycle evidence, and the unavailable-local-PostgreSQL boundary. The sprint closure is `docs/development/SME_DOCUMENT_DELIVERY_01_SPRINT_CLOSURE.md`; its final SHA is filled after the final verification checkpoint commit.
+**Checkpoint:** Commit `770fd183` records the finalized-invoice queue/history contract, atomic claim and attachment invariants, truthful status language, local mock-only lifecycle evidence, and the original local-PostgreSQL availability boundary. The later local Docker run completed the race proof; the sprint closure is `docs/development/SME_DOCUMENT_DELIVERY_01_SPRINT_CLOSURE.md`.
 
 ### Task 8: Final verification, review, publish draft PR, and closeout
 
@@ -232,7 +232,7 @@ Create or modify only the files justified by the tasks below. Exact generated Pr
 - [x] Run `corepack pnpm verify:ci:local`.
 - [x] Run `git diff --check`.
 - [x] Apply verification-before-completion: read exit codes and test counts; report failures rather than inferring success.
-- [x] Perform an independent in-line review against base `2cff1238` and final implementation HEAD. Subagents and hosted review systems were prohibited; the review resolved the replay/PDF duplication risk, the zero-provider queue boundary, safe-history redaction, permission-matrix drift, and test-module dependency seams. The local database race proof remains explicitly blocked by unavailable PostgreSQL.
+- [x] Perform an independent in-line review against base `2cff1238` and final implementation HEAD. Subagents and hosted review systems were prohibited; the review resolved the replay/PDF duplication risk, the zero-provider queue boundary, safe-history redaction, permission-matrix drift, and test-module dependency seams. The local Docker PostgreSQL race proof now passes with one claim winner and one provider send.
 - [ ] Push `codex/sme-document-delivery-01` — not executed because the hard execution constraint forbids hosted systems.
 - [ ] Open a draft PR against `main` — not executed because the hard execution constraint forbids hosted systems.
 - [x] Do not merge the PR.

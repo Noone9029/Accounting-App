@@ -8,7 +8,7 @@ Audit date: 2026-06-19
 - Added `salesInvoices.send`, tenant-scoped invoice delivery persistence, and migration `20260716090000_add_sales_invoice_email_delivery` with a unique organization/idempotency-hash constraint and archived-document metadata only.
 - Added finalized-invoice queue/history APIs, atomic retry-worker claiming with stale-lock recovery, suppression and attachment verification, safe audit/history mapping, and a restrained invoice-detail send/history panel.
 - Mock-only lifecycle proof: queue provider calls `0`, worker verified-PDF provider calls `1`, idempotent replay adds rows `0` and provider calls `0`, with no second PDF archive.
-- Verification completed for focused API/UI suites, typechecks, build, Prisma generation/validation, and diff checks. The guarded database-backed two-worker race test was attempted against local `localhost:5432` and remained blocked because no local PostgreSQL server was reachable; no database concurrency claim is made from unit mocks alone.
+- Verification completed for focused API/UI suites, typechecks, build, Prisma generation/validation, and diff checks. The guarded database-backed two-worker race test now passes against the repository's local Docker PostgreSQL service: one claim winner, one provider send, and one final state update; the temporary test row was removed by teardown.
 - No real email/SMTP, hosted system or database, deployment, production/customer data or credentials, ZATCA/UAE FTA/Peppol behavior, reminders, WhatsApp, bulk sends, or other document families were used or changed. The protected root checkout and its unrelated dirty file remain untouched.
 
 ## 2026-07-15 - Fixed assets and depreciation MVP foundation
