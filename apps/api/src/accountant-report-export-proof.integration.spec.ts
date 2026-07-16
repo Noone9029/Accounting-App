@@ -61,6 +61,7 @@ import { ReportsService } from "./reports/reports.service";
 import { FxReportingService } from "./reports/fx-reporting.service";
 import { SalesInvoiceController } from "./sales-invoices/sales-invoice.controller";
 import { SalesInvoiceService } from "./sales-invoices/sales-invoice.service";
+import { SalesInvoiceEmailDeliveryService } from "./sales-invoices/sales-invoice-email-delivery.service";
 
 type ReportExportDbSettings =
   | { enabled: false; databaseUrl?: undefined }
@@ -223,6 +224,7 @@ describeReportExportDb("accountant report/export proof: guarded HTTP routes agai
         ContactService,
         ContactLedgerService,
         SalesInvoiceService,
+        { provide: SalesInvoiceEmailDeliveryService, useValue: {} },
         PurchaseBillService,
         GeneratedDocumentService,
         AttachmentService,

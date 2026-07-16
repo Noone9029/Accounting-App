@@ -150,6 +150,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
       permission(PERMISSIONS.salesInvoices.create, "Create invoices", "Create draft sales invoices."),
       permission(PERMISSIONS.salesInvoices.update, "Update invoices", "Edit or delete draft sales invoices."),
       permission(PERMISSIONS.salesInvoices.finalize, "Finalize invoices", "Finalize invoices and post AR journals."),
+      permission(PERMISSIONS.salesInvoices.send, "Send invoices", "Queue finalized invoice PDFs for local/mock email delivery."),
       permission(PERMISSIONS.salesInvoices.void, "Void invoices", "Void finalized invoices."),
       permission(PERMISSIONS.customerPayments.view, "View customer payments", "See customer payments and receipts."),
       permission(PERMISSIONS.customerPayments.create, "Create customer payments", "Post and apply customer payments."),

@@ -38,6 +38,7 @@ import { ReportsController } from "./reports/reports.controller";
 import { ReportsService } from "./reports/reports.service";
 import { SalesInvoiceController } from "./sales-invoices/sales-invoice.controller";
 import { SalesInvoiceService } from "./sales-invoices/sales-invoice.service";
+import { SalesInvoiceEmailDeliveryService } from "./sales-invoices/sales-invoice-email-delivery.service";
 import { CreditNoteService } from "./credit-notes/credit-note.service";
 import { ForeignExchangeController } from "./foreign-exchange/foreign-exchange.controller";
 import { ForeignExchangeService } from "./foreign-exchange/foreign-exchange.service";
@@ -145,6 +146,7 @@ describe("tenant isolation HTTP integration", () => {
         { provide: ContactLedgerService, useValue: {} },
         { provide: SupplierApDashboardService, useValue: {} },
         { provide: SalesInvoiceService, useValue: makeSalesInvoiceService(tenantStore) },
+        { provide: SalesInvoiceEmailDeliveryService, useValue: {} },
         { provide: CreditNoteService, useValue: {} },
         { provide: PurchaseBillService, useValue: makePurchaseBillService(tenantStore) },
         { provide: CustomerPaymentService, useValue: makeCustomerPaymentService(tenantStore) },
