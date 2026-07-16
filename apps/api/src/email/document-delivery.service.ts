@@ -38,6 +38,20 @@ export interface QueueDocumentDeliveryInput {
   blockedAuditEvent?: string;
 }
 
+export interface DocumentDeliveryReplayLookupInput {
+  organizationId: string;
+  actorUserId: string;
+  salesInvoiceId?: string | null;
+  sourceType: string;
+  sourceId: string;
+  recipientEmail: string;
+  subject: string;
+  bodyText: string;
+  idempotencyKey: string;
+  requestId?: string;
+  replayedAuditEvent?: string;
+}
+
 export interface DocumentDeliveryQueueResult {
   id: string;
   organizationId: string | null;
@@ -75,14 +89,7 @@ export class DocumentDeliveryService {
   async queue(input: QueueDocumentDeliveryInput): Promise<DocumentDeliveryQueueResult> {
     const recipientEmail = normalizeEmail(input.recipientEmail);
     const idempotencyKeyHash = hashText(normalizeIdempotencyKey(input.idempotencyKey));
-    const requestHash = hashText(
-      JSON.stringify({
-        invoiceId: input.salesInvoiceId ?? null,
-        recipientEmail,
-        subject: input.subject,
-        message: input.bodyText,
-      }),
-    );
+    const requestHash = buildRequestHash(input.salesInvoiceId, recipientEmail, input.subject, input.bodyText);
 
     const existing = await this.findByIdempotency(input.organizationId, idempotencyKeyHash);
     if (existing) {
@@ -165,6 +172,27 @@ export class DocumentDeliveryService {
       after: safeAuditMetadata(input, created.status),
     });
     return response;
+  }
+
+  async replayIfExisting(input: DocumentDeliveryReplayLookupInput): Promise<DocumentDeliveryQueueResult | null> {
+    const recipientEmail = normalizeEmail(input.recipientEmail);
+    const idempotencyKeyHash = hashText(normalizeIdempotencyKey(input.idempotencyKey));
+    const existing = await this.findByIdempotency(input.organizationId, idempotencyKeyHash);
+    if (!existing) return null;
+    return this.replayOrConflict(existing, buildRequestHash(input.salesInvoiceId, recipientEmail, input.subject, input.bodyText), {
+      ...input,
+      recipientEmail,
+      fromEmail: "",
+      bodyHtml: null,
+      templateType: EmailTemplateType.SALES_INVOICE,
+      generatedDocument: {
+        id: existing.generatedDocumentId ?? "unknown",
+        filename: existing.attachmentFilename ?? "unknown",
+        mimeType: "application/pdf",
+        sizeBytes: 0,
+        contentHash: "present",
+      },
+    });
   }
 
   async listHistory(organizationId: string, sourceType: string, sourceId: string): Promise<DocumentDeliveryQueueResult[]> {
@@ -320,6 +348,10 @@ function normalizeIdempotencyKey(value: string): string {
 
 function hashText(value: string): string {
   return createHash("sha256").update(value).digest("hex");
+}
+
+function buildRequestHash(invoiceId: string | null | undefined, recipientEmail: string, subject: string, bodyText: string): string {
+  return hashText(JSON.stringify({ invoiceId: invoiceId ?? null, recipientEmail, subject, message: bodyText }));
 }
 
 function hashBuffer(value: Buffer): string {

@@ -34,6 +34,7 @@ describe("SalesInvoiceEmailDeliveryService", () => {
       }),
     };
     const documentDeliveryService = {
+      replayIfExisting: jest.fn().mockResolvedValue(null),
       queue: jest.fn().mockResolvedValue({ id: "delivery-1", status: "QUEUED", idempotentReplay: false }),
       listHistory: jest.fn().mockResolvedValue([]),
     };
@@ -66,5 +67,16 @@ describe("SalesInvoiceEmailDeliveryService", () => {
     const draft = makeService(SalesInvoiceStatus.DRAFT);
     await expect(draft.service.queue("org-1", "user-1", "invoice-1", { idempotencyKey: "client-key-123456" })).rejects.toBeInstanceOf(BadRequestException);
     expect(draft.salesInvoiceService.pdf).not.toHaveBeenCalled();
+  });
+
+  it("does not regenerate the archived PDF when the idempotent request is replayed", async () => {
+    const { service, salesInvoiceService, documentDeliveryService } = makeService();
+    await service.queue("org-1", "user-1", "invoice-1", { idempotencyKey: "client-key-123456" });
+    documentDeliveryService.replayIfExisting.mockResolvedValue({ id: "delivery-1", status: "QUEUED", idempotentReplay: true });
+
+    await service.queue("org-1", "user-1", "invoice-1", { idempotencyKey: "client-key-123456" });
+
+    expect(salesInvoiceService.pdf).toHaveBeenCalledTimes(1);
+    expect(documentDeliveryService.queue).toHaveBeenCalledTimes(1);
   });
 });

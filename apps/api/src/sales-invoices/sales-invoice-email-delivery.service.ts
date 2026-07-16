@@ -65,6 +65,23 @@ export class SalesInvoiceEmailDeliveryService {
       throw new BadRequestException("Invoice email subject must be 200 characters or fewer and cannot contain line breaks.");
     }
 
+    const replay = await this.documentDeliveryService.replayIfExisting({
+      organizationId,
+      actorUserId,
+      salesInvoiceId: invoice.id,
+      sourceType: "SalesInvoice",
+      sourceId: invoice.id,
+      recipientEmail,
+      subject,
+      bodyText: template.bodyText,
+      idempotencyKey: dto.idempotencyKey,
+      requestId,
+      replayedAuditEvent: AUDIT_EVENTS.SALES_INVOICE_EMAIL_DELIVERY_REPLAYED,
+    });
+    if (replay) {
+      return { ...replay, invoiceId: invoice.id, invoiceNumber: invoice.invoiceNumber };
+    }
+
     const archived = await this.salesInvoiceService.pdf(organizationId, actorUserId, invoice.id);
     if (!archived.document || typeof archived.document !== "object") {
       throw new BadRequestException("Invoice PDF could not be archived for email delivery.");
