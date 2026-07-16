@@ -213,7 +213,7 @@ Create or modify only the files justified by the tasks below. Exact generated Pr
 - [x] Run documentation contract tests, `git diff --check`, and secret/body-language scans over the diff.
 - [x] Commit: `docs: close SME document delivery arc`.
 
-**Checkpoint:** Documentation now records the finalized-invoice queue/history contract, atomic claim and attachment invariants, truthful status language, local mock-only lifecycle evidence, and the unavailable-local-PostgreSQL boundary. The sprint closure is `docs/development/SME_DOCUMENT_DELIVERY_01_SPRINT_CLOSURE.md`; its final SHA is filled after the final documentation checkpoint commit.
+**Checkpoint:** Commit `770fd183` records the finalized-invoice queue/history contract, atomic claim and attachment invariants, truthful status language, local mock-only lifecycle evidence, and the unavailable-local-PostgreSQL boundary. The sprint closure is `docs/development/SME_DOCUMENT_DELIVERY_01_SPRINT_CLOSURE.md`; its final SHA is filled after the final verification checkpoint commit.
 
 ### Task 8: Final verification, review, publish draft PR, and closeout
 
@@ -221,21 +221,23 @@ Create or modify only the files justified by the tasks below. Exact generated Pr
 - No new production files unless review fixes require a focused change; review fixes get their own commit.
 
 - [x] Inspect `git status --short`, review every changed file, and scan the diff for credentials, SMTP passwords, tokens, raw provider payloads, customer emails in fixtures, PDF/base64 bodies in outbox records, and misleading “Delivered” labels.
-- [ ] Run `corepack pnpm install --frozen-lockfile`.
-- [ ] Run `corepack pnpm --filter @ledgerbyte/api db:generate`.
-- [ ] Run `corepack pnpm --filter @ledgerbyte/api exec prisma validate`.
-- [ ] Run `corepack pnpm lint`.
-- [ ] Run `corepack pnpm typecheck`.
-- [ ] Run `corepack pnpm test`.
-- [ ] Run `corepack pnpm build`.
-- [ ] Run `corepack pnpm verify:diff`.
-- [ ] Run `corepack pnpm verify:ci:local`.
-- [ ] Run `git diff --check`.
-- [ ] Apply verification-before-completion: read exit codes and test counts; report failures rather than inferring success.
-- [ ] Request independent code review against base `2cff1238` and the final HEAD using the repository's review workflow. Fix all Critical and Important findings and rerun affected tests.
-- [ ] Push `codex/sme-document-delivery-01`.
-- [ ] Open a draft PR against `main` with title `SME-DOCUMENT-DELIVERY-01: Queue and deliver sales invoice PDFs by email` and the required goal, architecture, workflow, API/schema/permission/security/idempotency/concurrency/test/no-real-email/out-of-scope/remaining-gates sections.
-- [ ] Do not merge the PR.
+- [x] Run `corepack pnpm install --frozen-lockfile`.
+- [x] Run `corepack pnpm --filter @ledgerbyte/api db:generate`.
+- [x] Run `corepack pnpm --filter @ledgerbyte/api exec prisma validate`.
+- [x] Run `corepack pnpm lint`.
+- [x] Run `corepack pnpm typecheck`.
+- [x] Run `corepack pnpm test`.
+- [x] Run `corepack pnpm build`.
+- [x] Run `corepack pnpm verify:diff`.
+- [x] Run `corepack pnpm verify:ci:local`.
+- [x] Run `git diff --check`.
+- [x] Apply verification-before-completion: read exit codes and test counts; report failures rather than inferring success.
+- [x] Perform an independent in-line review against base `2cff1238` and final implementation HEAD. Subagents and hosted review systems were prohibited; the review resolved the replay/PDF duplication risk, the zero-provider queue boundary, safe-history redaction, permission-matrix drift, and test-module dependency seams. The local database race proof remains explicitly blocked by unavailable PostgreSQL.
+- [ ] Push `codex/sme-document-delivery-01` — not executed because the hard execution constraint forbids hosted systems.
+- [ ] Open a draft PR against `main` — not executed because the hard execution constraint forbids hosted systems.
+- [x] Do not merge the PR.
+
+**Final local checkpoint:** Implementation commit `4ce1f968` is verified by the full local gates. The branch is intentionally left local and unpushed; a later authorized hosted handoff can use the existing branch and closure docs without changing the implementation.
 
 **Final report must include:** branch, base/final SHAs, draft PR link, files created/modified, schema/migration summary, API/UI summary, pass/fail counts for every verification command, independent review findings/resolutions, explicit no-real-email and no-hosted-mutation confirmation, explicit ZATCA/UAE FTA unchanged confirmation, and remaining limitations.
 

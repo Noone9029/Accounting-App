@@ -8,7 +8,7 @@ Date: 2026-07-16
 - Base: `origin/main` at `2cff1238`.
 - Branch: `codex/sme-document-delivery-01`.
 - Worktree: `E:\Worktrees\Accounting-App\sme-document-delivery-01`.
-- Final SHA: pending the final documentation checkpoint commit.
+- Final SHA: `4ce1f968` for the final implementation/test-seam code checkpoint; the subsequent closure-only documentation commit records this SHA and does not change production behavior.
 - Protected root checkout `E:\Accounting App` and its unrelated dirty `BANK_STATEMENT_IMPORT_PROOF_REVIEW.md` were not modified.
 
 ## Implemented behavior
@@ -36,6 +36,7 @@ Passed focused evidence:
 - Mock-only lifecycle integration: 1 test passed; queue provider calls `0`, worker verified-PDF provider calls `1`, replay added rows `0` and provider calls `0`, and PDF generation ran once.
 - Invoice delivery panel: 3 tests passed; invoice-detail route suite: 12 tests passed.
 - API and web typechecks passed; API build passed; Prisma client generation and schema validation passed; `git diff --check` passed.
+- Full repository test gate: API 265 suites passed with 2,579 passing and 36 skipped tests; web 190 suites passed with 868 passing tests. Full lint, build, `verify:diff`, and `verify:ci:local` passed; the local CI mirror also passed credential-environment (5 tests) and user-testing cleanup (6 tests) guards.
 
 The guarded local PostgreSQL concurrency test was executed against `postgresql://localhost:5432/accounting` and failed at connection because no local PostgreSQL server was reachable. The test remains in the repository. Therefore this closure makes no database-backed concurrency-safety claim from unit mocks alone; the atomic claim implementation is documented and locally mock-tested, but the two-worker database proof remains a follow-up requiring an available local database.
 
