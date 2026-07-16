@@ -208,6 +208,8 @@ Legacy `/recurring-invoices` endpoints retain their historical sales-invoice per
 | POST | `/contacts/:id/generate-statement-pdf` | Generate/archive statement PDF | Yes | Yes | Implemented | Explicit archive action. |
 | POST | `/contacts/:id/email-deliveries` | Queue customer statement PDF email delivery | Yes | Yes | Implemented | Requires `contacts.sendCustomerStatements`; CUSTOMER/BOTH contacts only; `asOf` is required and queueing does not call a provider. |
 | GET | `/contacts/:id/email-deliveries` | Customer statement email delivery history | Yes | Yes | Implemented | Requires `contacts.view`; tenant-scoped safe metadata with bounded statement period context. |
+| POST | `/contacts/:id/supplier-statement-email-deliveries` | Queue supplier statement PDF email delivery | Yes | Yes | Implemented | Requires `contacts.sendSupplierStatements`; SUPPLIER/BOTH contacts only; exact real dates and bounded period context; queueing does not call a provider. |
+| GET | `/contacts/:id/supplier-statement-email-deliveries` | Supplier statement email delivery history | Yes | Yes | Implemented | Requires `contacts.view`; tenant-scoped safe metadata including statement period context. |
 | GET | `/contacts/:id/supplier-ledger` | Supplier AP ledger | Yes | Yes | Implemented | Supplier/BOTH only. |
 | GET | `/contacts/:id/supplier-statement` | Supplier statement JSON | Yes | Yes | Implemented | Supplier/BOTH only. |
 | GET | `/contacts/:id/supplier-statement-pdf-data` | Supplier statement PDF data | Yes | Yes | Implemented | Template data from existing supplier statement rows. |
@@ -472,6 +474,11 @@ Inventory endpoints remain operational by default. They do not auto-post journal
 | GET | `/purchase-orders/:id/pdf-data` | Purchase order PDF data | Yes | Yes | Implemented | Operational only. |
 | GET | `/purchase-orders/:id/pdf` | Purchase order PDF | Yes | Yes | Implemented | Archives download. |
 | POST | `/purchase-orders/:id/generate-pdf` | Generate purchase order PDF | Yes | Yes | Implemented | Explicit archive action. |
+| POST | `/purchase-orders/:id/email-deliveries` | Queue approved/sent purchase order PDF email delivery | Yes | Yes | Implemented | Requires `purchaseOrders.send`; APPROVED/SENT only; queueing does not call a provider. |
+| GET | `/purchase-orders/:id/email-deliveries` | Purchase order email delivery history | Yes | Yes | Implemented | Requires `purchaseOrders.view`; safe tenant-scoped metadata. |
+| GET | `/purchase-debit-notes/:id` | Purchase debit note detail | Yes | Yes | Implemented | Tenant scoped. |
+| POST | `/purchase-debit-notes/:id/email-deliveries` | Queue finalized purchase debit note PDF email delivery | Yes | Yes | Implemented | Requires `purchaseDebitNotes.send`; FINALIZED only; queueing does not call a provider. |
+| GET | `/purchase-debit-notes/:id/email-deliveries` | Purchase debit note email delivery history | Yes | Yes | Implemented | Requires `purchaseDebitNotes.view`; safe tenant-scoped metadata. |
 | GET | `/purchase-bills` | List purchase bills | Yes | Yes | Implemented | Tenant scoped. |
 | GET | `/purchase-bills/open` | Open bills by supplier | Yes | Yes | Implemented | Query `supplierId`. |
 | POST | `/purchase-bills` | Create draft bill | Yes | Yes | Implemented | Server-side totals. |
@@ -494,6 +501,8 @@ Inventory endpoints remain operational by default. They do not auto-post journal
 | GET | `/supplier-payments/:id/receipt-pdf-data` | Supplier receipt PDF data | Yes | Yes | Implemented | Template data. |
 | GET | `/supplier-payments/:id/receipt.pdf` | Supplier receipt PDF | Yes | Yes | Implemented | Archives download. |
 | POST | `/supplier-payments/:id/generate-receipt-pdf` | Generate supplier receipt PDF | Yes | Yes | Implemented | Explicit archive action. |
+| POST | `/supplier-payments/:id/email-deliveries` | Queue posted supplier-payment remittance PDF email delivery | Yes | Yes | Implemented | Requires `supplierPayments.send`; POSTED only; queueing does not call a provider. |
+| GET | `/supplier-payments/:id/email-deliveries` | Supplier-payment remittance email delivery history | Yes | Yes | Implemented | Requires `supplierPayments.view`; safe tenant-scoped metadata. |
 
 ## Reports
 

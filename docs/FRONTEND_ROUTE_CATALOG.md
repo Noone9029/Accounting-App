@@ -133,7 +133,7 @@ Inventory routes are operational by default and clearly warn that opening balanc
 | Route | Purpose | Data fetched | Actions | Status | Missing UX pieces |
 | --- | --- | --- | --- | --- | --- |
 | `/contacts` | Customer/supplier list. | Contacts. | Create/update contacts. | Implemented | Import/export and duplicate management missing. |
-| `/contacts/[id]` | Contact detail with ledgers/statements. | Contact, customer ledger/statement when applicable, supplier ledger/statement when applicable. | Load statements, download customer statement PDF, queue customer statement email for CUSTOMER/BOTH contacts, review safe history, and navigate source documents. | Implemented | Supplier statement email is intentionally excluded. |
+| `/contacts/[id]` | Contact detail with ledgers/statements. | Contact, customer ledger/statement when applicable, supplier ledger/statement when applicable. | Load statements, download the applicable statement PDF, queue customer or supplier statement email for CUSTOMER/BOTH or SUPPLIER/BOTH contacts, review safe period-aware history, and navigate source documents. | Implemented | No real provider delivery or bulk/scheduled statement send. |
 
 ## Manual Journals
 
@@ -168,7 +168,7 @@ Inventory routes are operational by default and clearly warn that opening balanc
 | --- | --- | --- | --- | --- | --- |
 | `/purchases/purchase-orders` | Purchase order list. | Purchase orders. | Navigate/create. | Implemented | Filters/export missing. |
 | `/purchases/purchase-orders/new` | Create purchase order. | Suppliers, branches, accounts, tax rates, items. | Save draft non-posting PO. | Implemented | No supplier email/send workflow. |
-| `/purchases/purchase-orders/[id]` | Purchase order detail. | Purchase order, lines, converted bill link, receiving status, receipt/bill matching status, and linked attachments. | PDF, approve, mark sent, close, void, delete draft, convert to bill, receive remaining tracked lines when allowed, review receipt value estimate plus matching warnings, and manage supporting attachments. | Implemented | No partial billing or approval chain. |
+| `/purchases/purchase-orders/[id]` | Purchase order detail. | Purchase order, lines, converted bill link, receiving status, receipt/bill matching status, supplier email when available, delivery history, and linked attachments. | PDF, approve, mark sent, queue APPROVED/SENT supplier PDF email when permitted, review safe delivery history, close, void, delete draft, convert to bill, receive remaining tracked lines when allowed, review receipt value estimate plus matching warnings, and manage supporting attachments. | Implemented | No partial billing, approval chain, or real provider delivery. |
 | `/purchases/purchase-orders/[id]/edit` | Edit draft purchase order. | PO and form dependencies. | Save draft changes. | Implemented | Not available after approval by design. |
 | `/purchases/bills` | Purchase bill list. | Bills. | Navigate/create/finalize draft. | Implemented | Filters/export missing. |
 | `/purchases/bills/new` | Create purchase bill. | Suppliers, branches, accounts, tax rates, items, and inventory posting mode. | Save draft in direct mode by default or select inventory-clearing mode after accountant review. | Implemented | Automatic receipt GL posting remains disabled. |
@@ -176,7 +176,7 @@ Inventory routes are operational by default and clearly warn that opening balanc
 | `/purchases/bills/[id]/edit` | Edit draft bill. | Bill and form dependencies, including inventory posting mode. | Save draft changes and choose direct or clearing mode. | Implemented | Not available after finalize by design; automatic receipt GL posting remains disabled. |
 | `/purchases/supplier-payments` | Supplier payment list. | Supplier payments. | Navigate/create. | Implemented | Filters/export missing. |
 | `/purchases/supplier-payments/new` | Create supplier payment. | Suppliers, open bills, paid-through accounts, optional bank account profiles. | Allocate and post payment. | Implemented | Bank reconciliation/import missing. |
-| `/purchases/supplier-payments/[id]` | Supplier payment detail. | Payment, allocations, receipt data, and linked attachments. | Void, receipt PDF, and manage supporting attachments. | Implemented | Remittance email/send missing. |
+| `/purchases/supplier-payments/[id]` | Supplier payment detail. | Payment, allocations, receipt data, supplier email when available, delivery history, and linked attachments. | Void, receipt PDF, queue POSTED remittance email when permitted, review safe delivery history, and manage supporting attachments. | Implemented | No real provider delivery or bulk remittance send. |
 | `/purchases/supplier-refunds` | Supplier refund list. | Supplier refunds. | Navigate/create. | Implemented | Filters/export missing. |
 | `/purchases/supplier-refunds/new` | Create supplier refund. | Suppliers, refundable sources, accounts, optional bank account profiles. | Post refund. | Implemented | Bank reconciliation/import missing. |
 | `/purchases/supplier-refunds/[id]` | Supplier refund detail. | Refund, PDF data, and linked attachments. | Void, download PDF, and manage supporting attachments. | Implemented | Remittance/send workflow missing. |

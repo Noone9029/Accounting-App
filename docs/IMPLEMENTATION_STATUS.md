@@ -2,6 +2,13 @@
 
 Audit date: 2026-06-19
 
+## 2026-07-17 - SME document delivery arc 03
+
+- Branch `codex/sme-document-delivery-03` extends the shared document-delivery path to purchase orders, purchase debit notes, supplier-payment remittances, and supplier statements. Queue routes are tenant-scoped and use `purchaseOrders.send`, `purchaseDebitNotes.send`, `supplierPayments.send`, or `contacts.sendSupplierStatements`; history uses the matching view permission.
+- Supplier eligibility is `APPROVED`/`SENT` for purchase orders, `FINALIZED` for purchase debit notes, `POSTED` for supplier payments, and `SUPPLIER`/`BOTH` for supplier statements. Queue requests archive generated-document metadata and never call SMTP/provider code; explicit worker execution remains the only provider boundary.
+- Added additive supplier email-template enum values, bounded supplier DTO validation, escaped templates, source-number-aware organization-scoped request hashing, FX-aware supplier-statement snapshot identity, shared source-neutral send/history UI, and lifecycle/worker regression coverage. The guarded two-worker PostgreSQL race fixture is present but not complete: Docker Desktop and the local PostgreSQL service were unavailable in this session, so no race-pass or cleanup proof is claimed.
+- No hosted database/app mutation, deployment, real SMTP/provider call, production credential or data, accounting mutation, ZATCA, UAE FTA, or Peppol behavior was used or changed. The protected root checkout and its unrelated `BANK_STATEMENT_IMPORT_PROOF_REVIEW.md` modification remain untouched.
+
 ## 2026-07-16 - SME document delivery arc 02
 
 - Branch `codex/sme-document-delivery-02` starts from merged PR #376 at `92abd403efbad760260b03713335eea229e9c8f5` and reuses the generic outbox, generated-document, suppression, retry, and provider boundary.
