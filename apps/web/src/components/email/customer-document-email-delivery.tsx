@@ -23,6 +23,7 @@ export interface CustomerDocumentEmailDeliveryProps {
   successMessage: string;
   emptyHistoryMessage: string;
   endpoint: string;
+  deliveryPeriod?: { from?: string | null; to?: string | null; asOf?: string | null };
 }
 
 type DeliveryForm = { recipientEmail: string; subject: string; message: string; idempotencyKey: string };
@@ -69,7 +70,7 @@ export function CustomerDocumentEmailDelivery(props: Readonly<CustomerDocumentEm
     setSubmitting(true); setFormError("");
     const token = requestToken.current;
     try {
-      await apiRequest(`${props.endpoint}`, { method: "POST", body: { recipientEmail: form.recipientEmail || undefined, subject: form.subject || undefined, message: form.message || undefined, idempotencyKey: form.idempotencyKey } });
+      await apiRequest(`${props.endpoint}`, { method: "POST", body: { recipientEmail: form.recipientEmail || undefined, subject: form.subject || undefined, message: form.message || undefined, idempotencyKey: form.idempotencyKey, ...(props.deliveryPeriod ? { from: props.deliveryPeriod.from || undefined, to: props.deliveryPeriod.to || undefined, asOf: props.deliveryPeriod.asOf || undefined } : {}) } });
       setOpen(false); setSuccess(props.successMessage); await refreshHistory(token);
     } catch (error: unknown) {
       setFormError(error instanceof Error ? error.message : `Unable to queue ${props.sourceLabel} email delivery.`);
@@ -90,3 +91,6 @@ export function CustomerDocumentEmailDelivery(props: Readonly<CustomerDocumentEm
 function initialForm(props: Pick<CustomerDocumentEmailDeliveryProps, "recipientEmail" | "defaultSubject" | "defaultMessage">): DeliveryForm {
   return { recipientEmail: props.recipientEmail, subject: props.defaultSubject, message: props.defaultMessage, idempotencyKey: createEmailDeliveryIdempotencyKey() };
 }
+
+export { CustomerDocumentEmailDelivery as DocumentEmailDelivery };
+export type { CustomerDocumentEmailDeliveryProps as DocumentEmailDeliveryProps };

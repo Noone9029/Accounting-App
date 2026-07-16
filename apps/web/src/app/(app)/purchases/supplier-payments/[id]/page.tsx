@@ -6,6 +6,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { StatusMessage } from "@/components/common/status-message";
 import { SourceDocumentGuidance } from "@/components/documents/document-guidance";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
+import { CustomerDocumentEmailDelivery } from "@/components/email/customer-document-email-delivery";
 import { LedgerActionDialog } from "@/components/ui-ledger/action-dialog";
 import { useAppLocale } from "@/components/app-locale-provider";
 import { usePermissions } from "@/components/permissions/permission-provider";
@@ -237,6 +238,7 @@ export default function SupplierPaymentDetailPage() {
   const canCreatePayment = can(PERMISSIONS.supplierPayments.create);
   const canVoidPaymentPermission = can(PERMISSIONS.supplierPayments.void);
   const canDownloadGeneratedDocuments = can(PERMISSIONS.generatedDocuments.download);
+  const canSendSupplierPayment = can(PERMISSIONS.supplierPayments.send);
   const canApplyUnapplied = payment?.status === "POSTED" && Number(payment.transactionUnappliedAmount ?? payment.unappliedAmount) > 0 && canCreatePayment;
   const returnTo = safeReturnToFromSearch(searchParams.toString());
   const paymentDetailHref =
@@ -299,6 +301,23 @@ export default function SupplierPaymentDetailPage() {
           />
 
           <AttachmentPanel linkedEntityType="SUPPLIER_PAYMENT" linkedEntityId={payment.id} />
+
+          <CustomerDocumentEmailDelivery
+            sourceId={payment.id}
+            organizationId={organizationId}
+            canSend={canSendSupplierPayment}
+            eligible={payment.status === "POSTED"}
+            sourceLabel="payment remittance"
+            documentFilename={`supplier-payment-${payment.paymentNumber}.pdf`}
+            recipientEmail={payment.supplier?.email ?? ""}
+            defaultSubject={`Payment remittance ${payment.paymentNumber}`}
+            defaultMessage="Please find the posted payment remittance attached for your records."
+            ineligibleMessage="Only posted supplier payments can be queued for email delivery."
+            noPermissionMessage="You do not have permission to send payment remittances by email."
+            successMessage="Payment remittance queued for email delivery."
+            emptyHistoryMessage="No payment remittance email deliveries queued yet."
+            endpoint={`/supplier-payments/${payment.id}/email-deliveries`}
+          />
 
           <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
             <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">

@@ -28,7 +28,7 @@ import { PurchaseOrderLineDto } from "./dto/purchase-order-line.dto";
 import { UpdatePurchaseOrderDto } from "./dto/update-purchase-order.dto";
 
 const purchaseOrderInclude = {
-  supplier: { select: { id: true, name: true, displayName: true, type: true, taxNumber: true, isActive: true } },
+  supplier: { select: { id: true, name: true, displayName: true, email: true, type: true, taxNumber: true, isActive: true } },
   branch: { select: { id: true, name: true, displayName: true, taxNumber: true } },
   convertedBill: { select: { id: true, billNumber: true, status: true, billDate: true, total: true } },
   lines: {

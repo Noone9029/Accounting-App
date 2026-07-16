@@ -7,6 +7,7 @@ import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
 import { SourceDocumentGuidance } from "@/components/documents/document-guidance";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
+import { CustomerDocumentEmailDelivery } from "@/components/email/customer-document-email-delivery";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { LedgerActionDialog } from "@/components/ui-ledger/action-dialog";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
@@ -249,6 +250,7 @@ export default function PurchaseDebitNoteDetailPage() {
   const debitDisplayUnapplied = debitNote?.status === "DRAFT" ? (debitDisplayTotals?.total ?? debitNote.total) : (debitNote?.unappliedAmount ?? "0");
   const canVoidDebitNote = can(PERMISSIONS.purchaseDebitNotes.void);
   const canDownloadGeneratedDocuments = can(PERMISSIONS.generatedDocuments.download);
+  const canSendPurchaseDebitNote = can(PERMISSIONS.purchaseDebitNotes.send);
   const canApplyDebitNote = debitNote?.status === "FINALIZED" && Number(debitNote.unappliedAmount) > 0 && canFinalizeDebitNote;
 
   return (
@@ -327,6 +329,23 @@ export default function PurchaseDebitNoteDetailPage() {
           />
 
           <AttachmentPanel linkedEntityType="PURCHASE_DEBIT_NOTE" linkedEntityId={debitNote.id} />
+
+          <CustomerDocumentEmailDelivery
+            sourceId={debitNote.id}
+            organizationId={organizationId}
+            canSend={canSendPurchaseDebitNote}
+            eligible={debitNote.status === "FINALIZED"}
+            sourceLabel="purchase debit note"
+            documentFilename={`purchase-debit-note-${debitNote.debitNoteNumber}.pdf`}
+            recipientEmail={debitNote.supplier?.email ?? ""}
+            defaultSubject={`Purchase debit note ${debitNote.debitNoteNumber}`}
+            defaultMessage="Please find the finalized purchase debit note attached for your records."
+            ineligibleMessage="Only finalized purchase debit notes can be queued for email delivery."
+            noPermissionMessage="You do not have permission to send purchase debit notes by email."
+            successMessage="Purchase debit note queued for email delivery."
+            emptyHistoryMessage="No purchase debit note email deliveries queued yet."
+            endpoint={`/purchase-debit-notes/${debitNote.id}/email-deliveries`}
+          />
 
           <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
             <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">

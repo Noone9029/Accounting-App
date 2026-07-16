@@ -50,7 +50,7 @@ import { SupplierPaymentAllocationDto } from "./dto/supplier-payment-allocation.
 import { buildSupplierPaymentJournalLines } from "./supplier-payment-accounting";
 
 const supplierPaymentInclude = {
-  supplier: { select: { id: true, name: true, displayName: true, type: true } },
+  supplier: { select: { id: true, name: true, displayName: true, email: true, type: true } },
   account: { select: { id: true, code: true, name: true, type: true } },
   journalEntry: {
     select: {
