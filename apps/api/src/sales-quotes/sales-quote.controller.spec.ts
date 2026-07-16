@@ -10,6 +10,8 @@ describe("SalesQuoteController permissions", () => {
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, SalesQuoteController.prototype.create)).toEqual([PERMISSIONS.salesInvoices.create]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, SalesQuoteController.prototype.get)).toEqual([PERMISSIONS.salesInvoices.view]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, SalesQuoteController.prototype.pdfData)).toEqual([PERMISSIONS.salesInvoices.view]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, SalesQuoteController.prototype.emailDelivery)).toEqual([PERMISSIONS.salesInvoices.send]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, SalesQuoteController.prototype.emailDeliveryHistory)).toEqual([PERMISSIONS.salesInvoices.view]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, SalesQuoteController.prototype.pdf)).toEqual([PERMISSIONS.salesInvoices.view]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, SalesQuoteController.prototype.generatePdf)).toEqual([PERMISSIONS.salesInvoices.view]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, SalesQuoteController.prototype.update)).toEqual([PERMISSIONS.salesInvoices.update]);

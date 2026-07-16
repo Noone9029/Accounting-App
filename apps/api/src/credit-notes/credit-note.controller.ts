@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Res, StreamableFile, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Optional, Param, Patch, Post, Res, StreamableFile, UseGuards } from "@nestjs/common";
 import { PERMISSIONS } from "@ledgerbyte/shared";
 import type { Response } from "express";
 import { AuthenticatedUser } from "../auth/auth.types";
@@ -9,15 +9,20 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
 import { PermissionGuard } from "../auth/guards/permission.guard";
 import { CreditNoteService } from "./credit-note.service";
+import { CreditNoteEmailDeliveryService } from "./credit-note-email-delivery.service";
 import { ApplyCreditNoteDto } from "./dto/apply-credit-note.dto";
 import { CreateCreditNoteDto } from "./dto/create-credit-note.dto";
+import { CreateCreditNoteEmailDeliveryDto } from "./dto/create-credit-note-email-delivery.dto";
 import { ReverseCreditNoteAllocationDto } from "./dto/reverse-credit-note-allocation.dto";
 import { UpdateCreditNoteDto } from "./dto/update-credit-note.dto";
 
 @Controller("credit-notes")
 @UseGuards(JwtAuthGuard, OrganizationContextGuard, PermissionGuard)
 export class CreditNoteController {
-  constructor(private readonly creditNoteService: CreditNoteService) {}
+  constructor(
+    private readonly creditNoteService: CreditNoteService,
+    @Optional() private readonly creditNoteEmailDeliveryService?: CreditNoteEmailDeliveryService,
+  ) {}
 
   @Get()
   @RequirePermissions(PERMISSIONS.creditNotes.view)
@@ -51,6 +56,23 @@ export class CreditNoteController {
   @RequirePermissions(PERMISSIONS.creditNotes.view)
   allocations(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
     return this.creditNoteService.allocations(organizationId, id);
+  }
+
+  @Post(":id/email-deliveries")
+  @RequirePermissions(PERMISSIONS.creditNotes.send)
+  emailDelivery(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() dto: CreateCreditNoteEmailDeliveryDto,
+  ) {
+    return this.creditNoteEmailDeliveryService!.queue(organizationId, user.id, id, dto);
+  }
+
+  @Get(":id/email-deliveries")
+  @RequirePermissions(PERMISSIONS.creditNotes.view)
+  emailDeliveryHistory(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.creditNoteEmailDeliveryService!.history(organizationId, id);
   }
 
   @Post(":id/apply")

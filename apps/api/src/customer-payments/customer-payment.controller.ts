@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Query, Res, StreamableFile, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Optional, Param, Post, Query, Res, StreamableFile, UseGuards } from "@nestjs/common";
 import { PERMISSIONS } from "@ledgerbyte/shared";
 import type { Response } from "express";
 import { AuthenticatedUser } from "../auth/auth.types";
@@ -9,14 +9,19 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
 import { PermissionGuard } from "../auth/guards/permission.guard";
 import { CustomerPaymentService } from "./customer-payment.service";
+import { CustomerPaymentEmailDeliveryService } from "./customer-payment-email-delivery.service";
 import { ApplyUnappliedPaymentDto } from "./dto/apply-unapplied-payment.dto";
+import { CreateCustomerPaymentEmailDeliveryDto } from "./dto/create-customer-payment-email-delivery.dto";
 import { CreateCustomerPaymentDto } from "./dto/create-customer-payment.dto";
 import { ReverseUnappliedPaymentAllocationDto } from "./dto/reverse-unapplied-payment-allocation.dto";
 
 @Controller("customer-payments")
 @UseGuards(JwtAuthGuard, OrganizationContextGuard, PermissionGuard)
 export class CustomerPaymentController {
-  constructor(private readonly customerPaymentService: CustomerPaymentService) {}
+  constructor(
+    private readonly customerPaymentService: CustomerPaymentService,
+    @Optional() private readonly customerPaymentEmailDeliveryService?: CustomerPaymentEmailDeliveryService,
+  ) {}
 
   @Get()
   @RequirePermissions(PERMISSIONS.customerPayments.view)
@@ -44,6 +49,23 @@ export class CustomerPaymentController {
   @RequirePermissions(PERMISSIONS.customerPayments.view)
   receiptPdfData(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
     return this.customerPaymentService.receiptPdfData(organizationId, id);
+  }
+
+  @Post(":id/email-deliveries")
+  @RequirePermissions(PERMISSIONS.customerPayments.send)
+  emailDelivery(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() dto: CreateCustomerPaymentEmailDeliveryDto,
+  ) {
+    return this.customerPaymentEmailDeliveryService!.queue(organizationId, user.id, id, dto);
+  }
+
+  @Get(":id/email-deliveries")
+  @RequirePermissions(PERMISSIONS.customerPayments.view)
+  emailDeliveryHistory(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.customerPaymentEmailDeliveryService!.history(organizationId, id);
   }
 
   @Get(":id/receipt.pdf")

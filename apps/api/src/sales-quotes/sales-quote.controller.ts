@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Req, Res, StreamableFile, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Optional, Param, Patch, Post, Query, Req, Res, StreamableFile, UseGuards } from "@nestjs/common";
 import { PERMISSIONS } from "@ledgerbyte/shared";
 import type { Response } from "express";
 import type { AuthenticatedRequest, AuthenticatedUser } from "../auth/auth.types";
@@ -10,13 +10,18 @@ import { OrganizationContextGuard } from "../auth/guards/organization-context.gu
 import { PermissionGuard } from "../auth/guards/permission.guard";
 import { assertGeneratedDocumentDownloadPermission } from "../generated-documents/generated-document-permissions";
 import { CreateSalesQuoteDto } from "./dto/create-sales-quote.dto";
+import { CreateSalesQuoteEmailDeliveryDto } from "./dto/create-sales-quote-email-delivery.dto";
 import { UpdateSalesQuoteDto } from "./dto/update-sales-quote.dto";
+import { SalesQuoteEmailDeliveryService } from "./sales-quote-email-delivery.service";
 import { SalesQuoteService } from "./sales-quote.service";
 
 @Controller("sales-quotes")
 @UseGuards(JwtAuthGuard, OrganizationContextGuard, PermissionGuard)
 export class SalesQuoteController {
-  constructor(private readonly salesQuoteService: SalesQuoteService) {}
+  constructor(
+    private readonly salesQuoteService: SalesQuoteService,
+    @Optional() private readonly salesQuoteEmailDeliveryService?: SalesQuoteEmailDeliveryService,
+  ) {}
 
   @Get()
   @RequirePermissions(PERMISSIONS.salesInvoices.view)
@@ -50,6 +55,23 @@ export class SalesQuoteController {
   @RequirePermissions(PERMISSIONS.salesInvoices.view)
   pdfData(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
     return this.salesQuoteService.pdfData(organizationId, id);
+  }
+
+  @Post(":id/email-deliveries")
+  @RequirePermissions(PERMISSIONS.salesInvoices.send)
+  emailDelivery(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() dto: CreateSalesQuoteEmailDeliveryDto,
+  ) {
+    return this.salesQuoteEmailDeliveryService!.queue(organizationId, user.id, id, dto);
+  }
+
+  @Get(":id/email-deliveries")
+  @RequirePermissions(PERMISSIONS.salesInvoices.view)
+  emailDeliveryHistory(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.salesQuoteEmailDeliveryService!.history(organizationId, id);
   }
 
   @Get(":id/pdf")

@@ -5,12 +5,13 @@ import { GeneratedDocumentModule } from "../generated-documents/generated-docume
 import { NumberSequenceModule } from "../number-sequences/number-sequence.module";
 import { PrismaModule } from "../prisma/prisma.module";
 import { SalesQuoteController } from "./sales-quote.controller";
+import { SalesQuoteEmailDeliveryService } from "./sales-quote-email-delivery.service";
 import { SalesQuoteService } from "./sales-quote.service";
 
 @Module({
   imports: [PrismaModule, AuditLogModule, NumberSequenceModule, OrganizationDocumentSettingsModule, GeneratedDocumentModule],
   controllers: [SalesQuoteController],
-  providers: [SalesQuoteService],
+  providers: [SalesQuoteService, SalesQuoteEmailDeliveryService],
   exports: [SalesQuoteService],
 })
 export class SalesQuoteModule {}
