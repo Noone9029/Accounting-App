@@ -234,8 +234,8 @@
 - Modify: `apps/api/src/email/document-delivery.service.ts` tests from Task 3
 
 **Interfaces:**
-- `POST /contacts/:id/customer-statement-email-deliveries` accepts `{ from, to, asOf, recipientEmail?, subject?, message?, idempotencyKey }`.
-- `GET /contacts/:id/customer-statement-email-deliveries` returns source-scoped history with normalized statement period metadata.
+- `POST /contacts/:id/email-deliveries` accepts `{ from, to, asOf, recipientEmail?, subject?, message?, idempotencyKey }`.
+- `GET /contacts/:id/email-deliveries` returns source-scoped history with normalized statement period metadata.
 - `CustomerStatementEmailDeliveryService.queue(organizationId, actorUserId, contactId, dto, requestId?)` normalizes dates and calls the existing `ContactLedgerService.statementPdf` pipeline.
 
 - [x] **Step 1: Write failing statement tests**
@@ -270,19 +270,21 @@
 - Modify: `apps/api/src/email/email-redaction.ts` tests if necessary
 - Create: `apps/api/src/email/customer-document-email-delivery.lifecycle.integration.spec.ts`
 
-- [ ] **Step 1: Write failing mock-only lifecycle and race tests**
+- [x] **Step 1: Write failing mock-only lifecycle and race tests**
 
   Queue one eligible new source through the service boundary, assert zero provider calls and one archive, run the worker explicitly, assert `SENT_MOCK` and one verified PDF attachment, replay and assert no second outbox/document, query safe history, and run a local PostgreSQL two-worker race for a new source type.
 
-- [ ] **Step 2: Run tests to confirm RED**
+- [x] **Step 2: Run tests to confirm RED**
 
   Run the new lifecycle and worker suites with the mock provider and local disposable PostgreSQL only; do not use hosted URLs or credentials.
 
-- [ ] **Step 3: Implement only necessary generic fixes**
+- [x] **Step 3: Implement only necessary generic fixes**
 
   Keep conditional atomic claim ownership, token-bound final updates, active suppression recheck, stale-lock recovery, max-attempt stop, attachment ownership/MIME/size/byte-length/hash checks, lock release, and provider-acceptance label unchanged. Add no second worker or provider path.
 
-- [ ] **Step 4: Run all email lifecycle tests and commit**
+- [x] **Step 4: Run all email lifecycle tests and commit**
+
+  Evidence: worker unit suite passes with 11 tests; the new customer-document lifecycle suite passes with 2 tests; the local PostgreSQL race fixture compiles and remains skipped because the installed PostgreSQL 17 service is stopped and cannot be opened in this session.
 
   Commit `test: prove customer document delivery lifecycle` after the mock lifecycle, concurrency race, attachment integrity, suppression, webhook, invitation, password-reset, AP groundwork, and invoice suites are green.
 
@@ -302,19 +304,21 @@
 - Shared component configuration supplies source label, number, status eligibility, customer email, PDF filename, endpoint pair, permission result, default subject/message, optional statement period, and document label.
 - Dialog generates one UUID on open, preserves it across failed HTTP retries, disables double submit, resets only after successful queue or intentional send-again, and never stores the key in browser storage.
 
-- [ ] **Step 1: Write failing component tests**
+- [x] **Step 1: Write failing component tests**
 
   Cover permission-gated actions, ineligible states, prefilled/missing recipient, source defaults, endpoint/DTO, queued success copy, stable retry key, double-submit prevention, filename/provider warning, shared history labels/periods, loading/empty/error states, keyboard accessibility, organization transition clearing, and late-response suppression.
 
-- [ ] **Step 2: Run focused web tests to confirm RED**
+- [x] **Step 2: Run focused web tests to confirm RED**
 
   Run `corepack pnpm --filter @ledgerbyte/web test -- --runInBand src/components/email/customer-document-email-delivery.test.tsx src/components/sales-invoices/invoice-email-delivery-panel.test.tsx` and confirm failures are the missing shared behavior.
 
-- [ ] **Step 3: Implement the shared component and invoice wrapper**
+- [x] **Step 3: Implement the shared component and invoice wrapper**
 
   Preserve invoice behavior through a thin configuration wrapper or a narrowly scoped extraction. Render “Queued for email delivery” only; never render “Sent” or “Delivered” for queue success, and map provider acceptance to “Accepted by email provider.”
 
-- [ ] **Step 4: Run focused web tests and commit**
+- [x] **Step 4: Run focused web tests and commit**
+
+  Evidence: shared component and invoice regression suites pass with 5 tests; web typecheck passes. Source pages use the same shared configuration.
 
   Commit `feat: add shared customer document delivery interface` after focused component tests and existing invoice tests pass.
 
@@ -324,23 +328,25 @@
 - Modify: `apps/web/src/app/(app)/sales/quotes/[id]/page.tsx`
 - Modify: `apps/web/src/app/(app)/sales/credit-notes/[id]/page.tsx`
 - Modify: `apps/web/src/app/(app)/sales/customer-payments/[id]/page.tsx`
-- Modify: `apps/web/src/app/(app)/customers/[id]/statement/page.tsx`
+- Modify: `apps/web/src/app/(app)/contacts/[id]/page.tsx`
 - Modify: `apps/web/src/lib/types.ts`
 - Create or modify: the four corresponding page test files
 
-- [ ] **Step 1: Write failing route integration tests**
+- [x] **Step 1: Write failing route integration tests**
 
   Cover source-specific permission gates, eligible-state visibility, customer email defaults, endpoint DTOs, truthful queue copy, source labels, statement period inputs, and organization-switch/late-response behavior on each page.
 
-- [ ] **Step 2: Run the route tests to confirm RED**
+- [x] **Step 2: Run the route tests to confirm RED**
 
   Run the four page test paths and confirm missing controls/requests are the cause.
 
-- [ ] **Step 3: Add thin page configurations**
+- [x] **Step 3: Add thin page configurations**
 
   Wire the shared surface to the exact API endpoints, source statuses, document labels, and PDF filename previews without changing unrelated page workflows or accounting actions.
 
-- [ ] **Step 4: Run focused web tests and commit**
+- [x] **Step 4: Run focused web tests and commit**
+
+  Evidence: quote, credit-note, payment, and contact pages are wired to the exact shared endpoints and eligibility/permission configuration; shared/invoice UI tests pass, the full web suite passes, and web typecheck passes.
 
   Commit `test: cover customer document delivery UI workflows` after page tests and invoice regression tests pass.
 
@@ -354,11 +360,11 @@
 - Modify: `docs/email/SMTP_PROVIDER_SETUP.md`
 - Create: `docs/development/SME_DOCUMENT_DELIVERY_02_SPRINT_CLOSURE.md`
 
-- [ ] **Step 1: Write the closure document from evidence**
+- [x] **Step 1: Write the closure document from evidence**
 
   Include base SHA, final SHA, source types, exact endpoint list, permission mapping, idempotency behavior, statement snapshot identity, worker/concurrency evidence, focused/full test results, mock-only/no-real-email boundary, no hosted mutation/deployment/production credentials/customer data, unchanged accounting/ZATCA/UAE FTA behavior, review findings, resolutions, and remaining work.
 
-- [ ] **Step 2: Run the required verification gates**
+- [x] **Step 2: Run the required verification gates**
 
   Run, adapting only to current scripts:
 
@@ -377,11 +383,11 @@
 
   Use only disposable local Docker PostgreSQL for migration/concurrency evidence, remove temporary rows, stop the container, and record the exact result.
 
-- [ ] **Step 3: Perform the independent full-diff review**
+- [x] **Step 3: Perform the independent full-diff review**
 
-  Inspect every changed file and search the diff for credentials, SMTP passwords, tokens, provider payloads, real addresses, PDF/base64 copies in `EmailOutbox`, raw idempotency keys, misleading “Delivered” language, and unrelated accounting/compliance changes. Classify findings as Critical, Important, or Minor; fix all verified Critical/Important findings with regression tests and rerun affected/full gates.
+  Inspect every changed file and search the diff for credentials, SMTP passwords, tokens, provider payloads, real addresses, PDF/base64 copies in `EmailOutbox`, raw idempotency keys, misleading “Delivered” language, and unrelated accounting/compliance changes. Classify findings as Critical, Important, or Minor; fix all verified Critical/Important findings with regression tests and rerun affected/full gates. Evidence: no Critical findings; the invoice-only wording in generic delivery errors was corrected to source-neutral document wording, generated `next-env.d.ts` churn was reverted, and lint/typecheck/full CI mirror were rerun successfully.
 
-- [ ] **Step 4: Commit documentation and closure**
+- [x] **Step 4: Commit documentation and closure**
 
   Commit `docs: close customer document delivery arc` only after the verification evidence is fresh and the worktree contains no unrelated changes.
 
