@@ -9,6 +9,7 @@ describe("SalesQuoteController permissions", () => {
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, SalesQuoteController.prototype.nextNumberPreview)).toEqual([PERMISSIONS.salesInvoices.create]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, SalesQuoteController.prototype.create)).toEqual([PERMISSIONS.salesInvoices.create]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, SalesQuoteController.prototype.get)).toEqual([PERMISSIONS.salesInvoices.view]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, SalesQuoteController.prototype.workflowSummary)).toEqual([PERMISSIONS.salesInvoices.view]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, SalesQuoteController.prototype.pdfData)).toEqual([PERMISSIONS.salesInvoices.view]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, SalesQuoteController.prototype.pdf)).toEqual([PERMISSIONS.salesInvoices.view]);
     expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, SalesQuoteController.prototype.generatePdf)).toEqual([PERMISSIONS.salesInvoices.view]);
@@ -32,5 +33,13 @@ describe("SalesQuoteController permissions", () => {
         { set: jest.fn() } as never,
       ),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it("delegates quote workflow summaries to the quote service", async () => {
+    const workflowSummary = jest.fn().mockResolvedValue({ document: { id: "quote-1" } });
+    const controller = new SalesQuoteController({ workflowSummary } as never);
+
+    await expect(controller.workflowSummary("org-1", "quote-1")).resolves.toEqual({ document: { id: "quote-1" } });
+    expect(workflowSummary).toHaveBeenCalledWith("org-1", "quote-1");
   });
 });

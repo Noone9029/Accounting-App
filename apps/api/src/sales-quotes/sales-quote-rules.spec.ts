@@ -1,7 +1,7 @@
 import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { calculateSalesInvoiceTotals } from "@ledgerbyte/accounting-core";
-import { AccountType, DocumentType, NumberSequenceScope, Prisma, SalesInvoiceStatus, SalesInvoiceTaxMode, SalesQuoteStatus } from "@prisma/client";
-import { SalesQuoteService } from "./sales-quote.service";
+import { AccountType, DocumentType, GeneratedDocumentStatus, NumberSequenceScope, Prisma, SalesInvoiceStatus, SalesInvoiceTaxMode, SalesQuoteStatus } from "@prisma/client";
+import { SalesQuoteService, buildSalesQuoteWorkflowSummary } from "./sales-quote.service";
 
 describe("sales quote rules", () => {
   it("calculates quote totals with the same tax-exclusive, tax-inclusive, and no-tax rules as sales invoices", async () => {
@@ -164,6 +164,88 @@ describe("sales quote rules", () => {
       }),
     }));
     expect(JSON.stringify(audit.log.mock.calls)).not.toContain("%PDF");
+  });
+
+  it("builds quote workflow summaries without mutating quote state", () => {
+    const draftSummary = buildSalesQuoteWorkflowSummary(quoteWorkflowFixture(), []);
+    expect(draftSummary).toMatchObject({
+      document: {
+        id: "quote-1",
+        type: "SalesQuote",
+        number: "QUO-000001",
+        status: SalesQuoteStatus.DRAFT,
+        customerId: "customer-1",
+        currency: "SAR",
+        total: "115.0000",
+      },
+      lifecycle: { state: "DRAFT_NOT_SENT" },
+      conversion: { state: "NOT_READY", convertedSalesInvoice: null },
+      generatedDocuments: { pdfCount: 0, latestPdf: null },
+    });
+    expect(draftSummary.availableActions).toEqual(["edit", "markSent", "generatePdf"]);
+    expect(draftSummary.blockedActions).toEqual(expect.arrayContaining([{ action: "convertToInvoice", reason: "Only accepted sales quotes can be converted." }]));
+
+    const acceptedSummary = buildSalesQuoteWorkflowSummary(
+      quoteWorkflowFixture({ status: SalesQuoteStatus.ACCEPTED, acceptedAt: new Date("2026-06-04T12:00:00.000Z") }),
+      [
+        generatedDocumentFixture({ id: "doc-old", generatedAt: new Date("2026-06-04T08:00:00.000Z") }),
+        generatedDocumentFixture({ id: "doc-new", filename: "sales-quote-QUO-000001-v2.pdf", generatedAt: new Date("2026-06-04T09:00:00.000Z") }),
+      ],
+    );
+    expect(acceptedSummary.lifecycle.state).toBe("ACCEPTED_READY_TO_CONVERT");
+    expect(acceptedSummary.conversion).toMatchObject({ state: "READY_TO_CONVERT", convertedSalesInvoice: null });
+    expect(acceptedSummary.generatedDocuments).toMatchObject({
+      pdfCount: 2,
+      latestPdf: {
+        id: "doc-new",
+        filename: "sales-quote-QUO-000001-v2.pdf",
+        status: GeneratedDocumentStatus.GENERATED,
+        storageProvider: "database",
+      },
+    });
+    expect(acceptedSummary.availableActions).toEqual(["convertToInvoice", "generatePdf"]);
+
+    const convertedSummary = buildSalesQuoteWorkflowSummary(
+      quoteWorkflowFixture({
+        status: SalesQuoteStatus.CONVERTED,
+        convertedSalesInvoiceId: "invoice-1",
+        convertedAt: new Date("2026-06-05T10:00:00.000Z"),
+        convertedSalesInvoice: {
+          id: "invoice-1",
+          invoiceNumber: "INV-000010",
+          status: SalesInvoiceStatus.DRAFT,
+          issueDate: new Date("2026-06-05T00:00:00.000Z"),
+          total: decimal("115.0000"),
+        },
+      }),
+      [],
+    );
+    expect(convertedSummary.conversion).toMatchObject({
+      state: "CONVERTED",
+      convertedSalesInvoice: { id: "invoice-1", invoiceNumber: "INV-000010", status: SalesInvoiceStatus.DRAFT, total: "115.0000" },
+    });
+    expect(convertedSummary.availableActions).toEqual(["viewConvertedInvoice", "generatePdf"]);
+    expect(convertedSummary.notes.join(" ")).toContain("does not submit compliance data");
+  });
+
+  it("returns quote workflow summaries from active-organization quote and generated document state", async () => {
+    const prisma = {
+      salesQuote: { findFirst: jest.fn().mockResolvedValue(quoteWorkflowFixture({ status: SalesQuoteStatus.SENT })) },
+      generatedDocument: { findMany: jest.fn().mockResolvedValue([generatedDocumentFixture()]) },
+    };
+    const { service } = makeService(prisma);
+
+    await expect(service.workflowSummary("org-1", "quote-1")).resolves.toMatchObject({
+      document: { id: "quote-1", type: "SalesQuote", number: "QUO-000001", status: SalesQuoteStatus.SENT },
+      lifecycle: { state: "SENT_AWAITING_ACCEPTANCE" },
+      generatedDocuments: { pdfCount: 1 },
+    });
+    expect(prisma.salesQuote.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "quote-1", organizationId: "org-1" } }));
+    expect(prisma.generatedDocument.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { organizationId: "org-1", sourceType: "SalesQuote", sourceId: "quote-1", documentType: DocumentType.SALES_QUOTE },
+      }),
+    );
   });
 
   it("allows draft-to-sent-to-accepted lifecycle and blocks editing once sent", async () => {
@@ -388,6 +470,39 @@ function makePdfQuote() {
         taxRate: { name: "VAT on Sales 15%" },
       },
     ],
+  };
+}
+
+function quoteWorkflowFixture(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "quote-1",
+    quoteNumber: "QUO-000001",
+    customerId: "customer-1",
+    status: SalesQuoteStatus.DRAFT,
+    issueDate: new Date("2026-06-03T00:00:00.000Z"),
+    expiryDate: new Date("2026-06-30T00:00:00.000Z"),
+    currency: "SAR",
+    total: decimal("115.0000"),
+    convertedSalesInvoiceId: null,
+    convertedAt: null,
+    sentAt: null,
+    acceptedAt: null,
+    rejectedAt: null,
+    expiredAt: null,
+    cancelledAt: null,
+    convertedSalesInvoice: null,
+    ...overrides,
+  };
+}
+
+function generatedDocumentFixture(overrides: Record<string, unknown> = {}) {
+  return {
+    id: "doc-1",
+    filename: "sales-quote-QUO-000001.pdf",
+    status: GeneratedDocumentStatus.GENERATED,
+    storageProvider: "database",
+    generatedAt: new Date("2026-06-04T08:00:00.000Z"),
+    ...overrides,
   };
 }
 
