@@ -34,6 +34,50 @@ interface SalesInvoiceDeliveryTemplateInput {
   message?: string;
 }
 
+interface SalesQuoteDeliveryTemplateInput {
+  documentKind: "QUOTE" | "PROFORMA";
+  organizationName: string;
+  customerDisplayName: string;
+  quoteNumber: string;
+  currency: string;
+  total: string;
+  expiryDate?: string | null;
+  message?: string;
+}
+
+interface CreditNoteDeliveryTemplateInput {
+  organizationName: string;
+  customerDisplayName: string;
+  creditNoteNumber: string;
+  currency: string;
+  total: string;
+  issueDate: string;
+  sourceInvoiceNumber?: string | null;
+  message?: string;
+}
+
+interface CustomerPaymentReceiptDeliveryTemplateInput {
+  organizationName: string;
+  customerDisplayName: string;
+  paymentNumber: string;
+  paymentDate: string;
+  currency: string;
+  amountReceived: string;
+  reference?: string | null;
+  message?: string;
+}
+
+interface CustomerStatementDeliveryTemplateInput {
+  organizationName: string;
+  customerDisplayName: string;
+  periodFrom: string;
+  periodTo: string;
+  asOf: string;
+  closingBalance?: string | null;
+  currency?: string | null;
+  message?: string;
+}
+
 export function buildOrganizationInviteEmail(input: OrganizationInviteTemplateInput) {
   const subject = `You're invited to ${input.organizationName} on LedgerByte`;
   const bodyText = [
@@ -137,6 +181,89 @@ export function buildSalesInvoiceDeliveryEmail(input: SalesInvoiceDeliveryTempla
   };
 }
 
+export function buildSalesQuoteDeliveryEmail(input: SalesQuoteDeliveryTemplateInput) {
+  const label = input.documentKind === "PROFORMA" ? "Proforma" : "Quote";
+  const bodyText = input.message ?? [
+    `Hello ${input.customerDisplayName},`,
+    "",
+    `Please find ${label.toLowerCase()} ${input.quoteNumber} attached.`,
+    "",
+    `${label} total: ${input.currency} ${input.total}`,
+    `Valid until: ${input.expiryDate || "Not specified"}`,
+    "",
+    "Regards,",
+    input.organizationName,
+  ].join("\n");
+
+  return {
+    subject: `${label} ${input.quoteNumber} from ${input.organizationName}`,
+    bodyText,
+    bodyHtml: bodyToHtml(bodyText),
+  };
+}
+
+export function buildCreditNoteDeliveryEmail(input: CreditNoteDeliveryTemplateInput) {
+  const bodyText = input.message ?? [
+    `Hello ${input.customerDisplayName},`,
+    "",
+    `Please find credit note ${input.creditNoteNumber} attached.`,
+    "",
+    `Credit-note total: ${input.currency} ${input.total}`,
+    `Issue date: ${input.issueDate}`,
+    ...(input.sourceInvoiceNumber ? [`Source invoice: ${input.sourceInvoiceNumber}`] : []),
+    "",
+    "Regards,",
+    input.organizationName,
+  ].join("\n");
+
+  return {
+    subject: `Credit note ${input.creditNoteNumber} from ${input.organizationName}`,
+    bodyText,
+    bodyHtml: bodyToHtml(bodyText),
+  };
+}
+
+export function buildCustomerPaymentReceiptDeliveryEmail(input: CustomerPaymentReceiptDeliveryTemplateInput) {
+  const bodyText = input.message ?? [
+    `Hello ${input.customerDisplayName},`,
+    "",
+    `Please find payment receipt ${input.paymentNumber} attached.`,
+    "",
+    `Payment date: ${input.paymentDate}`,
+    `Amount received: ${input.currency} ${input.amountReceived}`,
+    ...(input.reference ? [`Reference: ${input.reference}`] : []),
+    "",
+    "Regards,",
+    input.organizationName,
+  ].join("\n");
+
+  return {
+    subject: `Payment receipt ${input.paymentNumber} from ${input.organizationName}`,
+    bodyText,
+    bodyHtml: bodyToHtml(bodyText),
+  };
+}
+
+export function buildCustomerStatementDeliveryEmail(input: CustomerStatementDeliveryTemplateInput) {
+  const periodLabel = `${input.periodFrom} to ${input.periodTo}`;
+  const bodyText = input.message ?? [
+    `Hello ${input.customerDisplayName},`,
+    "",
+    `Please find your customer statement for ${periodLabel} attached.`,
+    `As of: ${input.asOf}`,
+    ...(input.closingBalance != null ? [`Closing balance: ${input.currency ?? ""} ${input.closingBalance}`.trim()] : []),
+    "",
+    "Regards,",
+    input.organizationName,
+  ].join("\n");
+
+  return {
+    subject: `Customer statement from ${input.organizationName}, ${periodLabel}`,
+    bodyText,
+    bodyHtml: bodyToHtml(bodyText),
+  };
+}
+
 export function buildPaymentLinkEmailPreview(input: InvoicePaymentPreviewTemplateInput) {
   const subject = `Payment link for invoice ${input.documentNumber}`;
   const bodyText = [
@@ -205,4 +332,11 @@ function escapeHtml(value: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function bodyToHtml(bodyText: string): string {
+  return bodyText
+    .split("\n")
+    .map((line) => `<p>${escapeHtml(line) || "&nbsp;"}</p>`)
+    .join("");
 }

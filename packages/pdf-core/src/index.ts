@@ -83,6 +83,7 @@ export interface SalesQuotePdfData {
   quote: {
     id: string;
     quoteNumber: string;
+    documentKind?: "QUOTE" | "PROFORMA";
     status: string;
     issueDate: string | Date;
     expiryDate?: string | Date | null;
@@ -982,10 +983,11 @@ export async function renderInvoicePdf(data: InvoicePdfData, settings?: Document
 }
 
 export async function renderSalesQuotePdf(data: SalesQuotePdfData, settings?: DocumentRenderSettings): Promise<Buffer> {
-  const renderSettings = resolveSettings({ ...settings, title: "Sales Quote" }, "Sales Quote");
+  const documentLabel = data.quote.documentKind === "PROFORMA" ? "Proforma" : "Sales Quote";
+  const renderSettings = resolveSettings({ ...settings, title: documentLabel }, documentLabel);
   return renderPdf((doc) => {
     writeHeader(doc, data.organization, renderSettings, data.generatedAt);
-    writeTwoColumnBlocks(doc, "Quote To", contactLines(data.customer, renderSettings), "Sales Quote", [
+    writeTwoColumnBlocks(doc, `${documentLabel} To`, contactLines(data.customer, renderSettings), documentLabel, [
       ["Quote number", data.quote.quoteNumber],
       ["Status", data.quote.status],
       ["Issue date", formatDate(data.quote.issueDate)],

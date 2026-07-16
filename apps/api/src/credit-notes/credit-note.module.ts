@@ -6,12 +6,13 @@ import { NumberSequenceModule } from "../number-sequences/number-sequence.module
 import { OrganizationDocumentSettingsModule } from "../document-settings/organization-document-settings.module";
 import { PrismaModule } from "../prisma/prisma.module";
 import { CreditNoteController } from "./credit-note.controller";
+import { CreditNoteEmailDeliveryService } from "./credit-note-email-delivery.service";
 import { CreditNoteService } from "./credit-note.service";
 
 @Module({
   imports: [PrismaModule, AuditLogModule, FiscalPeriodModule, NumberSequenceModule, OrganizationDocumentSettingsModule, GeneratedDocumentModule],
   controllers: [CreditNoteController],
-  providers: [CreditNoteService],
+  providers: [CreditNoteService, CreditNoteEmailDeliveryService],
   exports: [CreditNoteService],
 })
 export class CreditNoteModule {}

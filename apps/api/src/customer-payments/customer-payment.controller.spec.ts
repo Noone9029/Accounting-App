@@ -9,6 +9,19 @@ import { ApplyUnappliedPaymentDto } from "./dto/apply-unapplied-payment.dto";
 const validInvoiceId = "11111111-1111-4111-8111-111111111111";
 
 describe("CustomerPaymentController unapplied allocation routes", () => {
+  it("maps and protects customer payment email delivery routes", () => {
+    expect(Reflect.getMetadata(PATH_METADATA, CustomerPaymentController.prototype.emailDelivery)).toBe(":id/email-deliveries");
+    expect(Reflect.getMetadata(METHOD_METADATA, CustomerPaymentController.prototype.emailDelivery)).toBe(RequestMethod.POST);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, CustomerPaymentController.prototype.emailDelivery)).toEqual([
+      PERMISSIONS.customerPayments.send,
+    ]);
+    expect(Reflect.getMetadata(PATH_METADATA, CustomerPaymentController.prototype.emailDeliveryHistory)).toBe(":id/email-deliveries");
+    expect(Reflect.getMetadata(METHOD_METADATA, CustomerPaymentController.prototype.emailDeliveryHistory)).toBe(RequestMethod.GET);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSIONS_KEY, CustomerPaymentController.prototype.emailDeliveryHistory)).toEqual([
+      PERMISSIONS.customerPayments.view,
+    ]);
+  });
+
   it("maps apply and reverse unapplied allocation routes to POST endpoints", () => {
     expect(Reflect.getMetadata(PATH_METADATA, CustomerPaymentController)).toBe("customer-payments");
     expect(Reflect.getMetadata(PATH_METADATA, CustomerPaymentController.prototype.applyUnapplied)).toBe(":id/apply-unapplied");

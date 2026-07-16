@@ -1,6 +1,6 @@
 import { BadRequestException, NotFoundException } from "@nestjs/common";
 import { calculateSalesInvoiceTotals } from "@ledgerbyte/accounting-core";
-import { AccountType, DocumentType, NumberSequenceScope, Prisma, SalesInvoiceStatus, SalesInvoiceTaxMode, SalesQuoteStatus } from "@prisma/client";
+import { AccountType, DocumentType, NumberSequenceScope, Prisma, SalesInvoiceStatus, SalesInvoiceTaxMode, SalesQuoteDocumentKind, SalesQuoteStatus } from "@prisma/client";
 import { SalesQuoteService } from "./sales-quote.service";
 
 describe("sales quote rules", () => {
@@ -164,6 +164,25 @@ describe("sales quote rules", () => {
       }),
     }));
     expect(JSON.stringify(audit.log.mock.calls)).not.toContain("%PDF");
+  });
+
+  it("preserves proforma identity in archived PDF filename and metadata", async () => {
+    const archivePdf = jest.fn().mockResolvedValue({ id: "doc-proforma-1" });
+    const prisma = {
+      salesQuote: { findFirst: jest.fn().mockResolvedValue(makePdfQuote({ documentKind: SalesQuoteDocumentKind.PROFORMA })) },
+    };
+    const service = new SalesQuoteService(
+      prisma as never,
+      { log: jest.fn().mockResolvedValue(undefined) } as never,
+      { preview: jest.fn(), next: jest.fn() } as never,
+      { invoiceRenderSettings: jest.fn().mockResolvedValue({}) } as never,
+      { archivePdf } as never,
+    );
+
+    const result = await service.pdf("org-1", "user-1", "quote-1");
+
+    expect(result.filename).toBe("proforma-QUO-000001.pdf");
+    expect(archivePdf).toHaveBeenCalledWith(expect.objectContaining({ filename: "proforma-QUO-000001.pdf" }));
   });
 
   it("allows draft-to-sent-to-accepted lifecycle and blocks editing once sent", async () => {
@@ -363,7 +382,7 @@ function makeQuoteForConversion() {
   };
 }
 
-function makePdfQuote() {
+function makePdfQuote(overrides: Record<string, unknown> = {}) {
   return {
     ...makeQuote(),
     organization: { id: "org-1", name: "LedgerByte Demo", legalName: null, taxNumber: "300000000000003", countryCode: "SA" },
@@ -388,6 +407,7 @@ function makePdfQuote() {
         taxRate: { name: "VAT on Sales 15%" },
       },
     ],
+    ...overrides,
   };
 }
 

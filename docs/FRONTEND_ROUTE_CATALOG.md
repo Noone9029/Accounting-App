@@ -133,7 +133,7 @@ Inventory routes are operational by default and clearly warn that opening balanc
 | Route | Purpose | Data fetched | Actions | Status | Missing UX pieces |
 | --- | --- | --- | --- | --- | --- |
 | `/contacts` | Customer/supplier list. | Contacts. | Create/update contacts. | Implemented | Import/export and duplicate management missing. |
-| `/contacts/[id]` | Contact detail with ledgers/statements. | Contact, customer ledger/statement when applicable, supplier ledger/statement when applicable. | Load statements, download customer statement PDF, navigate source documents. | Implemented | Supplier statement PDF missing; supplier AP balance wording needs UX review. |
+| `/contacts/[id]` | Contact detail with ledgers/statements. | Contact, customer ledger/statement when applicable, supplier ledger/statement when applicable. | Load statements, download customer statement PDF, queue customer statement email for CUSTOMER/BOTH contacts, review safe history, and navigate source documents. | Implemented | Supplier statement email is intentionally excluded. |
 
 ## Manual Journals
 
@@ -150,15 +150,16 @@ Inventory routes are operational by default and clearly warn that opening balanc
 | `/sales/invoices/new` | Create invoice. | Customers, branches, accounts, tax rates, items. | Save draft. | Implemented | Quote/order conversion missing. |
 | `/sales/invoices/[id]` | Invoice detail. | Invoice, payments, credit notes, allocations, stock issue status, ZATCA metadata, EGS/metadata hash modes, stored hash, local SDK validation/hash comparison results, PDFs, linked attachments, and invoice email delivery history. | Finalize, void, delete draft, PDF download, ZATCA local actions, SDK dry-run/local validation, no-mutation SDK hash comparison, create credit note, issue stock for remaining tracked finalized lines when allowed, manage supporting attachments, and queue a finalized invoice PDF for email when `salesInvoices.send` is present. | Implemented | Delivery history and queue UX are local and truthful; no real provider delivery, scheduler, customer send, or production compliance/signing/submission is implied. |
 | `/sales/invoices/[id]/edit` | Edit draft invoice. | Invoice and form dependencies. | Save draft changes. | Implemented | Not available after finalize by design. |
+| `/sales/quotes/[id]` | Sales quote/proforma detail. | Quote, lines, related delivery notes, generated PDFs, and email delivery history. | Transition quote lifecycle, PDF, and queue SENT/ACCEPTED quote or proforma email with safe history. | Implemented | No real provider delivery or bulk quote send. |
 | `/sales/customer-payments` | Customer payment list. | Payments. | Navigate/create. | Implemented | Filters/export missing. |
 | `/sales/customer-payments/new` | Create customer payment. | Customers, accounts, optional bank account profiles, open invoices. | Allocate and post payment. | Implemented | Bank import/gateway capture missing. |
-| `/sales/customer-payments/[id]` | Payment detail. | Payment, receipt data, unapplied allocations, and linked attachments. | Void, PDF, apply/reverse unapplied allocations, refund link, and manage supporting attachments. | Implemented | Dedicated correction workflow missing. |
+| `/sales/customer-payments/[id]` | Payment detail. | Payment, receipt data, unapplied allocations, linked attachments, and email delivery history. | Void, PDF, apply/reverse unapplied allocations, refund link, manage supporting attachments, and queue POSTED payment receipt email. | Implemented | No real provider delivery or bulk receipt send. |
 | `/sales/customer-refunds` | Customer refund list. | Refunds. | Navigate/create. | Implemented | Gateway status missing. |
 | `/sales/customer-refunds/new` | Create manual refund. | Customers, refundable sources, accounts, optional bank account profiles. | Post refund. | Implemented | Bank/gateway integration missing. |
 | `/sales/customer-refunds/[id]` | Refund detail. | Refund, PDF data, and linked attachments. | Void, download PDF, and manage supporting attachments. | Implemented | Remittance/send workflow missing. |
 | `/sales/credit-notes` | Credit note list. | Credit notes. | Navigate/create. | Implemented | Filters/export missing. |
 | `/sales/credit-notes/new` | Create credit note. | Customers, optional invoice, accounts, tax rates, items. | Save draft. | Implemented | ZATCA credit note XML missing. |
-| `/sales/credit-notes/[id]` | Credit note detail. | Credit note, allocations, open invoices, PDF data, and linked attachments. | Finalize, void, delete draft, apply/reverse allocation, refund link, PDF, and manage supporting attachments. | Implemented | Dedicated audit timeline missing. |
+| `/sales/credit-notes/[id]` | Credit note detail. | Credit note, allocations, open invoices, PDF data, linked attachments, and email delivery history. | Finalize, void, delete draft, apply/reverse allocation, refund link, PDF, manage supporting attachments, and queue FINALIZED credit-note email. | Implemented | No real provider delivery or bulk credit-note send. |
 | `/sales/credit-notes/[id]/edit` | Edit draft credit note. | Credit note and form dependencies. | Save draft changes. | Implemented | Not available after finalize by design. |
 
 ## Purchases

@@ -1,8 +1,31 @@
-import { DocumentType, GeneratedDocumentStatus } from "@prisma/client";
+import { ContactType, DocumentType, GeneratedDocumentStatus } from "@prisma/client";
 import { buildZatcaPdfA3ArchiveBoundary, GeneratedDocumentService, sanitizeFilename } from "./generated-document.service";
 import { FakeLocalGeneratedDocumentObjectStorageAdapter } from "./generated-document-storage";
 
 describe("generated document rules", () => {
+  it("verifies customer statement source identity against a customer contact", async () => {
+    const prisma = {
+      generatedDocument: { create: jest.fn().mockResolvedValue({ id: "doc-statement" }) },
+      contact: { findFirst: jest.fn().mockResolvedValue({ id: "contact-1" }) },
+    };
+    const service = new GeneratedDocumentService(prisma as never);
+
+    await service.archivePdf({
+      organizationId: "org-1",
+      documentType: DocumentType.CUSTOMER_STATEMENT,
+      sourceType: "CustomerStatement",
+      sourceId: "customer-statement:contact-1?from=2026-07-01&to=2026-07-31",
+      documentNumber: "Statement Customer",
+      filename: "statement.pdf",
+      buffer: Buffer.from("%PDF statement"),
+    });
+
+    expect(prisma.contact.findFirst).toHaveBeenCalledWith({
+      where: { id: "contact-1", organizationId: "org-1", type: { in: [ContactType.CUSTOMER, ContactType.BOTH] } },
+      select: { id: true },
+    });
+  });
+
   it("archives PDF content as metadata plus base64 content", async () => {
     const prisma = {
       generatedDocument: {

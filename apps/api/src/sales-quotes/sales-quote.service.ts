@@ -11,6 +11,7 @@ import {
   Prisma,
   SalesInvoiceStatus,
   SalesInvoiceTaxMode,
+  SalesQuoteDocumentKind,
   SalesQuoteStatus,
   TaxRateScope,
 } from "@prisma/client";
@@ -202,6 +203,7 @@ export class SalesQuoteService {
       quote: {
         id: quote.id,
         quoteNumber: quote.quoteNumber,
+        documentKind: quote.documentKind,
         status: quote.status,
         issueDate: quote.issueDate,
         expiryDate: quote.expiryDate,
@@ -242,8 +244,10 @@ export class SalesQuoteService {
   ): Promise<{ data: SalesQuotePdfData; buffer: Buffer; filename: string; document: unknown | null }> {
     const data = await this.pdfData(organizationId, id);
     const settings = await this.documentSettingsService?.invoiceRenderSettings(organizationId);
-    const buffer = await renderSalesQuotePdf(data, { ...settings, title: "Sales Quote" });
-    const filename = sanitizeFilename(`sales-quote-${data.quote.quoteNumber}.pdf`);
+    const documentLabel = data.quote.documentKind === SalesQuoteDocumentKind.PROFORMA ? "Proforma" : "Sales Quote";
+    const filenamePrefix = data.quote.documentKind === SalesQuoteDocumentKind.PROFORMA ? "proforma" : "sales-quote";
+    const buffer = await renderSalesQuotePdf(data, { ...settings, title: documentLabel });
+    const filename = sanitizeFilename(`${filenamePrefix}-${data.quote.quoteNumber}.pdf`);
     const document = await this.generatedDocumentService?.archivePdf({
       organizationId,
       documentType: DocumentType.SALES_QUOTE,
@@ -299,6 +303,7 @@ export class SalesQuoteService {
             quoteNumber,
             customerId: dto.customerId,
             branchId: this.cleanOptional(dto.branchId ?? undefined),
+            documentKind: dto.documentKind ?? SalesQuoteDocumentKind.QUOTE,
             issueDate: new Date(dto.issueDate),
             expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : null,
             reference: this.cleanOptional(dto.reference),
@@ -381,6 +386,7 @@ export class SalesQuoteService {
         data: {
           customerId: dto.customerId,
           branchId: Object.prototype.hasOwnProperty.call(dto, "branchId") ? nextBranchId ?? null : undefined,
+          documentKind: dto.documentKind ?? undefined,
           issueDate: dto.issueDate ? new Date(dto.issueDate) : undefined,
           expiryDate: Object.prototype.hasOwnProperty.call(dto, "expiryDate") ? nextExpiryDate : undefined,
           reference: dto.reference === undefined ? undefined : this.cleanOptional(dto.reference),

@@ -719,8 +719,9 @@ export class ContactLedgerService {
     contactId: string,
     from?: string,
     to?: string,
+    precomputedData?: CustomerStatementPdfData,
   ): Promise<{ data: CustomerStatementPdfData; buffer: Buffer; filename: string; document: unknown | null }> {
-    const data = await this.statementPdfData(organizationId, contactId, from, to);
+    const data = precomputedData ?? await this.statementPdfData(organizationId, contactId, from, to);
     const settings = await this.documentSettingsService?.statementRenderSettings(organizationId);
     const buffer = await renderCustomerStatementPdf(data, settings);
     const filename = statementFilename(data, from, to);
@@ -729,7 +730,7 @@ export class ContactLedgerService {
       organizationId,
       documentType: DocumentType.CUSTOMER_STATEMENT,
       sourceType: "CustomerStatement",
-      sourceId: statementSourceId("customer-statement", contactId, data),
+      sourceId: customerStatementSourceId(contactId, data),
       documentNumber: statementDocumentNumber(data, from, to),
       filename,
       buffer,
@@ -1998,6 +1999,10 @@ function statementArchiveAccountingContext(kind: "CUSTOMER_STATEMENT" | "SUPPLIE
     rateSnapshotIds: [...new Set(evidence.flatMap((row) => row.rateSnapshotId ? [row.rateSnapshotId] : []))].sort(),
     revaluationLineIds: [...new Set(evidence.flatMap((row) => row.lastRevaluationLineId ? [row.lastRevaluationLineId] : []))].sort(),
   };
+}
+
+export function customerStatementSourceId(contactId: string, data: CustomerStatementPdfData) {
+  return statementSourceId("customer-statement", contactId, data);
 }
 
 function statementSourceId(kind: "customer-statement" | "supplier-statement", contactId: string, data: CustomerStatementPdfData) {

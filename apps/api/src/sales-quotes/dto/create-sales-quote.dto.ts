@@ -1,6 +1,6 @@
 import { Type } from "class-transformer";
 import { ArrayMinSize, IsArray, IsDateString, IsEnum, IsOptional, IsString, IsUUID, Length, ValidateNested } from "class-validator";
-import { SalesInvoiceTaxMode } from "@prisma/client";
+import { SalesInvoiceTaxMode, SalesQuoteDocumentKind } from "@prisma/client";
 import { SalesQuoteLineDto } from "./sales-quote-line.dto";
 
 export class CreateSalesQuoteDto {
@@ -38,6 +38,10 @@ export class CreateSalesQuoteDto {
   @IsOptional()
   @IsEnum(SalesInvoiceTaxMode)
   taxMode?: SalesInvoiceTaxMode;
+
+  @IsOptional()
+  @IsEnum(SalesQuoteDocumentKind)
+  documentKind?: SalesQuoteDocumentKind;
 
   @IsArray()
   @ArrayMinSize(1)

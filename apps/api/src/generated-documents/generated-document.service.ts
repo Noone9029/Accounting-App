@@ -248,6 +248,17 @@ export class GeneratedDocumentService {
   }
 
   private async assertSourceRecordBelongsToOrganization(organizationId: string, sourceType: string, sourceId: string): Promise<void> {
+    if (sourceType === "CustomerStatement") {
+      const contactId = /^customer-statement:([^?]+)/.exec(sourceId)?.[1];
+      const contact = await (this.prisma as unknown as { contact?: { findFirst?: (args: unknown) => Promise<unknown> } }).contact?.findFirst?.({
+        where: { id: contactId, organizationId, type: { in: ["CUSTOMER", "BOTH"] } },
+        select: { id: true },
+      });
+      if (!contact) {
+        throw new BadRequestException("Source record was not found in this organization or is not supported for generated documents.");
+      }
+      return;
+    }
     const delegateName = generatedDocumentSourceDelegates[sourceType];
     if (!delegateName) {
       return;

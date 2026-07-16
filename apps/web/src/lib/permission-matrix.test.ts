@@ -41,4 +41,22 @@ describe("permission matrix catalog", () => {
       ]),
     );
   });
+
+  it("catalogs customer-document delivery permissions without broadening view access", () => {
+    expect(ALL_PERMISSIONS).toEqual(expect.arrayContaining([
+      PERMISSIONS.creditNotes.send,
+      PERMISSIONS.customerPayments.send,
+      PERMISSIONS.contacts.sendCustomerStatements,
+    ]));
+
+    const sales = PERMISSION_GROUPS.find((group) => group.id === "sales");
+    const salesPermissions = sales?.permissions.map((item) => item.permission);
+    expect(salesPermissions).toEqual(expect.arrayContaining([
+      PERMISSIONS.creditNotes.send,
+      PERMISSIONS.customerPayments.send,
+    ]));
+
+    const accounting = PERMISSION_GROUPS.find((group) => group.id === "accounting");
+    expect(accounting?.permissions.map((item) => item.permission)).toContain(PERMISSIONS.contacts.sendCustomerStatements);
+  });
 });

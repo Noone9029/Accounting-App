@@ -2,6 +2,13 @@
 
 Audit date: 2026-06-19
 
+## 2026-07-16 - SME document delivery arc 02
+
+- Branch `codex/sme-document-delivery-02` starts from merged PR #376 at `92abd403efbad760260b03713335eea229e9c8f5` and reuses the generic outbox, generated-document, suppression, retry, and provider boundary.
+- Added quote/proforma, finalized credit-note, posted customer-payment receipt, and customer-statement queue/history APIs with source eligibility, tenant scoping, permissions, bounded idempotency context, escaped templates, and shared queue/history UI configurations.
+- Queueing remains mock-only and provider-free; the explicit worker path verifies PDF source, MIME, size, byte length, and content hash before provider execution. Local PostgreSQL worker race evidence is fixture-ready but skipped because the installed local PostgreSQL service was stopped and could not be opened in this session.
+- No hosted database/app mutation, deployment, real SMTP/provider call, production credential, customer data, accounting posting, ZATCA, UAE FTA, or Peppol behavior was changed.
+
 ## 2026-07-16 - SME document delivery arc
 
 - Base `origin/main`: `2cff1238`; implementation branch: `codex/sme-document-delivery-01`; clean worktree: `E:\Worktrees\Accounting-App\sme-document-delivery-01`.

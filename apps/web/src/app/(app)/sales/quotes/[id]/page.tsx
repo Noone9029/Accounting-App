@@ -6,6 +6,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
 import { RelatedDeliveryNotesPanel } from "@/components/delivery-notes/related-delivery-notes-panel";
+import { CustomerDocumentEmailDelivery } from "@/components/email/customer-document-email-delivery";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
@@ -35,6 +36,7 @@ export default function SalesQuoteDetailPage() {
   const canCreateInvoice = can(PERMISSIONS.salesInvoices.create);
   const canViewGeneratedDocuments = can(PERMISSIONS.generatedDocuments.view);
   const canDownloadGeneratedDocuments = can(PERMISSIONS.generatedDocuments.download);
+  const canSendQuote = can(PERMISSIONS.salesInvoices.send);
 
   useEffect(() => {
     if (!organizationId || !params.id) {
@@ -302,6 +304,23 @@ export default function SalesQuoteDetailPage() {
           </div>
 
           <RelatedDeliveryNotesPanel sourceKind="quote" deliveryNotes={relatedDeliveryNotes} loading={relatedDeliveryNotesLoading} />
+
+          <CustomerDocumentEmailDelivery
+            sourceId={quote.id}
+            organizationId={organizationId}
+            canSend={canSendQuote}
+            eligible={quote.status === "SENT" || quote.status === "ACCEPTED"}
+            sourceLabel={quote.documentKind === "PROFORMA" ? "proforma" : "quote"}
+            documentFilename={`${quote.documentKind === "PROFORMA" ? "proforma" : "sales-quote"}-${quote.quoteNumber}.pdf`}
+            recipientEmail={quote.customer?.email ?? ""}
+            defaultSubject={`${quote.documentKind === "PROFORMA" ? "Proforma" : "Quote"} ${quote.quoteNumber}`}
+            defaultMessage={`Please find your ${quote.documentKind === "PROFORMA" ? "proforma" : "sales quote"} attached for review.`}
+            ineligibleMessage="Only sent or accepted quotes can be queued for email delivery."
+            noPermissionMessage="You do not have permission to send quotes by email."
+            successMessage={`${quote.documentKind === "PROFORMA" ? "Proforma" : "Quote"} queued for email delivery.`}
+            emptyHistoryMessage={`No ${quote.documentKind === "PROFORMA" ? "proforma" : "quote"} email deliveries queued yet.`}
+            endpoint={`/sales-quotes/${quote.id}/email-deliveries`}
+          />
 
           <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">

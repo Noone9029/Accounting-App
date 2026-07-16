@@ -1033,6 +1033,37 @@ export interface SalesInvoiceEmailDeliveryEntry {
   createdAt: string;
 }
 
+export interface CustomerDocumentEmailDeliveryEntry {
+  id: string;
+  organizationId: string | null;
+  invoiceId?: string | null;
+  sourceType?: string | null;
+  sourceId?: string | null;
+  sourceNumber?: string | null;
+  documentType?: string | null;
+  documentLabel?: string | null;
+  statementPeriod?: { from: string | null; to: string | null; asOf: string | null } | null;
+  generatedDocumentId: string | null;
+  attachmentFilename: string | null;
+  attachmentMimeType?: string | null;
+  attachmentSizeBytes?: number | null;
+  attachmentContentHash?: string | null;
+  maskedRecipient: string;
+  requestedBy: { id: string; name: string | null } | null;
+  status: EmailDeliveryStatus;
+  userFacingStatus: string;
+  attemptCount: number;
+  latestAttemptAt: string | null;
+  nextAttemptAt: string | null;
+  bouncedAt: string | null;
+  complainedAt: string | null;
+  suppressionStatus: string | null;
+  provider: string;
+  safeError: string | null;
+  idempotentReplay: boolean;
+  createdAt: string;
+}
+
 export interface InvoicePaymentEmailReadinessResponse {
   providerState: InvoicePaymentEmailProviderState;
   status: "Disabled" | "Local Mock Only" | "Needs Configuration" | "Future Provider";
@@ -4133,7 +4164,7 @@ export interface CustomerPayment {
   voidReversalJournalEntryId: string | null;
   postedAt: string | null;
   voidedAt: string | null;
-  customer?: { id: string; name: string; displayName: string | null; type?: ContactType };
+  customer?: { id: string; name: string; displayName: string | null; email?: string | null; type?: ContactType };
   account?: { id: string; code: string; name: string; type?: AccountType };
   journalEntry?: { id: string; entryNumber: string; status: JournalStatus; totalDebit?: string; totalCredit?: string } | null;
   voidReversalJournalEntry?: { id: string; entryNumber: string; status: JournalStatus } | null;
@@ -5138,6 +5169,7 @@ export interface SalesQuote {
   customerId: string;
   branchId: string | null;
   status: SalesQuoteStatus;
+  documentKind?: "QUOTE" | "PROFORMA";
   issueDate: string;
   expiryDate: string | null;
   reference: string | null;
@@ -5157,7 +5189,7 @@ export interface SalesQuote {
   rejectedAt: string | null;
   expiredAt: string | null;
   cancelledAt: string | null;
-  customer?: { id: string; name: string; displayName: string | null; type?: ContactType; taxNumber?: string | null; isActive?: boolean };
+  customer?: { id: string; name: string; displayName: string | null; email?: string | null; type?: ContactType; taxNumber?: string | null; isActive?: boolean };
   branch?: { id: string; name: string; displayName: string | null; taxNumber?: string | null } | null;
   convertedSalesInvoice?: { id: string; invoiceNumber: string; status: SalesInvoiceStatus; issueDate?: string; total: string } | null;
   lines?: SalesQuoteLine[];

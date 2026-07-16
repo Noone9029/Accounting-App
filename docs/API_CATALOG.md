@@ -206,6 +206,8 @@ Legacy `/recurring-invoices` endpoints retain their historical sales-invoice per
 | GET | `/contacts/:id/statement-pdf-data` | Customer statement PDF data | Yes | Yes | Implemented | Template data. |
 | GET | `/contacts/:id/statement.pdf` | Customer statement PDF | Yes | Yes | Implemented | Archives PDF on download. |
 | POST | `/contacts/:id/generate-statement-pdf` | Generate/archive statement PDF | Yes | Yes | Implemented | Explicit archive action. |
+| POST | `/contacts/:id/email-deliveries` | Queue customer statement PDF email delivery | Yes | Yes | Implemented | Requires `contacts.sendCustomerStatements`; CUSTOMER/BOTH contacts only; `asOf` is required and queueing does not call a provider. |
+| GET | `/contacts/:id/email-deliveries` | Customer statement email delivery history | Yes | Yes | Implemented | Requires `contacts.view`; tenant-scoped safe metadata with bounded statement period context. |
 | GET | `/contacts/:id/supplier-ledger` | Supplier AP ledger | Yes | Yes | Implemented | Supplier/BOTH only. |
 | GET | `/contacts/:id/supplier-statement` | Supplier statement JSON | Yes | Yes | Implemented | Supplier/BOTH only. |
 | GET | `/contacts/:id/supplier-statement-pdf-data` | Supplier statement PDF data | Yes | Yes | Implemented | Template data from existing supplier statement rows. |
@@ -382,6 +384,13 @@ Inventory endpoints remain operational by default. They do not auto-post journal
 | GET | `/number-sequences/:id` | Number sequence detail | Yes | Yes | Implemented | Requires `numberSequences.view`; tenant scoped. |
 | PATCH | `/number-sequences/:id` | Update future numbering settings | Yes | Yes | Implemented | Requires `numberSequences.manage`; validates prefix, padding, and positive next number; rejects lowering `nextNumber`; changes affect future documents only and write `NUMBER_SEQUENCE_UPDATED` audit logs. |
 
+## Sales Quotes
+
+| Method | Path | Purpose | Auth | Org header | Status | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| POST | `/sales-quotes/:id/email-deliveries` | Queue sent/accepted quote or proforma PDF email delivery | Yes | Yes | Implemented | Requires `salesInvoices.send`; quote lifecycle is unchanged and queueing does not call a provider. |
+| GET | `/sales-quotes/:id/email-deliveries` | Quote/proforma email delivery history | Yes | Yes | Implemented | Requires `salesInvoices.view`; safe tenant-scoped metadata. |
+
 ## Sales Invoices
 
 | Method | Path | Purpose | Auth | Org header | Status | Notes |
@@ -414,6 +423,8 @@ Inventory endpoints remain operational by default. They do not auto-post journal
 | GET | `/customer-payments/:id/receipt-pdf-data` | Receipt PDF data | Yes | Yes | Implemented | Template data. |
 | GET | `/customer-payments/:id/receipt.pdf` | Receipt PDF | Yes | Yes | Implemented | Archives download. |
 | POST | `/customer-payments/:id/generate-receipt-pdf` | Generate receipt PDF | Yes | Yes | Implemented | Explicit archive action. |
+| POST | `/customer-payments/:id/email-deliveries` | Queue posted payment receipt PDF email delivery | Yes | Yes | Implemented | Requires `customerPayments.send`; queueing does not call a provider. |
+| GET | `/customer-payments/:id/email-deliveries` | Payment receipt email delivery history | Yes | Yes | Implemented | Requires `customerPayments.view`; safe tenant-scoped metadata. |
 | GET | `/customer-payments/:id/unapplied-allocations` | Later overpayment allocations | Yes | Yes | Implemented | Active/reversed rows. |
 | POST | `/customer-payments/:id/apply-unapplied` | Apply overpayment to invoice | Yes | Yes | Implemented | No journal entry. |
 | POST | `/customer-payments/:id/unapplied-allocations/:allocationId/reverse` | Reverse overpayment allocation | Yes | Yes | Implemented | Restores balances. |
@@ -432,6 +443,8 @@ Inventory endpoints remain operational by default. They do not auto-post journal
 | GET | `/credit-notes/:id/pdf-data` | Credit note PDF data | Yes | Yes | Implemented | Operational only. |
 | GET | `/credit-notes/:id/pdf` | Credit note PDF | Yes | Yes | Implemented | Archives download. |
 | POST | `/credit-notes/:id/generate-pdf` | Generate credit note PDF | Yes | Yes | Implemented | Explicit archive action. |
+| POST | `/credit-notes/:id/email-deliveries` | Queue finalized credit note PDF email delivery | Yes | Yes | Implemented | Requires `creditNotes.send`; queueing does not call a provider. |
+| GET | `/credit-notes/:id/email-deliveries` | Credit note email delivery history | Yes | Yes | Implemented | Requires `creditNotes.view`; safe tenant-scoped metadata. |
 | GET | `/customer-refunds` | List refunds | Yes | Yes | Implemented | Tenant scoped. |
 | GET | `/customer-refunds/refundable-sources` | Refundable payment/credit sources | Yes | Yes | Implemented | Query `customerId`. |
 | POST | `/customer-refunds` | Create posted manual refund | Yes | Yes | Implemented | Payment gateway not involved. |

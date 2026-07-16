@@ -85,6 +85,21 @@ describe("EmailRetryWorkerService", () => {
     expect(documentDelivery.readAttachmentForWorker).toHaveBeenCalledWith("org-1", "delivery-1");
   });
 
+  it("claims and sends a verified customer-statement attachment through the same worker path", async () => {
+    const { service, provider, documentDelivery } = makeService({
+      rowOverrides: {
+        templateType: EmailTemplateType.CUSTOMER_STATEMENT,
+        salesInvoiceId: null,
+        sourceType: "CustomerStatement",
+        sourceId: "customer-statement:contact-1?from=2026-07-01&to=2026-07-31",
+      },
+    });
+
+    await expect(service.process("org-1", "worker-1", 5)).resolves.toMatchObject({ attemptedCount: 1, sentCount: 1 });
+    expect(documentDelivery.readAttachmentForWorker).toHaveBeenCalledWith("org-1", "delivery-1");
+    expect(provider.send).toHaveBeenCalledWith(expect.objectContaining({ attachments: [expect.objectContaining({ mimeType: "application/pdf" })] }));
+  });
+
   it("does not send when another worker wins the conditional claim", async () => {
     const { service, prisma, provider } = makeService({ claimCount: 0 });
 
