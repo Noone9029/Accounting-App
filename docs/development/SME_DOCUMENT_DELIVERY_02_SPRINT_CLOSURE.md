@@ -6,6 +6,8 @@ Branch: `codex/sme-document-delivery-02`
 
 Dependency base: `92abd403efbad760260b03713335eea229e9c8f5` (`origin/main` after PR #376)
 Implementation checkpoint: `cb2ed0e0`
+Draft PR: [#377](https://github.com/Noone9029/Accounting-App/pull/377)  
+Remote branch SHA at draft creation: `407f9e16ea610c5b1715949c9648b8e08a12243a`
 
 ## Outcome
 
@@ -65,4 +67,4 @@ Review searched the changed surface for credentials, SMTP passwords, tokens, pro
 
 This arc did not send real email, configure SMTP credentials, call a provider, deploy, mutate hosted state, apply a hosted migration, use production/customer data, change accounting postings or reports, or change ZATCA, UAE FTA, or Peppol behavior. The mock provider and local worker tests prove queue/worker behavior only. Production SMTP/provider readiness, hosted migration approval, deployment, monitoring, and real recipient testing remain separate release gates.
 
-Draft PR URL and remote branch SHA will be recorded here after push. The protected root checkout modification `BANK_STATEMENT_IMPORT_PROOF_REVIEW.md` remains untouched.
+PR #377 is open as a draft and is not merged. The protected root checkout modification `BANK_STATEMENT_IMPORT_PROOF_REVIEW.md` remains untouched.

@@ -396,21 +396,23 @@
 **Files:**
 - No additional source files; use the verified branch and closure document
 
-- [ ] **Step 1: Verify final local state**
+- [x] **Step 1: Verify final local state**
 
   Run `git status --short`, `git log --oneline --decorate -10`, `git diff origin/main...HEAD --stat`, and the full verification commands again if any post-review fix landed.
 
-- [ ] **Step 2: Push the branch**
+- [x] **Step 2: Push the branch**
 
   Run `git push -u origin codex/sme-document-delivery-02`.
 
-- [ ] **Step 3: Open the draft PR**
+- [x] **Step 3: Open the draft PR**
 
   Create a draft PR against `main` with title `SME-DOCUMENT-DELIVERY-02: Extend email delivery to customer documents` and a body containing goal, reused architecture, sources/endpoints/permissions/schema, quote/proforma policy, statement snapshot/idempotency, tenant/attachment safeguards, worker evidence, UI workflow, test evidence, review findings/resolutions, explicit no-real-email boundary, out-of-scope items, and remaining production gates. Do not merge.
 
-- [ ] **Step 4: Record remote evidence**
+- [x] **Step 4: Record remote evidence**
 
   Capture the PR URL, remote branch SHA, draft state, and final local/root status in the closure document and final report.
+
+  Evidence: PR #377 is open at `https://github.com/Noone9029/Accounting-App/pull/377` with `state=OPEN`, `isDraft=true`, `mergedAt=null`, and remote head `407f9e16ea610c5b1715949c9648b8e08a12243a` at draft creation. No merge was performed.
 
 ## Verification Matrix
 
