@@ -233,11 +233,14 @@ Create or modify only the files justified by the tasks below. Exact generated Pr
 - [x] Run `git diff --check`.
 - [x] Apply verification-before-completion: read exit codes and test counts; report failures rather than inferring success.
 - [x] Perform an independent in-line review against base `2cff1238` and final implementation HEAD. Subagents and hosted review systems were prohibited; the review resolved the replay/PDF duplication risk, the zero-provider queue boundary, safe-history redaction, permission-matrix drift, and test-module dependency seams. The local Docker PostgreSQL race proof now passes with one claim winner and one provider send.
-- [ ] Push `codex/sme-document-delivery-01` — not executed because the hard execution constraint forbids hosted systems.
-- [ ] Open a draft PR against `main` — not executed because the hard execution constraint forbids hosted systems.
+- [x] Add failing regression tests for the final review findings, observe the expected failures, and run the focused API/web suites and typechecks.
+- [x] Apply only the verified review fixes: audit-failure lock release, invoice source/document attachment enforcement, generic provider failure diagnostics, complete safe history metadata, and stale organization refresh protection.
+- [x] Commit the review-fix milestone: `fix: harden invoice delivery review findings` (`16270ab1`).
+- [ ] Push `codex/sme-document-delivery-01` — explicitly authorized for this review-and-publish handoff; no force push.
+- [ ] Open a draft PR against `main` — explicitly authorized; keep draft and do not merge.
 - [x] Do not merge the PR.
 
-**Final local checkpoint:** Implementation commit `4ce1f968` is verified by the full local gates. The branch is intentionally left local and unpushed; a later authorized hosted handoff can use the existing branch and closure docs without changing the implementation.
+**Final local checkpoint:** The review-fix milestone is `16270ab1`. Full local gates and the post-review focused suites remain required before the authorized GitHub push and draft-PR handoff.
 
 **Final report must include:** branch, base/final SHAs, draft PR link, files created/modified, schema/migration summary, API/UI summary, pass/fail counts for every verification command, independent review findings/resolutions, explicit no-real-email and no-hosted-mutation confirmation, explicit ZATCA/UAE FTA unchanged confirmation, and remaining limitations.
 
