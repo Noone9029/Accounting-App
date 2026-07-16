@@ -112,6 +112,7 @@ export class DocumentDeliveryService {
       organizationId: input.organizationId,
       sourceType: input.sourceType,
       sourceId: input.sourceId,
+      sourceNumber: input.sourceNumber ?? null,
       recipientEmail,
       subject: input.subject,
       bodyText: input.bodyText,
@@ -215,6 +216,7 @@ export class DocumentDeliveryService {
       organizationId: input.organizationId,
       sourceType: input.sourceType,
       sourceId: input.sourceId,
+      sourceNumber: input.sourceNumber ?? null,
       recipientEmail,
       subject: input.subject,
       bodyText: input.bodyText,
@@ -423,6 +425,7 @@ function buildRequestHash(input: {
   organizationId: string;
   sourceType: string;
   sourceId: string;
+  sourceNumber: string | null;
   recipientEmail: string;
   subject: string;
   bodyText: string;
@@ -434,6 +437,7 @@ function buildRequestHash(input: {
     organizationId: input.organizationId,
     sourceType: input.sourceType,
     sourceId: input.sourceId,
+    sourceNumber: input.sourceNumber,
     recipientEmail: input.recipientEmail,
     subject: input.subject,
     message: input.bodyText,
