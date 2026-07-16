@@ -6,6 +6,7 @@ import { BankAccountController } from "./bank-accounts/bank-account.controller";
 import { BankAccountReconciliationController } from "./bank-reconciliations/bank-account-reconciliation.controller";
 import { BankReconciliationController } from "./bank-reconciliations/bank-reconciliation.controller";
 import { ComplianceCoreController } from "./compliance-core/compliance-core.controller";
+import { ContactController } from "./contacts/contact.controller";
 import { CreditNoteController } from "./credit-notes/credit-note.controller";
 import { CustomerPaymentController } from "./customer-payments/customer-payment.controller";
 import { GeneratedDocumentController } from "./generated-documents/generated-document.controller";
@@ -90,6 +91,7 @@ describe("accounting tenant isolation and RBAC regression", () => {
     [PurchaseDebitNoteController, "emailDelivery", [PERMISSIONS.purchaseDebitNotes.send]],
     [SupplierPaymentController, "emailDelivery", [PERMISSIONS.supplierPayments.send]],
     [PurchaseOrderController, "emailDelivery", [PERMISSIONS.purchaseOrders.send]],
+    [ContactController, "supplierStatementEmailDelivery", [PERMISSIONS.contacts.sendSupplierStatements]],
     [BankAccountController, "create", [PERMISSIONS.bankAccounts.manage]],
     [BankAccountController, "update", [PERMISSIONS.bankAccounts.manage]],
     [BankAccountController, "archive", [PERMISSIONS.bankAccounts.manage]],
@@ -124,6 +126,7 @@ describe("accounting tenant isolation and RBAC regression", () => {
     [PurchaseDebitNoteController, "emailDeliveryHistory", [PERMISSIONS.purchaseDebitNotes.view]],
     [SupplierPaymentController, "emailDeliveryHistory", [PERMISSIONS.supplierPayments.view]],
     [PurchaseOrderController, "emailDeliveryHistory", [PERMISSIONS.purchaseOrders.view]],
+    [ContactController, "supplierStatementEmailDeliveryHistory", [PERMISSIONS.contacts.view]],
     [BankAccountController, "get", [PERMISSIONS.bankAccounts.view]],
     [BankReconciliationController, "get", [PERMISSIONS.bankReconciliations.view]],
     [GeneratedDocumentController, "get", [PERMISSIONS.generatedDocuments.view]],

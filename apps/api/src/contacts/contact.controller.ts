@@ -10,9 +10,11 @@ import { OrganizationContextGuard } from "../auth/guards/organization-context.gu
 import { PermissionGuard } from "../auth/guards/permission.guard";
 import { ContactLedgerService } from "./contact-ledger.service";
 import { CustomerStatementEmailDeliveryService } from "./customer-statement-email-delivery.service";
+import { SupplierStatementEmailDeliveryService } from "./supplier-statement-email-delivery.service";
 import { ContactService } from "./contact.service";
 import { CreateContactDto } from "./dto/create-contact.dto";
 import { CreateCustomerStatementEmailDeliveryDto } from "./dto/create-customer-statement-email-delivery.dto";
+import { CreateSupplierStatementEmailDeliveryDto } from "./dto/create-supplier-statement-email-delivery.dto";
 import { UpdateContactDto } from "./dto/update-contact.dto";
 import { SupplierApDashboardService, type SupplierApDashboardPermissionContext } from "./supplier-ap-dashboard.service";
 
@@ -35,6 +37,7 @@ export class ContactController {
     private readonly contactLedgerService: ContactLedgerService,
     private readonly supplierApDashboardService: SupplierApDashboardService,
     @Optional() private readonly customerStatementEmailDeliveryService?: CustomerStatementEmailDeliveryService,
+    @Optional() private readonly supplierStatementEmailDeliveryService?: SupplierStatementEmailDeliveryService,
   ) {}
 
   @Get()
@@ -128,6 +131,23 @@ export class ContactController {
   @RequirePermissions(PERMISSIONS.contacts.view)
   emailDeliveryHistory(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
     return this.customerStatementEmailDeliveryService!.history(organizationId, id);
+  }
+
+  @Post(":id/supplier-statement-email-deliveries")
+  @RequirePermissions(PERMISSIONS.contacts.sendSupplierStatements)
+  supplierStatementEmailDelivery(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() dto: CreateSupplierStatementEmailDeliveryDto,
+  ) {
+    return this.supplierStatementEmailDeliveryService!.queue(organizationId, user.id, id, dto);
+  }
+
+  @Get(":id/supplier-statement-email-deliveries")
+  @RequirePermissions(PERMISSIONS.contacts.view)
+  supplierStatementEmailDeliveryHistory(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.supplierStatementEmailDeliveryService!.history(organizationId, id);
   }
 
   @Get(":id/statement.pdf")
