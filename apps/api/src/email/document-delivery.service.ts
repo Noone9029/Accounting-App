@@ -248,6 +248,15 @@ export class DocumentDeliveryService {
     return rows.map((row: Prisma.EmailOutboxGetPayload<{ select: typeof safeOutboxSelect }>) => this.map(row, false));
   }
 
+  async listHistoryBySourcePrefix(organizationId: string, sourceType: string, sourceIdPrefix: string): Promise<DocumentDeliveryQueueResult[]> {
+    const rows = await this.prisma.emailOutbox.findMany({
+      where: { organizationId, sourceType, sourceId: { startsWith: sourceIdPrefix } },
+      orderBy: { createdAt: "desc" },
+      select: safeOutboxSelect,
+    });
+    return rows.map((row: Prisma.EmailOutboxGetPayload<{ select: typeof safeOutboxSelect }>) => this.map(row, false));
+  }
+
   async readAttachmentForWorker(organizationId: string, outboxId: string) {
     if (!this.generatedDocumentService) {
       throw new NotFoundException("Generated document worker access is unavailable.");

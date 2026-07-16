@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Req, Res, StreamableFile, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Optional, Param, Patch, Post, Query, Req, Res, StreamableFile, UseGuards } from "@nestjs/common";
 import { PERMISSIONS, hasPermission } from "@ledgerbyte/shared";
 import type { Response } from "express";
 import type { AuthenticatedRequest, AuthenticatedUser } from "../auth/auth.types";
@@ -9,8 +9,10 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
 import { PermissionGuard } from "../auth/guards/permission.guard";
 import { ContactLedgerService } from "./contact-ledger.service";
+import { CustomerStatementEmailDeliveryService } from "./customer-statement-email-delivery.service";
 import { ContactService } from "./contact.service";
 import { CreateContactDto } from "./dto/create-contact.dto";
+import { CreateCustomerStatementEmailDeliveryDto } from "./dto/create-customer-statement-email-delivery.dto";
 import { UpdateContactDto } from "./dto/update-contact.dto";
 import { SupplierApDashboardService, type SupplierApDashboardPermissionContext } from "./supplier-ap-dashboard.service";
 
@@ -32,6 +34,7 @@ export class ContactController {
     private readonly contactService: ContactService,
     private readonly contactLedgerService: ContactLedgerService,
     private readonly supplierApDashboardService: SupplierApDashboardService,
+    @Optional() private readonly customerStatementEmailDeliveryService?: CustomerStatementEmailDeliveryService,
   ) {}
 
   @Get()
@@ -108,6 +111,23 @@ export class ContactController {
     @Query("to") to?: string,
   ) {
     return this.contactLedgerService.statementPdfData(organizationId, id, from, to);
+  }
+
+  @Post(":id/email-deliveries")
+  @RequirePermissions(PERMISSIONS.contacts.sendCustomerStatements)
+  emailDelivery(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() dto: CreateCustomerStatementEmailDeliveryDto,
+  ) {
+    return this.customerStatementEmailDeliveryService!.queue(organizationId, user.id, id, dto);
+  }
+
+  @Get(":id/email-deliveries")
+  @RequirePermissions(PERMISSIONS.contacts.view)
+  emailDeliveryHistory(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.customerStatementEmailDeliveryService!.history(organizationId, id);
   }
 
   @Get(":id/statement.pdf")

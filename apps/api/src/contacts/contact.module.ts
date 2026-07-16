@@ -7,11 +7,12 @@ import { PurchaseMatchingModule } from "../purchase-matching/purchase-matching.m
 import { ContactLedgerService } from "./contact-ledger.service";
 import { ContactController } from "./contact.controller";
 import { ContactService } from "./contact.service";
+import { CustomerStatementEmailDeliveryService } from "./customer-statement-email-delivery.service";
 import { SupplierApDashboardService } from "./supplier-ap-dashboard.service";
 
 @Module({
   imports: [AuditLogModule, OrganizationDocumentSettingsModule, GeneratedDocumentModule, PurchaseMatchingModule, InventoryModule],
   controllers: [ContactController],
-  providers: [ContactService, ContactLedgerService, SupplierApDashboardService],
+  providers: [ContactService, ContactLedgerService, SupplierApDashboardService, CustomerStatementEmailDeliveryService],
 })
 export class ContactModule {}

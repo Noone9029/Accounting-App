@@ -59,7 +59,7 @@
 
   Confirm this document has no placeholder task, records all source eligibility and ownership decisions, and lists every implementation/test/documentation file to be changed before implementation begins.
 
-- [ ] **Step 4: Commit the plan checkpoint**
+- [x] **Step 4: Commit the plan checkpoint**
 
   Run:
 
@@ -149,7 +149,7 @@
 - Create: `apps/api/src/sales-quotes/dto/create-sales-quote-email-delivery.dto.ts`
 - Create: `apps/api/src/sales-quotes/sales-quote-email-delivery.service.ts`
 - Create: `apps/api/src/sales-quotes/sales-quote-email-delivery.service.spec.ts`
-- Create: `apps/api/src/sales-quotes/sales-quote-email-delivery.controller.spec.ts`
+- Create or modify: `apps/api/src/sales-quotes/sales-quote.controller.spec.ts`
 - Modify: `apps/api/src/sales-quotes/sales-quote.controller.ts`
 - Modify: `apps/api/src/sales-quotes/sales-quote.module.ts`
 - Modify: `apps/api/src/sales-quotes/dto/create-sales-quote.dto.ts`
@@ -162,19 +162,21 @@
 - `GET /sales-quotes/:id/email-deliveries` returns source-scoped generic history newest first.
 - `SalesQuoteEmailDeliveryService.queue(organizationId, actorUserId, quoteId, dto, requestId?)` performs only source preparation and generic delegation.
 
-- [ ] **Step 1: Write failing quote/proforma service and controller tests**
+- [x] **Step 1: Write failing quote/proforma service and controller tests**
 
   Cover eligible `SENT` quote, eligible `ACCEPTED` proforma, rejection for each non-sendable status, source-specific labels/filename/templates, missing recipient, CR/LF/length validation, permission metadata, cross-tenant lookup, zero provider calls during queue, archived `SALES_QUOTE` attachment, replay-before-PDF generation, and no quote lifecycle mutation.
 
-- [ ] **Step 2: Run tests to confirm RED**
+- [x] **Step 2: Run tests to confirm RED**
 
   Run the new service/controller specs and confirm they fail because routes/service/template/discriminator behavior is absent.
 
-- [ ] **Step 3: Implement the quote/proforma orchestrator and route pair**
+- [x] **Step 3: Implement the quote/proforma orchestrator and route pair**
 
   Resolve the customer email unless overridden, require `SENT` or `ACCEPTED`, call existing `SalesQuoteService.pdf`, pass `DocumentType.SALES_QUOTE`, and preserve the `QUOTE`/`PROFORMA` label in the source number, subject, body, filename, and history. Do not call `markSent` or any other lifecycle mutation.
 
-- [ ] **Step 4: Run focused quote tests and commit**
+- [x] **Step 4: Run focused quote tests and commit**
+
+  Evidence: quote controller/service/rules suites pass with 25 tests; API typecheck and pdf-core build pass. Included in commit `6ed0572d`.
 
   Run quote rules, new delivery specs, and existing quote controller tests; commit `feat: queue quote and proforma email deliveries`.
 
@@ -184,13 +186,13 @@
 - Create: `apps/api/src/credit-notes/dto/create-credit-note-email-delivery.dto.ts`
 - Create: `apps/api/src/credit-notes/credit-note-email-delivery.service.ts`
 - Create: `apps/api/src/credit-notes/credit-note-email-delivery.service.spec.ts`
-- Create: `apps/api/src/credit-notes/credit-note-email-delivery.controller.spec.ts`
+- Create or modify: `apps/api/src/credit-notes/credit-note.controller.spec.ts`
 - Modify: `apps/api/src/credit-notes/credit-note.controller.ts`
 - Modify: `apps/api/src/credit-notes/credit-note.module.ts`
 - Create: `apps/api/src/customer-payments/dto/create-customer-payment-email-delivery.dto.ts`
 - Create: `apps/api/src/customer-payments/customer-payment-email-delivery.service.ts`
 - Create: `apps/api/src/customer-payments/customer-payment-email-delivery.service.spec.ts`
-- Create: `apps/api/src/customer-payments/customer-payment-email-delivery.controller.spec.ts`
+- Create or modify: `apps/api/src/customer-payments/customer-payment.controller.spec.ts`
 - Modify: `apps/api/src/customer-payments/customer-payment.controller.ts`
 - Modify: `apps/api/src/customer-payments/customer-payment.module.ts`
 - Modify: `apps/api/src/credit-notes/credit-note-rules.spec.ts`
@@ -200,19 +202,21 @@
 - `POST/GET /credit-notes/:id/email-deliveries` use `creditNotes.send`/`creditNotes.view`.
 - `POST/GET /customer-payments/:id/email-deliveries` use `customerPayments.send`/`customerPayments.view`.
 
-- [ ] **Step 1: Write failing credit-note and payment tests**
+- [x] **Step 1: Write failing credit-note and payment tests**
 
   Cover finalized/posting eligibility, draft/voided rejection, source-scoped history, recipient override/default, template values and safe references, archived `CREDIT_NOTE`/`CUSTOMER_PAYMENT_RECEIPT` PDFs, zero provider calls on queue, cross-tenant and permission denial, idempotent replay, and spies proving no allocation/refund/reversal/reconciliation/accounting mutation occurs.
 
-- [ ] **Step 2: Run focused tests to confirm RED**
+- [x] **Step 2: Run focused tests to confirm RED**
 
   Run the new service/controller specs and existing credit-note/payment rule specs; failures must be caused by missing delivery behavior.
 
-- [ ] **Step 3: Implement both focused orchestrators and controller routes**
+- [x] **Step 3: Implement both focused orchestrators and controller routes**
 
   Use `CreditNoteService.pdf` and `CustomerPaymentService.receiptPdf`, reuse `PAYMENT_RECEIPT` for receipts, add only the missing `CREDIT_NOTE` template, and delegate all queue/replay/history/attachment behavior to `DocumentDeliveryService`.
 
-- [ ] **Step 4: Run focused tests and commit**
+- [x] **Step 4: Run focused tests and commit**
+
+  Evidence: credit-note/payment service and controller suites pass with 25 tests; API typecheck passes. Included in commit `6ed0572d`.
 
   Commit `feat: queue credit note and payment receipt deliveries` after the affected suites and `git diff --check` pass.
 
@@ -222,7 +226,7 @@
 - Create: `apps/api/src/contacts/dto/create-customer-statement-email-delivery.dto.ts`
 - Create: `apps/api/src/contacts/customer-statement-email-delivery.service.ts`
 - Create: `apps/api/src/contacts/customer-statement-email-delivery.service.spec.ts`
-- Create: `apps/api/src/contacts/customer-statement-email-delivery.controller.spec.ts`
+- Create or modify: `apps/api/src/contacts/contact.controller.spec.ts`
 - Modify: `apps/api/src/contacts/contact.controller.ts`
 - Modify: `apps/api/src/contacts/contact.module.ts`
 - Modify: `apps/api/src/contacts/contact-ledger.service.ts` only for safe normalized snapshot metadata/source ownership if needed
@@ -234,23 +238,25 @@
 - `GET /contacts/:id/customer-statement-email-deliveries` returns source-scoped history with normalized statement period metadata.
 - `CustomerStatementEmailDeliveryService.queue(organizationId, actorUserId, contactId, dto, requestId?)` normalizes dates and calls the existing `ContactLedgerService.statementPdf` pipeline.
 
-- [ ] **Step 1: Write failing statement tests**
+- [x] **Step 1: Write failing statement tests**
 
   Cover customer/BOTH contact success, supplier-only rejection, cross-tenant rejection, invalid dates and `from > to`, required/normalized `asOf`, statement math delegated to `ContactLedgerService`, one archived `CUSTOMER_STATEMENT` snapshot, customer/organization source ownership, no accounting mutations, period in history, and same-key changed-period HTTP 409.
 
-- [ ] **Step 2: Run statement tests to confirm RED**
+- [x] **Step 2: Run statement tests to confirm RED**
 
   Run the new statement delivery suite and existing contact ledger/PDF tests; confirm the failures are missing delivery behavior rather than date-parser setup errors.
 
-- [ ] **Step 3: Implement the statement orchestrator**
+- [x] **Step 3: Implement the statement orchestrator**
 
   Resolve the customer contact with `CUSTOMER`/`BOTH` semantics, normalize `from`, `to`, and `asOf` through the existing date conventions, reject conflicting upper bounds, prepare the source-specific template from authoritative closing balance data, call `statementPdf`, and include only bounded period metadata in generic request/accounting context.
 
-- [ ] **Step 4: Verify replay-before-PDF and ownership**
+- [x] **Step 4: Verify replay-before-PDF and ownership**
 
   Assert that a replay or conflict is returned before a second PDF call; assert the generated document source type/source ID and organization match the active customer statement identity; assert no ledger rows or statement bodies are written to `EmailOutbox`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
+
+  Evidence: statement delivery, controller, contact-ledger, generated-document, and generic delivery suites pass; the broader document regression set passes with 8 suites and 42 tests, and API typecheck passes. The statement implementation is included in the next focused commit.
 
   Commit `feat: queue customer statement deliveries` after focused statement and generated-document tests pass.
 
