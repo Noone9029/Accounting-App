@@ -45,6 +45,24 @@ SMTP configuration:
 
 `SMTP_PASSWORD` and `EMAIL_PROVIDER_WEBHOOK_SECRET` must never be logged, returned from an API, stored in frontend bundles, or copied into documentation with a real value.
 
+## Sales-Invoice Document Delivery
+
+Finalized sales invoices have a narrow asynchronous document-delivery path:
+
+- `POST /sales-invoices/:id/email-deliveries` requires `salesInvoices.send`, validates the tenant and `FINALIZED` status, resolves the customer email or an explicit override, archives one PDF snapshot, and creates a `QUEUED` `EmailOutbox` row. It never calls an email provider synchronously.
+- `GET /sales-invoices/:id/email-deliveries` requires `salesInvoices.view` and returns newest-first, tenant-scoped safe history. Responses include masked recipient/requester data, status labels, retry metadata, provider marker, and archived filename; they exclude bodies, PDF bytes, raw idempotency keys, and provider payloads.
+- `EmailOutbox` stores the source invoice, requester, generated-document reference, attachment MIME/size/hash metadata, and SHA-256 idempotency/request hashes. The unique `(organizationId, idempotencyKeyHash)` constraint is the database backstop for replay and concurrent duplicate requests.
+- The explicit local lifecycle proof queues with zero provider calls, runs the worker with the mock provider and one verified PDF attachment, then replays without a second row, provider call, or PDF archive.
+
+The queue and worker preserve these transaction/concurrency boundaries:
+
+1. Every idempotency lookup, invoice/document read, suppression check, outbox write, history read, claim, attachment read, and audit event is tenant-scoped.
+2. A worker may call the provider only after a conditional `updateMany` claim succeeds with `count === 1`; the claim includes due/status/attempt/suppression eligibility and an unlocked-or-stale lock predicate.
+3. `retryLockedBy` is a claim token. Success, retryable failure, terminal failure, suppression blocking, attachment verification failure, and provider exceptions clear the matching lock; stale workers cannot overwrite a newer claim.
+4. Suppression is checked before queue creation and again immediately before attachment/provider work. Attachment source, MIME type, configured size limit, byte length, and SHA-256 content hash are verified before provider contact.
+
+User-facing labels distinguish `Queued`, `Simulated locally`, `Accepted by email provider`, retry-scheduled failure, terminal failure, suppression, bounce, and complaint. SMTP acceptance is never labeled as delivered. Real customer sending, provider webhooks, scheduling, and production readiness remain separate gates.
+
 ## Invoice And Payment Email Readiness
 
 Invoice/payment email delivery has its own conservative gate and does not inherit the older invite/password-reset provider mode.
@@ -128,7 +146,7 @@ Production readiness remains blocked until SMTP configuration, sender-domain evi
 
 `GET /email/retry-worker/plan` is read-only/no-mutation and sends no email. It reports whether a scheduled worker is configured/enabled, the scheduler provider (`NONE` by default), retry processor gate state, pending/due/blocked/suppressed counts, active suppression count, max-attempts policy, blockers, warnings, and a recommended five-minute cadence.
 
-`POST /email/retry-worker/run` is disabled by default through `LEDGERBYTE_EMAIL_RETRY_WORKER_ENABLED=false`. In the default state it returns `SKIPPED_DISABLED`, sends no email, and mutates nothing. If the worker flag is enabled but the retry processor flag remains disabled, it returns `SKIPPED_PROCESSOR_DISABLED` with no mutation. Only when both worker and retry processor gates are explicitly enabled does it delegate to the existing due-record retry processor, which still respects suppressions and max attempts.
+`POST /email/retry-worker/run` is disabled by default through `LEDGERBYTE_EMAIL_RETRY_WORKER_ENABLED=false`. In the default state it returns `SKIPPED_DISABLED`, sends no email, and mutates nothing. If the worker flag is enabled but the retry processor flag remains disabled, it returns `SKIPPED_PROCESSOR_DISABLED` with no mutation. Only when both worker and retry processor gates are explicitly enabled does it execute the atomic `EmailRetryWorkerService` path for new document deliveries; legacy no-attachment retry records remain compatible with the existing processor behavior.
 
 This is not a production scheduler yet. It is a disabled-by-default worker execution shell and plan surface for reliability validation.
 

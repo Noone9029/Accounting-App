@@ -10,7 +10,9 @@ import { OrganizationContextGuard } from "../auth/guards/organization-context.gu
 import { PermissionGuard } from "../auth/guards/permission.guard";
 import { CreditNoteService } from "../credit-notes/credit-note.service";
 import { CreateSalesInvoiceDto } from "./dto/create-sales-invoice.dto";
+import { CreateSalesInvoiceEmailDeliveryDto } from "./dto/create-sales-invoice-email-delivery.dto";
 import { UpdateSalesInvoiceDto } from "./dto/update-sales-invoice.dto";
+import { SalesInvoiceEmailDeliveryService } from "./sales-invoice-email-delivery.service";
 import { SalesInvoiceService } from "./sales-invoice.service";
 
 @Controller("sales-invoices")
@@ -19,6 +21,7 @@ export class SalesInvoiceController {
   constructor(
     private readonly salesInvoiceService: SalesInvoiceService,
     private readonly creditNoteService: CreditNoteService,
+    private readonly salesInvoiceEmailDeliveryService: SalesInvoiceEmailDeliveryService,
   ) {}
 
   @Get()
@@ -59,6 +62,23 @@ export class SalesInvoiceController {
   @RequirePermissions(PERMISSIONS.salesInvoices.view)
   pdfData(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
     return this.salesInvoiceService.pdfData(organizationId, id);
+  }
+
+  @Post(":id/email-deliveries")
+  @RequirePermissions(PERMISSIONS.salesInvoices.send)
+  emailDelivery(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() dto: CreateSalesInvoiceEmailDeliveryDto,
+  ) {
+    return this.salesInvoiceEmailDeliveryService.queue(organizationId, user.id, id, dto);
+  }
+
+  @Get(":id/email-deliveries")
+  @RequirePermissions(PERMISSIONS.salesInvoices.view)
+  emailDeliveryHistory(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.salesInvoiceEmailDeliveryService.history(organizationId, id);
   }
 
   @Get(":id/pdf")

@@ -2,6 +2,13 @@ import type { EmailDeliveryStatus, EmailTemplateType } from "@prisma/client";
 
 export const EMAIL_PROVIDER = Symbol("EMAIL_PROVIDER");
 
+export interface EmailAttachment {
+  filename: string;
+  mimeType: string;
+  content: Buffer;
+  contentHash: string;
+}
+
 export interface EmailMessage {
   organizationId?: string | null;
   toEmail: string;
@@ -10,6 +17,7 @@ export interface EmailMessage {
   templateType: EmailTemplateType;
   bodyText: string;
   bodyHtml?: string | null;
+  attachments?: EmailAttachment[];
 }
 
 export interface EmailProviderResult {

@@ -397,6 +397,8 @@ Inventory endpoints remain operational by default. They do not auto-post journal
 | GET | `/sales-invoices/:id/pdf-data` | Invoice PDF data | Yes | Yes | Implemented | Operational only. |
 | GET | `/sales-invoices/:id/pdf` | Invoice PDF | Yes | Yes | Implemented | Archives download. |
 | POST | `/sales-invoices/:id/generate-pdf` | Generate/archive invoice PDF | Yes | Yes | Implemented | Explicit archive action. |
+| POST | `/sales-invoices/:id/email-deliveries` | Queue finalized invoice PDF email delivery | Yes | Yes | Implemented | Requires `salesInvoices.send`; finalized invoices only; bounded recipient/subject/message; idempotency key; archives one PDF reference; queueing does not call an email provider. |
+| GET | `/sales-invoices/:id/email-deliveries` | Invoice email delivery history | Yes | Yes | Implemented | Requires `salesInvoices.view`; tenant-scoped newest-first safe metadata with masked recipient, requester, status, attempts, and archived filename; excludes bodies, bytes, raw keys, and provider payloads. |
 | GET | `/sales-invoices/:id/credit-notes` | Linked credit notes | Yes | Yes | Implemented | Invoice detail support. |
 | GET | `/sales-invoices/:id/credit-note-allocations` | Credit allocation history | Yes | Yes | Implemented | Active/reversed rows. |
 | GET | `/sales-invoices/:id/customer-payment-unapplied-allocations` | Overpayment allocation history | Yes | Yes | Implemented | Active/reversed rows. |

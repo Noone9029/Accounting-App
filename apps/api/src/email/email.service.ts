@@ -49,6 +49,7 @@ import {
   buildTestEmail,
 } from "./email-templates";
 import { EMAIL_PROVIDER, type EmailMessage, type EmailProvider } from "./email-provider";
+import { EmailRetryWorkerService } from "./email-retry-worker.service";
 import {
   EMAIL_REDACTION_GUARANTEES,
   containsCustomerEmailContent,
@@ -139,6 +140,8 @@ export class EmailService {
     private readonly provider: EmailProvider,
     @Optional()
     private readonly auditLogService?: AuditLogService,
+    @Optional()
+    private readonly emailRetryWorkerService?: EmailRetryWorkerService,
   ) {}
 
   get isMockProvider(): boolean {
@@ -558,7 +561,9 @@ export class EmailService {
       };
     }
 
-    const result = await this.retryProcess(organizationId, actorUserId, dto);
+    const result = this.emailRetryWorkerService
+      ? await this.emailRetryWorkerService.process(organizationId, actorUserId, dto.limit)
+      : await this.retryProcess(organizationId, actorUserId, dto);
     return {
       ...result,
       workerEnabled: true,

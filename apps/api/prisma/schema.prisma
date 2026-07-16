@@ -1420,6 +1420,7 @@ model User {
   assignedPurchaseMatchingReviews                   PurchaseMatchingReview[]                    @relation("PurchaseMatchingReviewAssignedTo")
   reviewedPurchaseMatchingReviews                   PurchaseMatchingReview[]                    @relation("PurchaseMatchingReviewReviewedBy")
   generatedDocuments                                GeneratedDocument[]                         @relation("GeneratedDocumentGeneratedBy")
+  requestedEmailOutbox                              EmailOutbox[]                               @relation("EmailOutboxRequestedBy")
   requestedReportPacks                              ReportPack[]                                @relation("ReportPackRequestedBy")
   createdImportJobs                                 ImportJob[]                                 @relation("ImportJobCreatedBy")
   committedImportJobs                               ImportJob[]                                 @relation("ImportJobCommittedBy")
@@ -2644,6 +2645,10 @@ model EmailOutbox {
   lastErrorRedacted   String?
   providerEventStatus String?
   generatedDocumentId String?              @db.Uuid
+  salesInvoiceId     String?              @db.Uuid
+  requestedById      String?              @db.Uuid
+  idempotencyKeyHash String?
+  requestHash        String?
   sourceType          String?
   sourceId            String?
   attachmentFilename  String?
@@ -2659,6 +2664,8 @@ model EmailOutbox {
   updatedAt           DateTime             @updatedAt
   organization        Organization?        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   generatedDocument   GeneratedDocument?   @relation("EmailOutboxGeneratedDocument", fields: [generatedDocumentId], references: [id], onDelete: SetNull)
+  salesInvoice        SalesInvoice?        @relation("SalesInvoiceEmailDeliveries", fields: [salesInvoiceId], references: [id], onDelete: SetNull)
+  requestedBy         User?                @relation("EmailOutboxRequestedBy", fields: [requestedById], references: [id], onDelete: SetNull)
   providerEvents      EmailProviderEvent[]
 
   @@index([organizationId])
@@ -2668,6 +2675,8 @@ model EmailOutbox {
   @@index([organizationId, providerEventStatus])
   @@index([organizationId, generatedDocumentId])
   @@index([organizationId, sourceType, sourceId])
+  @@index([organizationId, salesInvoiceId, createdAt])
+  @@unique([organizationId, idempotencyKeyHash])
   @@index([toEmail])
 }
 
@@ -4571,6 +4580,7 @@ model SalesInvoice {
   paymentLinks                InvoicePaymentLink[]
   fxRevaluationLines          FxRevaluationLine[]                    @relation("FxRevaluationLineSalesInvoice")
   fxMonetaryBalance           FxMonetaryBalance?                     @relation("FxMonetaryBalanceSalesInvoice")
+  emailDeliveries             EmailOutbox[]                           @relation("SalesInvoiceEmailDeliveries")
 
   @@unique([organizationId, invoiceNumber])
   @@unique([organizationId, id])

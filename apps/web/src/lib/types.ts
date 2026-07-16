@@ -1008,6 +1008,31 @@ export interface EmailOutboxDetail extends EmailOutboxEntry {
   bodyHtml: string | null;
 }
 
+export interface SalesInvoiceEmailDeliveryEntry {
+  id: string;
+  organizationId: string | null;
+  invoiceId: string | null;
+  generatedDocumentId: string | null;
+  attachmentFilename: string | null;
+  attachmentMimeType: string | null;
+  attachmentSizeBytes: number | null;
+  attachmentContentHash: string | null;
+  maskedRecipient: string;
+  requestedBy: { id: string; name: string | null } | null;
+  status: EmailDeliveryStatus;
+  userFacingStatus: string;
+  attemptCount: number;
+  latestAttemptAt: string | null;
+  nextAttemptAt: string | null;
+  bouncedAt: string | null;
+  complainedAt: string | null;
+  suppressionStatus: string | null;
+  provider: string;
+  safeError: string | null;
+  idempotentReplay: boolean;
+  createdAt: string;
+}
+
 export interface InvoicePaymentEmailReadinessResponse {
   providerState: InvoicePaymentEmailProviderState;
   status: "Disabled" | "Local Mock Only" | "Needs Configuration" | "Future Provider";
@@ -4076,7 +4101,7 @@ export interface CreditNote extends DocumentFxFields, TransactionDocumentTotals 
   finalizedAt: string | null;
   journalEntryId: string | null;
   reversalJournalEntryId: string | null;
-  customer?: { id: string; name: string; displayName: string | null; type?: ContactType; taxNumber?: string | null };
+  customer?: { id: string; name: string; displayName: string | null; email?: string | null; type?: ContactType; taxNumber?: string | null };
   originalInvoice?: { id: string; invoiceNumber: string; issueDate?: string; status: SalesInvoiceStatus; total: string; customerId?: string } | null;
   branch?: { id: string; name: string; displayName: string | null; taxNumber?: string | null } | null;
   journalEntry?: { id: string; entryNumber: string; status: JournalStatus; totalDebit?: string; totalCredit?: string } | null;
@@ -5825,7 +5850,7 @@ export interface SalesInvoice extends DocumentFxFields, TransactionDocumentTotal
   finalizedAt: string | null;
   journalEntryId: string | null;
   reversalJournalEntryId: string | null;
-  customer?: { id: string; name: string; displayName: string | null; type?: ContactType; taxNumber?: string | null };
+  customer?: { id: string; name: string; displayName: string | null; email?: string | null; type?: ContactType; taxNumber?: string | null };
   branch?: { id: string; name: string; displayName: string | null; taxNumber?: string | null } | null;
   journalEntry?: { id: string; entryNumber: string; status: JournalStatus; totalDebit: string; totalCredit: string } | null;
   reversalJournalEntry?: { id: string; entryNumber: string; status: JournalStatus } | null;
