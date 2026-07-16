@@ -47,8 +47,10 @@ The complete scoped diff was reviewed for credentials, SMTP secrets, authorizati
 
 - Approved baseline: `3f5c31bc0ad96b3af2deba1348f55b7cead84888`.
 - Branch: `codex/sme-document-delivery-03`.
-- Durable isolated worktree is clean at `fb6f3273` after the small implementation, lifecycle, and documentation commits.
-- GitHub publication remains blocked: the stored GitHub token is invalid and Git push has no available credentials. No draft PR URL or remote SHA is claimed.
+- The implementation and documentation tip at PR publication was `ac0a4d08257b98a5dee5e32a979cbc726934430d`.
+- Remote branch SHA at publication: `ac0a4d08257b98a5dee5e32a979cbc726934430d`.
+- Draft PR: [#378](https://github.com/Noone9029/Accounting-App/pull/378), `SME-DOCUMENT-DELIVERY-03: Extend email delivery to supplier documents`.
+- The subsequent closure-metadata update is documentation-only; the final branch SHA must be captured again after that push.
 - No merge, deployment, hosted migration/proof, real SMTP/provider call, production credential/data access, mailbox access, accounting mutation, ZATCA, UAE FTA, or Peppol behavior was performed.
 
 Remaining gates are the real local PostgreSQL race proof and cleanup/stop evidence, Git administrative commit/push capability, final SHA capture, and draft PR creation. Production provider rollout, hosted proof, deployment, and merge remain out of scope.
