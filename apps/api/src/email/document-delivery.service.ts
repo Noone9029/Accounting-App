@@ -68,6 +68,9 @@ export interface DocumentDeliveryQueueResult {
   attemptCount: number;
   latestAttemptAt: Date | null;
   nextAttemptAt: Date | null;
+  bouncedAt: Date | null;
+  complainedAt: Date | null;
+  suppressionStatus: string | null;
   provider: string;
   safeError: string | null;
   idempotentReplay: boolean;
@@ -299,6 +302,9 @@ export class DocumentDeliveryService {
       attemptCount: row.attemptCount,
       latestAttemptAt: row.lastAttemptAt,
       nextAttemptAt: row.nextAttemptAt,
+      bouncedAt: row.bouncedAt ?? null,
+      complainedAt: row.complainedAt ?? null,
+      suppressionStatus: row.providerEventStatus === "SUPPRESSED" ? "Blocked by suppression" : null,
       provider: row.provider,
       safeError: row.lastErrorRedacted ?? row.errorMessage,
       idempotentReplay,
@@ -325,6 +331,8 @@ const safeOutboxSelect = {
   attachmentMimeType: true,
   attachmentSizeBytes: true,
   attachmentContentHash: true,
+  bouncedAt: true,
+  complainedAt: true,
   requestedBy: { select: { id: true, name: true } },
   requestHash: true,
   createdAt: true,

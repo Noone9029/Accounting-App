@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { InvoiceEmailDeliveryPanel } from "./invoice-email-delivery-panel";
 import type { SalesInvoice } from "@/lib/types";
 
@@ -87,11 +87,40 @@ describe("InvoiceEmailDeliveryPanel", () => {
   });
 
   it("renders safe history labels and requester metadata", async () => {
-    apiRequestMock.mockResolvedValueOnce([{ id: "delivery-1", status: "SENT_MOCK", userFacingStatus: "Simulated locally", maskedRecipient: "c***@example.test", provider: "mock", attemptCount: 1, attachmentFilename: "invoice-INV-00042.pdf", requestedBy: { id: "user-1", name: "Accountant" }, safeError: null }]);
+    apiRequestMock.mockResolvedValueOnce([{ id: "delivery-1", status: "SENT_MOCK", userFacingStatus: "Simulated locally", maskedRecipient: "c***@example.test", provider: "mock", attemptCount: 1, attachmentFilename: "invoice-INV-00042.pdf", requestedBy: { id: "user-1", name: "Accountant" }, safeError: null, createdAt: "2026-07-16T01:00:00.000Z", latestAttemptAt: "2026-07-16T01:05:00.000Z", nextAttemptAt: "2026-07-16T02:05:00.000Z", bouncedAt: "2026-07-16T01:06:00.000Z", complainedAt: "2026-07-16T01:07:00.000Z", suppressionStatus: "Blocked by suppression" }]);
     render(<InvoiceEmailDeliveryPanel invoice={invoice()} organizationId="org-1" canSend={false} />);
     await waitFor(() => expect(screen.queryByText("Loading delivery history...")).not.toBeInTheDocument());
     expect((await screen.findAllByText("Simulated locally")).length).toBeGreaterThan(0);
     expect(screen.getByText(/Accountant/)).toBeInTheDocument();
     expect(screen.getByText(/invoice-INV-00042\.pdf/)).toBeInTheDocument();
+    expect(screen.getByText(/Requested 2026-07-16 01:00/)).toBeInTheDocument();
+    expect(screen.getByText(/Retry 2026-07-16 02:05/)).toBeInTheDocument();
+    expect(screen.getByText(/Bounced/)).toBeInTheDocument();
+    expect(screen.getByText(/Complaint/)).toBeInTheDocument();
+    expect(screen.getByText(/Blocked by suppression/)).toBeInTheDocument();
+  });
+
+  it("ignores a delayed submit refresh after the organization changes", async () => {
+    const queued = { id: "delivery-1", status: "QUEUED", userFacingStatus: "Queued", maskedRecipient: "c***@example.test" };
+    let getCount = 0;
+    let resolveOldRefresh!: (value: unknown) => void;
+    const oldRefresh = new Promise((resolve) => { resolveOldRefresh = resolve; });
+    apiRequestMock.mockImplementation((path: string, options?: { method?: string }) => {
+      if (options?.method === "POST") return Promise.resolve(queued);
+      getCount += 1;
+      if (getCount === 2) return oldRefresh;
+      return Promise.resolve([]);
+    });
+
+    const { rerender } = render(<InvoiceEmailDeliveryPanel invoice={invoice()} organizationId="org-1" canSend />);
+    await waitFor(() => expect(screen.queryByText("Loading delivery history...")).not.toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Send invoice" }));
+    fireEvent.click(screen.getByRole("button", { name: "Queue invoice" }));
+    await screen.findByRole("status");
+    rerender(<InvoiceEmailDeliveryPanel invoice={{ ...invoice(), id: "invoice-2" }} organizationId="org-2" canSend />);
+
+    await waitFor(() => expect(screen.getByText("No invoice email deliveries queued yet.")).toBeInTheDocument());
+    await act(async () => { resolveOldRefresh([{ id: "old-delivery", status: "SENT_MOCK", userFacingStatus: "Old organization delivery", maskedRecipient: "o***@example.test" }]); });
+    expect(screen.queryByText("Old organization delivery")).not.toBeInTheDocument();
   });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { LedgerButton, LedgerFieldHelp, LedgerFieldLabel, LedgerFieldText, LedgerInput, LedgerPanel, LedgerStatusBadge, LedgerTextarea } from "@/components/ui/ledger-system";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { apiRequest } from "@/lib/api";
@@ -24,28 +24,30 @@ export function InvoiceEmailDeliveryPanel({ invoice, organizationId, canSend }: 
   const [formError, setFormError] = useState("");
   const [success, setSuccess] = useState("");
   const [form, setForm] = useState<DeliveryForm>(() => initialForm(invoice));
+  const historyRequestToken = useRef(0);
 
   useEffect(() => {
+    const requestToken = ++historyRequestToken.current;
+    setHistory([]);
+    setHistoryError("");
     if (!organizationId || !invoice.id) {
-      setHistory([]);
       setHistoryLoading(false);
       return;
     }
     let cancelled = false;
     setHistoryLoading(true);
-    setHistoryError("");
     apiRequest<SalesInvoiceEmailDeliveryEntry[]>(`/sales-invoices/${invoice.id}/email-deliveries`)
       .then((result) => {
-        if (!cancelled) setHistory(result);
+        if (!cancelled && requestToken === historyRequestToken.current) setHistory(result);
       })
       .catch((error: unknown) => {
-        if (!cancelled) {
+        if (!cancelled && requestToken === historyRequestToken.current) {
           setHistory([]);
           setHistoryError(error instanceof Error ? error.message : "Unable to load email delivery history.");
         }
       })
       .finally(() => {
-        if (!cancelled) setHistoryLoading(false);
+        if (!cancelled && requestToken === historyRequestToken.current) setHistoryLoading(false);
       });
     return () => {
       cancelled = true;
@@ -64,6 +66,7 @@ export function InvoiceEmailDeliveryPanel({ invoice, organizationId, canSend }: 
     if (submitting) return;
     setSubmitting(true);
     setFormError("");
+    const requestToken = historyRequestToken.current;
     try {
       await apiRequest<SalesInvoiceEmailDeliveryEntry>(`/sales-invoices/${invoice.id}/email-deliveries`, {
         method: "POST",
@@ -77,7 +80,7 @@ export function InvoiceEmailDeliveryPanel({ invoice, organizationId, canSend }: 
       setOpen(false);
       setSuccess("Invoice queued for email delivery.");
       const refreshed = await apiRequest<SalesInvoiceEmailDeliveryEntry[]>(`/sales-invoices/${invoice.id}/email-deliveries`);
-      setHistory(refreshed);
+      if (requestToken === historyRequestToken.current) setHistory(refreshed);
     } catch (error: unknown) {
       setFormError(error instanceof Error ? error.message : "Unable to queue invoice email delivery.");
     } finally {
@@ -108,9 +111,9 @@ export function InvoiceEmailDeliveryPanel({ invoice, organizationId, canSend }: 
           <div className="mt-3 space-y-2">
             {history.map((entry) => (
               <div key={entry.id} className="grid gap-2 rounded-md border border-slate-200 bg-slate-50/60 p-3 text-sm md:grid-cols-[1.3fr_1fr_1fr_auto] md:items-center">
-                <div><div className="font-medium text-ink">{deliveryStatusLabel(entry)}</div><div className="text-xs text-steel">{formatDeliveryRecipient(entry.maskedRecipient)} · {entry.attachmentFilename ?? "No attachment"}</div></div>
-                <div className="text-xs text-steel">{entry.provider} · {entry.attemptCount} attempt{entry.attemptCount === 1 ? "" : "s"}</div>
-                <div className="text-xs text-steel">{entry.requestedBy?.name ?? "Unknown requester"}</div>
+                <div><div className="font-medium text-ink">{deliveryStatusLabel(entry)}</div><div className="text-xs text-steel">{formatDeliveryRecipient(entry.maskedRecipient)} · {entry.attachmentFilename ?? "No attachment"}</div><div className="text-xs text-steel">Requested {formatDeliveryDate(entry.createdAt)}</div></div>
+                <div className="text-xs text-steel">{entry.provider} · {entry.attemptCount} attempt{entry.attemptCount === 1 ? "" : "s"}{entry.latestAttemptAt ? ` · Attempted ${formatDeliveryDate(entry.latestAttemptAt)}` : ""}{entry.nextAttemptAt ? ` · Retry ${formatDeliveryDate(entry.nextAttemptAt)}` : ""}</div>
+                <div className="text-xs text-steel">{entry.requestedBy?.name ?? "Unknown requester"}{entry.bouncedAt ? ` · Bounced ${formatDeliveryDate(entry.bouncedAt)}` : ""}{entry.complainedAt ? ` · Complaint ${formatDeliveryDate(entry.complainedAt)}` : ""}{entry.suppressionStatus ? ` · ${entry.suppressionStatus}` : ""}</div>
                 <LedgerStatusBadge tone={deliveryStatusTone(entry.status)}>{deliveryStatusLabel(entry)}</LedgerStatusBadge>
                 {entry.safeError ? <div className="text-xs text-rosewood md:col-span-4">{entry.safeError}</div> : null}
               </div>
@@ -149,4 +152,8 @@ function initialForm(invoice: SalesInvoice): DeliveryForm {
     message: DEFAULT_SALES_INVOICE_MESSAGE,
     idempotencyKey: createEmailDeliveryIdempotencyKey(),
   };
+}
+
+function formatDeliveryDate(value: string): string {
+  return value.slice(0, 16).replace("T", " ");
 }

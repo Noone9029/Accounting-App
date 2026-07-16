@@ -144,4 +144,48 @@ describe("DocumentDeliveryService", () => {
     });
     await expect(service.readAttachmentForWorker("org-1", "delivery-1")).rejects.toThrow("hash verification failed");
   });
+
+  it("maps safe history metadata for timing, bounce, complaint, and suppression", async () => {
+    const options = makeService();
+    const createdAt = new Date("2026-07-16T01:00:00.000Z");
+    const lastAttemptAt = new Date("2026-07-16T01:05:00.000Z");
+    const nextAttemptAt = new Date("2026-07-16T02:05:00.000Z");
+    const bouncedAt = new Date("2026-07-16T01:06:00.000Z");
+    const complainedAt = new Date("2026-07-16T01:07:00.000Z");
+    options.prisma.emailOutbox.findMany.mockResolvedValue([{
+      id: "delivery-1",
+      organizationId: "org-1",
+      toEmail: "customer@example.test",
+      status: EmailDeliveryStatus.FAILED,
+      provider: "mock",
+      errorMessage: "Email provider delivery failed.",
+      attemptCount: 2,
+      nextAttemptAt,
+      lastAttemptAt,
+      lastErrorRedacted: "Email provider delivery failed.",
+      providerEventStatus: "SUPPRESSED",
+      generatedDocumentId: "document-1",
+      salesInvoiceId: "invoice-1",
+      attachmentFilename: "invoice.pdf",
+      attachmentMimeType: "application/pdf",
+      attachmentSizeBytes: 12,
+      attachmentContentHash: "hash-1",
+      bouncedAt,
+      complainedAt,
+      requestedBy: { id: "user-1", name: "Accountant" },
+      requestHash: "request-hash",
+      createdAt,
+    }]);
+
+    await expect(options.service.listHistory("org-1", "SalesInvoice", "invoice-1")).resolves.toEqual([
+      expect.objectContaining({
+        createdAt,
+        latestAttemptAt: lastAttemptAt,
+        nextAttemptAt,
+        bouncedAt,
+        complainedAt,
+        suppressionStatus: "Blocked by suppression",
+      }),
+    ]);
+  });
 });

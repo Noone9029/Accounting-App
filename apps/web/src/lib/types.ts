@@ -1024,6 +1024,9 @@ export interface SalesInvoiceEmailDeliveryEntry {
   attemptCount: number;
   latestAttemptAt: string | null;
   nextAttemptAt: string | null;
+  bouncedAt: string | null;
+  complainedAt: string | null;
+  suppressionStatus: string | null;
   provider: string;
   safeError: string | null;
   idempotentReplay: boolean;

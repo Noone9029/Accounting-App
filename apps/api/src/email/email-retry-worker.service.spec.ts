@@ -23,6 +23,7 @@ describe("EmailRetryWorkerService", () => {
     lastErrorRedacted: null,
     providerEventStatus: null,
     generatedDocumentId: "document-1",
+    salesInvoiceId: "invoice-1",
     sourceType: "SalesInvoice",
     sourceId: "invoice-1",
     attachmentFilename: "invoice-INV-00042.pdf",
@@ -114,6 +115,32 @@ describe("EmailRetryWorkerService", () => {
     expect(prisma.emailOutbox.updateMany).toHaveBeenCalledTimes(2);
   });
 
+  it("does not send an invoice without a generated document or matching invoice source", async () => {
+    const missingDocument = makeService({ rowOverrides: { generatedDocumentId: null } });
+    const missingDocumentResult = await missingDocument.service.process("org-1", "worker-1", 5);
+    expect(missingDocumentResult).toMatchObject({ attemptedCount: 0, attachmentBlockedCount: 1 });
+    expect(missingDocument.provider.send).not.toHaveBeenCalled();
+    expect(missingDocument.documentDelivery.readAttachmentForWorker).not.toHaveBeenCalled();
+
+    const mismatchedSource = makeService({ rowOverrides: { salesInvoiceId: "invoice-2" } });
+    const mismatchedSourceResult = await mismatchedSource.service.process("org-1", "worker-1", 5);
+    expect(mismatchedSourceResult).toMatchObject({ attemptedCount: 0, attachmentBlockedCount: 1 });
+    expect(mismatchedSource.provider.send).not.toHaveBeenCalled();
+    expect(mismatchedSource.documentDelivery.readAttachmentForWorker).not.toHaveBeenCalled();
+  });
+
+  it("continues delivery and releases the lock when audit logging fails", async () => {
+    const { service, prisma, provider, audit } = makeService();
+    audit.log.mockRejectedValue(new Error("audit database unavailable"));
+
+    await expect(service.process("org-1", "worker-1", 5)).resolves.toMatchObject({ attemptedCount: 1, sentCount: 1 });
+    expect(provider.send).toHaveBeenCalledTimes(1);
+    expect(prisma.emailOutbox.updateMany.mock.calls[1]![0]).toEqual(expect.objectContaining({
+      where: expect.objectContaining({ retryLockedBy: expect.any(String) }),
+      data: expect.objectContaining({ retryLockedAt: null, retryLockedBy: null }),
+    }));
+  });
+
   it("records a retryable provider failure and always releases the claim lock", async () => {
     const { service, prisma } = makeService({ providerResult: { provider: "mock", status: EmailDeliveryStatus.FAILED, errorMessage: "temporary provider failure" } });
 
@@ -123,6 +150,23 @@ describe("EmailRetryWorkerService", () => {
     expect(prisma.emailOutbox.updateMany.mock.calls[1]![0]).toEqual(expect.objectContaining({
       where: expect.objectContaining({ retryLockedBy: expect.any(String) }),
       data: expect.objectContaining({ attemptCount: 1, retryLockedAt: null, retryLockedBy: null, nextAttemptAt: expect.any(Date) }),
+    }));
+  });
+
+  it("stores only a generic safe error for untrusted provider failure text", async () => {
+    const { service, prisma } = makeService({ providerResult: {
+      provider: "mock",
+      status: EmailDeliveryStatus.FAILED,
+      errorMessage: "customer@example.test body=<p>Invoice</p> pdf=JVBERi0x secret=token-value",
+    } });
+
+    await service.process("org-1", "worker-1", 5);
+
+    expect(prisma.emailOutbox.updateMany.mock.calls[1]![0]).toEqual(expect.objectContaining({
+      data: expect.objectContaining({
+        errorMessage: "Email provider delivery failed.",
+        lastErrorRedacted: "Email provider delivery failed.",
+      }),
     }));
   });
 

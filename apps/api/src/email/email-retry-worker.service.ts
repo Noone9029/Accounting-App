@@ -7,7 +7,6 @@ import { AuditLogService } from "../audit-log/audit-log.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { DocumentDeliveryService } from "./document-delivery.service";
 import { EMAIL_PROVIDER, type EmailProvider } from "./email-provider";
-import { redactEmailDiagnosticText } from "./email-redaction";
 
 const RETRY_SELECT = {
   id: true,
@@ -26,6 +25,7 @@ const RETRY_SELECT = {
   nextAttemptAt: true,
   providerEventStatus: true,
   generatedDocumentId: true,
+  salesInvoiceId: true,
   sourceType: true,
   sourceId: true,
   bouncedAt: true,
@@ -132,7 +132,7 @@ export class EmailRetryWorkerService {
       });
       if (suppression) {
         suppressedCount += 1;
-        await this.auditLogService?.log({
+        await this.safeAuditLog({
           organizationId,
           actorUserId,
           action: AUDIT_EVENTS.SALES_INVOICE_EMAIL_DELIVERY_BLOCKED,
@@ -155,12 +155,15 @@ export class EmailRetryWorkerService {
 
       let attachments;
       try {
-        if (email.sourceType === "SalesInvoice" && email.generatedDocumentId) {
+        if (email.sourceType === "SalesInvoice") {
+          if (!email.generatedDocumentId || !email.salesInvoiceId || email.salesInvoiceId !== email.sourceId) {
+            throw new BadRequestException("Invoice email attachment source metadata is incomplete.");
+          }
           attachments = [await this.documentDeliveryService.readAttachmentForWorker(organizationId, email.id)];
         }
       } catch {
         attachmentBlockedCount += 1;
-        await this.auditLogService?.log({
+        await this.safeAuditLog({
           organizationId,
           actorUserId,
           action: AUDIT_EVENTS.SALES_INVOICE_EMAIL_DELIVERY_FAILED,
@@ -182,7 +185,7 @@ export class EmailRetryWorkerService {
       }
 
       attemptedCount += 1;
-      await this.auditLogService?.log({
+      await this.safeAuditLog({
         organizationId,
         actorUserId,
         action: AUDIT_EVENTS.SALES_INVOICE_EMAIL_DELIVERY_ATTEMPTED,
@@ -213,7 +216,7 @@ export class EmailRetryWorkerService {
 
       const attemptCount = email.attemptCount + 1;
       const failed = providerResult.status === EmailDeliveryStatus.FAILED;
-      const safeError = redactEmailDiagnosticText(providerResult.errorMessage);
+      const safeError = failedProviderError(providerResult.status === EmailDeliveryStatus.FAILED);
       if (failed) failedCount += 1;
       else sentCount += 1;
       const updated = await this.finishClaim(email.id, organizationId, lockedBy, {
@@ -230,7 +233,7 @@ export class EmailRetryWorkerService {
         retryLockedBy: null,
       });
       if (updated.count === 1) {
-        await this.auditLogService?.log({
+        await this.safeAuditLog({
           organizationId,
           actorUserId,
           action: failed ? AUDIT_EVENTS.SALES_INVOICE_EMAIL_DELIVERY_FAILED : AUDIT_EVENTS.SALES_INVOICE_EMAIL_DELIVERY_SUCCEEDED,
@@ -248,6 +251,14 @@ export class EmailRetryWorkerService {
     return this.prisma.emailOutbox.updateMany({ where: { id, organizationId, retryLockedBy: lockedBy }, data });
   }
 
+  private async safeAuditLog(input: Parameters<AuditLogService["log"]>[0]) {
+    try {
+      await this.auditLogService?.log(input);
+    } catch {
+      // Audit persistence must not prevent provider work or leave a claimed row locked.
+    }
+  }
+
   private get staleLockMs(): number {
     const value = this.config.get<string>("LEDGERBYTE_EMAIL_RETRY_LOCK_STALE_MS");
     if (value == null || value.trim() === "") return DEFAULT_STALE_LOCK_MS;
@@ -255,6 +266,10 @@ export class EmailRetryWorkerService {
     if (!Number.isSafeInteger(parsed) || parsed <= 0) throw new BadRequestException("Email retry lock stale timeout must be a positive integer.");
     return parsed;
   }
+}
+
+function failedProviderError(failed: boolean): string | null {
+  return failed ? "Email provider delivery failed." : null;
 }
 
 function sha256(value: string): string {
