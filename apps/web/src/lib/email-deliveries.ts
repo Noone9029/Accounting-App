@@ -1,4 +1,4 @@
-import type { SalesInvoiceEmailDeliveryEntry } from "./types";
+import type { CustomerDocumentEmailDeliveryEntry, SalesInvoiceEmailDeliveryEntry } from "./types";
 
 export const DEFAULT_SALES_INVOICE_MESSAGE = "Please find your finalized sales invoice attached. The PDF is archived in LedgerByte for review.";
 
@@ -6,7 +6,7 @@ export function createEmailDeliveryIdempotencyKey(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
   }
-  return `invoice-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+  return `document-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
 }
 
 export function invoiceEmailSubject(invoiceNumber: string): string {
@@ -30,3 +30,5 @@ export function deliveryStatusLabel(entry: Pick<SalesInvoiceEmailDeliveryEntry, 
 export function formatDeliveryRecipient(maskedRecipient: string): string {
   return maskedRecipient || "Recipient hidden";
 }
+
+export type CustomerDocumentDeliveryHistoryEntry = CustomerDocumentEmailDeliveryEntry | SalesInvoiceEmailDeliveryEntry;

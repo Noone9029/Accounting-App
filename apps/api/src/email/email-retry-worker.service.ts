@@ -155,10 +155,21 @@ export class EmailRetryWorkerService {
 
       let attachments;
       try {
+        const requiresAttachment = ["SalesQuote", "CreditNote", "CustomerPayment", "CustomerStatement"].includes(email.sourceType ?? "");
+        if (requiresAttachment && !email.generatedDocumentId) {
+          throw new BadRequestException("Customer document email attachment source metadata is incomplete.");
+        }
+        if (email.generatedDocumentId) {
+          if (!email.sourceType || !email.sourceId) {
+            throw new BadRequestException("Document email attachment source metadata is incomplete.");
+          }
+        }
         if (email.sourceType === "SalesInvoice") {
           if (!email.generatedDocumentId || !email.salesInvoiceId || email.salesInvoiceId !== email.sourceId) {
-            throw new BadRequestException("Invoice email attachment source metadata is incomplete.");
+          throw new BadRequestException("Document email attachment source metadata is incomplete.");
           }
+        }
+        if (email.generatedDocumentId) {
           attachments = [await this.documentDeliveryService.readAttachmentForWorker(organizationId, email.id)];
         }
       } catch {
@@ -175,8 +186,8 @@ export class EmailRetryWorkerService {
           status: EmailDeliveryStatus.FAILED,
           attemptCount: email.maxAttempts,
           providerEventStatus: "ATTACHMENT_VERIFICATION_FAILED",
-          errorMessage: "Invoice email attachment verification failed.",
-          lastErrorRedacted: "Invoice email attachment verification failed.",
+          errorMessage: "Document email attachment verification failed.",
+          lastErrorRedacted: "Document email attachment verification failed.",
           nextAttemptAt: null,
           retryLockedAt: null,
           retryLockedBy: null,

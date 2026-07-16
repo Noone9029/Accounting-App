@@ -7,6 +7,7 @@ import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
 import { SourceDocumentGuidance } from "@/components/documents/document-guidance";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
+import { CustomerDocumentEmailDelivery } from "@/components/email/customer-document-email-delivery";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { LedgerActionDialog } from "@/components/ui-ledger/action-dialog";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
@@ -447,6 +448,23 @@ export default function CustomerPaymentDetailPage() {
           />
 
           <AttachmentPanel linkedEntityType="CUSTOMER_PAYMENT" linkedEntityId={payment.id} />
+
+          <CustomerDocumentEmailDelivery
+            sourceId={payment.id}
+            organizationId={organizationId}
+            canSend={can(PERMISSIONS.customerPayments.send)}
+            eligible={payment.status === "POSTED"}
+            sourceLabel="payment receipt"
+            documentFilename={`receipt-${payment.paymentNumber}.pdf`}
+            recipientEmail={payment.customer?.email ?? ""}
+            defaultSubject={`Payment receipt ${payment.paymentNumber}`}
+            defaultMessage="Please find the posted payment receipt attached for review."
+            ineligibleMessage="Only posted customer payments can be queued for email delivery."
+            noPermissionMessage="You do not have permission to send payment receipts by email."
+            successMessage="Payment receipt queued for email delivery."
+            emptyHistoryMessage="No payment receipt email deliveries queued yet."
+            endpoint={`/customer-payments/${payment.id}/email-deliveries`}
+          />
 
           <CustomerPaymentStateDisplay payment={payment} />
 

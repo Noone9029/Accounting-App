@@ -8,6 +8,7 @@ import { StatusMessage } from "@/components/common/status-message";
 import { UaeEinvoiceReadinessPanel } from "@/components/compliance/uae-einvoice-readiness-panel";
 import { SourceDocumentGuidance } from "@/components/documents/document-guidance";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
+import { CustomerDocumentEmailDelivery } from "@/components/email/customer-document-email-delivery";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { LedgerActionDialog } from "@/components/ui-ledger/action-dialog";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
@@ -355,6 +356,23 @@ export default function CreditNoteDetailPage() {
       {creditNote ? (
         <div className="mt-5 space-y-5">
           <AttachmentPanel linkedEntityType="CREDIT_NOTE" linkedEntityId={creditNote.id} />
+
+          <CustomerDocumentEmailDelivery
+            sourceId={creditNote.id}
+            organizationId={organizationId}
+            canSend={can(PERMISSIONS.creditNotes.send)}
+            eligible={creditNote.status === "FINALIZED"}
+            sourceLabel="credit note"
+            documentFilename={`credit-note-${creditNote.creditNoteNumber}.pdf`}
+            recipientEmail={creditNote.customer?.email ?? ""}
+            defaultSubject={`Credit note ${creditNote.creditNoteNumber}`}
+            defaultMessage="Please find the finalized credit note attached for review."
+            ineligibleMessage="Only finalized credit notes can be queued for email delivery."
+            noPermissionMessage="You do not have permission to send credit notes by email."
+            successMessage="Credit note queued for email delivery."
+            emptyHistoryMessage="No credit note email deliveries queued yet."
+            endpoint={`/credit-notes/${creditNote.id}/email-deliveries`}
+          />
 
           <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
             <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">

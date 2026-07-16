@@ -138,7 +138,7 @@ export class DocumentDeliveryService {
         entityId: input.salesInvoiceId ?? input.sourceId,
         after: safeAuditMetadata(input, "SUPPRESSED"),
       });
-      throw new BadRequestException("Invoice email delivery is blocked by an active suppression.");
+      throw new BadRequestException("Document email delivery is blocked by an active suppression.");
     }
 
     this.assertProviderUsable();
@@ -275,25 +275,25 @@ export class DocumentDeliveryService {
       },
     });
     if (!outbox?.generatedDocumentId || !outbox.attachmentFilename || !outbox.attachmentMimeType || !outbox.attachmentContentHash) {
-      throw new BadRequestException("Invoice email attachment metadata is incomplete.");
+      throw new BadRequestException("Document email attachment metadata is incomplete.");
     }
     const document = await this.generatedDocumentService.readContentForWorker(organizationId, outbox.generatedDocumentId);
     const maxBytes = configuredPositiveInteger(this.config?.get<string>("LEDGERBYTE_EMAIL_ATTACHMENT_MAX_BYTES"), 10 * 1024 * 1024);
     if (document.sourceType !== outbox.sourceType || document.sourceId !== outbox.sourceId) {
-      throw new BadRequestException("Invoice email attachment source verification failed.");
+      throw new BadRequestException("Document email attachment source verification failed.");
     }
     if (document.mimeType !== outbox.attachmentMimeType || document.mimeType !== "application/pdf") {
-      throw new BadRequestException("Invoice email attachment MIME verification failed.");
+      throw new BadRequestException("Document email attachment MIME verification failed.");
     }
     if (document.filename !== outbox.attachmentFilename || document.sizeBytes !== outbox.attachmentSizeBytes || document.contentHash !== outbox.attachmentContentHash) {
-      throw new BadRequestException("Invoice email attachment metadata verification failed.");
+      throw new BadRequestException("Document email attachment metadata verification failed.");
     }
     if (document.buffer.byteLength !== document.sizeBytes || document.buffer.byteLength > maxBytes) {
-      throw new BadRequestException("Invoice email attachment size verification failed.");
+      throw new BadRequestException("Document email attachment size verification failed.");
     }
     const contentHash = hashBuffer(document.buffer);
     if (contentHash !== document.contentHash) {
-      throw new BadRequestException("Invoice email attachment hash verification failed.");
+      throw new BadRequestException("Document email attachment hash verification failed.");
     }
     return {
       filename: document.filename,
@@ -313,7 +313,7 @@ export class DocumentDeliveryService {
     input: QueueDocumentDeliveryInput,
   ) {
     if (row.requestHash !== requestHash) {
-      throw new ConflictException("The idempotency key was already used for a different invoice delivery request.");
+      throw new ConflictException("The idempotency key was already used for a different document delivery request.");
     }
     const response = this.map(row, true);
     await this.auditLogService?.log({
@@ -331,7 +331,7 @@ export class DocumentDeliveryService {
     const readiness = this.provider.readiness();
     if (readiness.provider === "invalid" || readiness.provider === "smtp-disabled" || !readiness.ready) {
       const blocker = readiness.blockingReasons?.[0] ?? "The configured email provider is not usable in this environment.";
-      throw new BadRequestException(`Invoice email delivery is unavailable: ${blocker}`);
+      throw new BadRequestException(`Document email delivery is unavailable: ${blocker}`);
     }
   }
 
@@ -402,7 +402,7 @@ const safeOutboxSelect = {
 function normalizeEmail(value: string): string {
   const email = value.trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    throw new BadRequestException("Invoice email delivery requires a valid recipient email.");
+    throw new BadRequestException("Document email delivery requires a valid recipient email.");
   }
   return email;
 }
@@ -410,7 +410,7 @@ function normalizeEmail(value: string): string {
 function normalizeIdempotencyKey(value: string): string {
   const key = value.trim();
   if (key.length < 16 || key.length > 128 || !/^[A-Za-z0-9._:-]+$/.test(key)) {
-    throw new BadRequestException("Invoice email delivery requires a safe idempotency key between 16 and 128 characters.");
+    throw new BadRequestException("Document email delivery requires a safe idempotency key between 16 and 128 characters.");
   }
   return key;
 }
@@ -494,7 +494,7 @@ function configuredPositiveInteger(value: string | undefined, fallback: number):
   if (value == null || value.trim() === "") return fallback;
   const parsed = Number(value);
   if (!Number.isSafeInteger(parsed) || parsed <= 0) {
-    throw new BadRequestException("Invoice email attachment size configuration is invalid.");
+    throw new BadRequestException("Document email attachment size configuration is invalid.");
   }
   return parsed;
 }

@@ -5,6 +5,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import type { FormEvent, ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { ComplianceNote } from "@/components/documents/document-guidance";
+import { CustomerDocumentEmailDelivery } from "@/components/email/customer-document-email-delivery";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import {
   LedgerAlert,
@@ -559,6 +560,22 @@ export default function ContactDetailPage() {
               ) : (
                 <LedgerSummaryBand tone="info">Choose a period to review posted customer activity, then load or download the statement.</LedgerSummaryBand>
               )}
+              <CustomerDocumentEmailDelivery
+                sourceId={params.id}
+                organizationId={organizationId}
+                canSend={can(PERMISSIONS.contacts.sendCustomerStatements)}
+                eligible={ledgerAvailable}
+                sourceLabel="customer statement"
+                documentFilename={`statement-${profile?.displayName ?? profile?.name ?? params.id}-${fromDate || "start"}-to-${toDate || "end"}.pdf`}
+                recipientEmail={profile?.email ?? ""}
+                defaultSubject={`Customer statement from ${profile?.displayName ?? profile?.name ?? "LedgerByte"}`}
+                defaultMessage="Please find the customer statement snapshot attached for review."
+                ineligibleMessage="Only customer and BOTH contacts can be queued for customer statement email delivery."
+                noPermissionMessage="You do not have permission to send customer statements by email."
+                successMessage="Customer statement queued for email delivery."
+                emptyHistoryMessage="No customer statement email deliveries queued yet."
+                endpoint={`/contacts/${params.id}/email-deliveries`}
+              />
             </div>
           ) : null}
 
