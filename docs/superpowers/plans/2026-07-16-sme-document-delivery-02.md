@@ -73,21 +73,25 @@
 **Files:**
 - Modify: generated dependency artifacts only if the repository install scripts require them; do not stage generated churn outside the task
 
-- [ ] **Step 1: Install and generate the local client**
+- [x] **Step 1: Install and generate the local client**
 
   Run `corepack pnpm install --frozen-lockfile` and `corepack pnpm --filter @ledgerbyte/api db:generate`.
 
-- [ ] **Step 2: Validate the baseline schema and focused foundation tests**
+- [x] **Step 2: Validate the baseline schema and focused foundation tests**
 
   Run `corepack pnpm --filter @ledgerbyte/api exec prisma validate` and the merged foundation tests: `corepack pnpm --filter @ledgerbyte/api test -- --runInBand src/email/document-delivery.service.spec.ts src/email/document-delivery-persistence.spec.ts src/email/email-retry-worker.service.spec.ts src/email/email-retry-worker.local-db.integration.spec.ts src/sales-invoices/sales-invoice-email-delivery.service.spec.ts src/sales-invoices/sales-invoice-email-delivery.controller.spec.ts src/sales-invoices/sales-invoice-email-delivery.lifecycle.integration.spec.ts`.
 
-- [ ] **Step 3: Record the baseline result in the plan**
+  Workspace adaptation/evidence: `corepack pnpm --filter @ledgerbyte/api exec prisma validate` could not resolve the Prisma binary from the root invocation, so validation was rerun from `apps/api` with disposable localhost values for `DATABASE_URL` and `DIRECT_URL` and passed. Frozen install passed; Prisma generation passed; focused baseline passed with 6 suites and 22 tests, 1 local-PostgreSQL suite skipped and 1 test skipped because no disposable local database was running.
+
+- [x] **Step 3: Record the baseline result in the plan**
 
   Add the actual command exit codes and suite/test counts below this task without copying a large log, and leave unrelated generated files unstaged.
 
-- [ ] **Step 4: Commit the baseline checkpoint if repository files changed**
+- [x] **Step 4: Commit the baseline checkpoint if repository files changed**
 
   Use `git diff --check`, review `git status --short`, and commit only intentional plan or migration-generated artifacts.
+
+  No generated or unrelated files were present after setup; this checkpoint is recorded in the plan commit that follows.
 
 ### Task 3: Add schema, permissions, templates, and generic source-neutral delivery contracts
 
