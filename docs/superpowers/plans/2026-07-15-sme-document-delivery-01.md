@@ -75,13 +75,13 @@ Create or modify only the files justified by the tasks below. Exact generated Pr
 - Add a unique constraint on `(organizationId, idempotencyKeyHash)` for non-null values using the repository's PostgreSQL-compatible additive migration pattern. If Prisma cannot express a partial unique index, use a nullable hash plus a generated-safe unique strategy that preserves existing null rows and document the exact SQL.
 - Add indexes for `(organizationId, salesInvoiceId, createdAt)`, due worker selection, and idempotency lookup.
 
-- [ ] Write failing permission and schema contract tests: the new permission is normalized, full-access includes it, missing permission is denied, the unique idempotency index exists, and raw PDF/body fields are not introduced to the new delivery relation.
-- [ ] Run the focused tests and observe failure because the permission/schema fields are absent.
-- [ ] Add the minimum permission/default/schema/migration changes.
-- [ ] Run `corepack pnpm --filter @ledgerbyte/api db:generate`, Prisma validation, and the focused tests.
-- [ ] Commit: `feat: add invoice delivery permission and persistence`.
+- [x] Write failing permission and schema contract tests: the new permission is normalized, full-access includes it, missing permission is denied, the unique idempotency index exists, and raw PDF/body fields are not introduced to the new delivery relation.
+- [x] Run the focused tests and observe failure because the permission/schema fields are absent.
+- [x] Add the minimum permission/default/schema/migration changes.
+- [x] Run `corepack pnpm --filter @ledgerbyte/api db:generate`, Prisma validation, and the focused tests.
+- [x] Commit: `feat: add invoice delivery permission and persistence` (`a08e38eb`).
 
-**Checkpoint:** Record the committed SHA, migration name, and the exact transaction/idempotency invariants now represented in the plan.
+**Checkpoint:** Commit `a08e38eb` added `salesInvoices.send`, assigned it to Owner/Admin/Accountant/Sales defaults without broadening Viewer/Purchases, and added the additive migration `20260716090000_add_sales_invoice_email_delivery`. The plan's idempotency and tenant invariants are now represented by the `(organizationId, idempotencyKeyHash)` unique constraint and tenant/source/requester fields; no PDF bytes or body copies were added.
 
 ### Task 2: Provider attachments, templates, validation, and safe status mapping
 

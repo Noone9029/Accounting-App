@@ -23,6 +23,17 @@ interface InvoicePaymentPreviewTemplateInput {
   paymentLinkUrl: string;
 }
 
+interface SalesInvoiceDeliveryTemplateInput {
+  organizationName: string;
+  customerDisplayName: string;
+  invoiceNumber: string;
+  currency: string;
+  transactionTotal: string;
+  transactionBalanceDue: string;
+  dueDate?: string | null;
+  message?: string;
+}
+
 export function buildOrganizationInviteEmail(input: OrganizationInviteTemplateInput) {
   const subject = `You're invited to ${input.organizationName} on LedgerByte`;
   const bodyText = [
@@ -99,6 +110,30 @@ export function buildInvoiceEmailPreview(input: InvoicePaymentPreviewTemplateInp
     subject,
     bodyText,
     bodyHtml: `<p>Hello ${escapeHtml(input.customerName)},</p><p>${escapeHtml(input.organizationName)} has prepared invoice <strong>${escapeHtml(input.documentNumber)}</strong> for ${escapeHtml(input.amount)}.</p><p>Due date: ${escapeHtml(input.dueDate)}.</p><p>This is a LedgerByte local preview. No real email was sent.</p><p>LedgerByte</p>`,
+  };
+}
+
+export function buildSalesInvoiceDeliveryEmail(input: SalesInvoiceDeliveryTemplateInput) {
+  const bodyText = input.message ?? [
+    `Hello ${input.customerDisplayName},`,
+    "",
+    `Please find invoice ${input.invoiceNumber} attached.`,
+    "",
+    `Invoice total: ${input.currency} ${input.transactionTotal}`,
+    `Balance due: ${input.currency} ${input.transactionBalanceDue}`,
+    `Due date: ${input.dueDate || "Not specified"}`,
+    "",
+    "Regards,",
+    input.organizationName,
+  ].join("\n");
+
+  return {
+    subject: `Invoice ${input.invoiceNumber} from ${input.organizationName}`,
+    bodyText,
+    bodyHtml: bodyText
+      .split("\n")
+      .map((line) => `<p>${escapeHtml(line) || "&nbsp;"}</p>`)
+      .join(""),
   };
 }
 
