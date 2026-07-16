@@ -167,6 +167,33 @@ export class GeneratedDocumentService {
     };
   }
 
+  async readContentForWorker(organizationId: string, id: string) {
+    const document = await this.prisma.generatedDocument.findFirst({
+      where: { id, organizationId },
+      select: {
+        id: true,
+        organizationId: true,
+        sourceType: true,
+        sourceId: true,
+        filename: true,
+        mimeType: true,
+        storageProvider: true,
+        storageKey: true,
+        contentBase64: true,
+        contentHash: true,
+        sizeBytes: true,
+      },
+    });
+    if (!document) {
+      throw new NotFoundException("Generated document not found.");
+    }
+    const buffer = await this.generatedDocumentStorage.readGeneratedDocumentContent({
+      ...document,
+      generatedDocumentId: document.id,
+    });
+    return { ...document, buffer };
+  }
+
   async archivePdf(input: ArchivePdfInput) {
     await this.assertSourceRecordBelongsToOrganization(input.organizationId, input.sourceType, input.sourceId);
     const generatedDocumentId = this.generatedDocumentStorage.getStorageBackendName() === "database" ? undefined : randomUUID();

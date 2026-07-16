@@ -1,9 +1,11 @@
-import { BadRequestException, ConflictException, Injectable, Optional } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import { EmailDeliveryStatus, EmailTemplateType, Prisma } from "@prisma/client";
 import { createHash } from "node:crypto";
 import { AUDIT_ENTITY_TYPES, AUDIT_EVENTS } from "../audit-log/audit-events";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { PrismaService } from "../prisma/prisma.service";
+import { GeneratedDocumentService } from "../generated-documents/generated-document.service";
 import { salesInvoiceDeliveryStatusLabel } from "./email-delivery-status";
 import { maskEmailAddress } from "./email-redaction";
 import type { EmailProvider } from "./email-provider";
@@ -42,6 +44,10 @@ export interface DocumentDeliveryQueueResult {
   invoiceId: string | null;
   generatedDocumentId: string | null;
   attachmentFilename: string | null;
+  attachmentMimeType: string | null;
+  attachmentSizeBytes: number | null;
+  attachmentContentHash: string | null;
+  requestedBy: { id: string; name: string | null } | null;
   maskedRecipient: string;
   status: EmailDeliveryStatus;
   userFacingStatus: string;
@@ -62,6 +68,8 @@ export class DocumentDeliveryService {
     private readonly prisma: PrismaService,
     private readonly provider: EmailProvider,
     @Optional() private readonly auditLogService?: AuditLogService,
+    @Optional() private readonly generatedDocumentService?: GeneratedDocumentService,
+    @Optional() private readonly config?: ConfigService,
   ) {}
 
   async queue(input: QueueDocumentDeliveryInput): Promise<DocumentDeliveryQueueResult> {
@@ -168,6 +176,52 @@ export class DocumentDeliveryService {
     return rows.map((row: Prisma.EmailOutboxGetPayload<{ select: typeof safeOutboxSelect }>) => this.map(row, false));
   }
 
+  async readAttachmentForWorker(organizationId: string, outboxId: string) {
+    if (!this.generatedDocumentService) {
+      throw new NotFoundException("Generated document worker access is unavailable.");
+    }
+    const outbox = await this.prisma.emailOutbox.findFirst({
+      where: { id: outboxId, organizationId },
+      select: {
+        id: true,
+        generatedDocumentId: true,
+        sourceType: true,
+        sourceId: true,
+        attachmentFilename: true,
+        attachmentMimeType: true,
+        attachmentSizeBytes: true,
+        attachmentContentHash: true,
+      },
+    });
+    if (!outbox?.generatedDocumentId || !outbox.attachmentFilename || !outbox.attachmentMimeType || !outbox.attachmentContentHash) {
+      throw new BadRequestException("Invoice email attachment metadata is incomplete.");
+    }
+    const document = await this.generatedDocumentService.readContentForWorker(organizationId, outbox.generatedDocumentId);
+    const maxBytes = configuredPositiveInteger(this.config?.get<string>("LEDGERBYTE_EMAIL_ATTACHMENT_MAX_BYTES"), 10 * 1024 * 1024);
+    if (document.sourceType !== outbox.sourceType || document.sourceId !== outbox.sourceId) {
+      throw new BadRequestException("Invoice email attachment source verification failed.");
+    }
+    if (document.mimeType !== outbox.attachmentMimeType || document.mimeType !== "application/pdf") {
+      throw new BadRequestException("Invoice email attachment MIME verification failed.");
+    }
+    if (document.filename !== outbox.attachmentFilename || document.sizeBytes !== outbox.attachmentSizeBytes || document.contentHash !== outbox.attachmentContentHash) {
+      throw new BadRequestException("Invoice email attachment metadata verification failed.");
+    }
+    if (document.buffer.byteLength !== document.sizeBytes || document.buffer.byteLength > maxBytes) {
+      throw new BadRequestException("Invoice email attachment size verification failed.");
+    }
+    const contentHash = hashBuffer(document.buffer);
+    if (contentHash !== document.contentHash) {
+      throw new BadRequestException("Invoice email attachment hash verification failed.");
+    }
+    return {
+      filename: document.filename,
+      mimeType: document.mimeType,
+      content: document.buffer,
+      contentHash,
+    };
+  }
+
   private async findByIdempotency(organizationId: string, idempotencyKeyHash: string) {
     return this.prisma.emailOutbox.findFirst({ where: { organizationId, idempotencyKeyHash }, select: safeOutboxSelect });
   }
@@ -207,6 +261,10 @@ export class DocumentDeliveryService {
       invoiceId: row.salesInvoiceId,
       generatedDocumentId: row.generatedDocumentId,
       attachmentFilename: row.attachmentFilename,
+      attachmentMimeType: row.attachmentMimeType,
+      attachmentSizeBytes: row.attachmentSizeBytes,
+      attachmentContentHash: row.attachmentContentHash,
+      requestedBy: row.requestedBy ? { id: row.requestedBy.id, name: row.requestedBy.name } : null,
       maskedRecipient: maskEmailAddress(row.toEmail),
       status: row.status,
       userFacingStatus: salesInvoiceDeliveryStatusLabel(row.status, { nextAttemptAt: row.nextAttemptAt, providerEventStatus: row.providerEventStatus }),
@@ -236,6 +294,10 @@ const safeOutboxSelect = {
   generatedDocumentId: true,
   salesInvoiceId: true,
   attachmentFilename: true,
+  attachmentMimeType: true,
+  attachmentSizeBytes: true,
+  attachmentContentHash: true,
+  requestedBy: { select: { id: true, name: true } },
   requestHash: true,
   createdAt: true,
 } satisfies Prisma.EmailOutboxSelect;
@@ -258,6 +320,19 @@ function normalizeIdempotencyKey(value: string): string {
 
 function hashText(value: string): string {
   return createHash("sha256").update(value).digest("hex");
+}
+
+function hashBuffer(value: Buffer): string {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+function configuredPositiveInteger(value: string | undefined, fallback: number): number {
+  if (value == null || value.trim() === "") return fallback;
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+    throw new BadRequestException("Invoice email attachment size configuration is invalid.");
+  }
+  return parsed;
 }
 
 function isUniqueConstraintError(error: unknown): error is { code: "P2002" } {

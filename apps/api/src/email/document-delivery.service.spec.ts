@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException } from "@nestjs/common";
 import { EmailDeliveryStatus, EmailTemplateType } from "@prisma/client";
+import { createHash } from "node:crypto";
 import { DocumentDeliveryService } from "./document-delivery.service";
 
 describe("DocumentDeliveryService", () => {
@@ -91,5 +92,56 @@ describe("DocumentDeliveryService", () => {
     const disabled = makeService({ provider: { provider: "smtp-disabled", readiness: jest.fn().mockReturnValue({ provider: "smtp-disabled", ready: true, mockMode: false, realSendingEnabled: false, blockingReasons: [], warnings: [] }) } });
     await expect(disabled.service.queue(input)).rejects.toBeInstanceOf(BadRequestException);
     expect(disabled.prisma.emailOutbox.create).not.toHaveBeenCalled();
+  });
+
+  it("reads only a tenant-scoped generated PDF and verifies source, size, MIME, and hash", async () => {
+    const content = Buffer.from("%PDF verified");
+    const contentHash = createHash("sha256").update(content).digest("hex");
+    const options = makeService();
+    options.prisma.emailOutbox.findFirst.mockResolvedValue({
+      id: "delivery-1",
+      generatedDocumentId: "document-1",
+      sourceType: "SalesInvoice",
+      sourceId: "invoice-1",
+      attachmentFilename: "invoice.pdf",
+      attachmentMimeType: "application/pdf",
+      attachmentSizeBytes: content.byteLength,
+      attachmentContentHash: contentHash,
+    });
+    const generatedDocument = {
+      readContentForWorker: jest.fn().mockResolvedValue({
+        id: "document-1",
+        organizationId: "org-1",
+        sourceType: "SalesInvoice",
+        sourceId: "invoice-1",
+        filename: "invoice.pdf",
+        mimeType: "application/pdf",
+        contentHash,
+        sizeBytes: content.byteLength,
+        buffer: content,
+      }),
+    };
+    const service = new DocumentDeliveryService(options.prisma as never, options.provider as never, options.audit as never, generatedDocument as never, { get: jest.fn().mockReturnValue(undefined) } as never);
+
+    await expect(service.readAttachmentForWorker("org-1", "delivery-1")).resolves.toMatchObject({
+      filename: "invoice.pdf",
+      mimeType: "application/pdf",
+      content,
+      contentHash,
+    });
+    expect(generatedDocument.readContentForWorker).toHaveBeenCalledWith("org-1", "document-1");
+
+    generatedDocument.readContentForWorker.mockResolvedValueOnce({
+      id: "document-1",
+      organizationId: "org-1",
+      sourceType: "SalesInvoice",
+      sourceId: "invoice-1",
+      filename: "invoice.pdf",
+      mimeType: "application/pdf",
+      contentHash,
+      sizeBytes: content.byteLength,
+      buffer: Buffer.from("!PDF verified"),
+    });
+    await expect(service.readAttachmentForWorker("org-1", "delivery-1")).rejects.toThrow("hash verification failed");
   });
 });
