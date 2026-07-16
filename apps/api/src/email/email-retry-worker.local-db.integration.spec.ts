@@ -72,6 +72,14 @@ const runLocalDatabaseIntegration = process.env.LEDGERBYTE_RUN_LOCAL_DB_INTEGRAT
     if (deliveryId) await prisma.emailOutbox.deleteMany({ where: { id: deliveryId, organizationId } });
     if (generatedDocumentId) await prisma.generatedDocument.deleteMany({ where: { id: generatedDocumentId, organizationId } });
     if (contactId) await prisma.contact.deleteMany({ where: { id: contactId, organizationId } });
+    if (deliveryId && generatedDocumentId && contactId) {
+      const [remainingOutbox, remainingDocuments, remainingContacts] = await Promise.all([
+        prisma.emailOutbox.count({ where: { id: deliveryId, organizationId } }),
+        prisma.generatedDocument.count({ where: { id: generatedDocumentId, organizationId } }),
+        prisma.contact.count({ where: { id: contactId, organizationId } }),
+      ]);
+      expect({ remainingOutbox, remainingDocuments, remainingContacts }).toEqual({ remainingOutbox: 0, remainingDocuments: 0, remainingContacts: 0 });
+    }
     await prisma.$disconnect();
   });
 
@@ -83,18 +91,42 @@ const runLocalDatabaseIntegration = process.env.LEDGERBYTE_RUN_LOCAL_DB_INTEGRAT
       send: jest.fn().mockResolvedValue({ provider: "mock", status: EmailDeliveryStatus.SENT_MOCK, providerMessageId: "local-mock-1", sentAt: new Date() }),
     };
     const config = { get: jest.fn().mockReturnValue(undefined) };
+    const finalUpdates: Array<{ where: Record<string, unknown>; data: Record<string, unknown> }> = [];
+    const claimTokens = new Set<string>();
+    const emailOutbox = prisma.emailOutbox as any;
+    const originalUpdateMany = emailOutbox.updateMany.bind(emailOutbox);
+    emailOutbox.updateMany = async (args: { where: Record<string, unknown>; data: Record<string, unknown> }) => {
+      if (typeof args.data.retryLockedBy === "string") claimTokens.add(args.data.retryLockedBy);
+      if (args.data.status !== undefined) finalUpdates.push(args);
+      return originalUpdateMany(args);
+    };
     const documentDelivery = new DocumentDeliveryService(prisma as never, provider as never, undefined, new GeneratedDocumentService(prisma as never), config as never);
     const workerA = new EmailRetryWorkerService(prisma as never, provider as never, documentDelivery, config as never);
     const workerB = new EmailRetryWorkerService(prisma as never, provider as never, documentDelivery, config as never);
 
-    const [first, second] = await Promise.all([
-      workerA.process(organizationId, "worker-a", 1),
-      workerB.process(organizationId, "worker-b", 1),
-    ]);
-    const finalRow = await prisma.emailOutbox.findUnique({ where: { id: deliveryId }, select: { status: true, attemptCount: true, retryLockedAt: true, retryLockedBy: true } });
+    try {
+      const [first, second] = await Promise.all([
+        workerA.process(organizationId, "worker-a", 1),
+        workerB.process(organizationId, "worker-b", 1),
+      ]);
+      const finalRow = await prisma.emailOutbox.findUnique({ where: { id: deliveryId }, select: { status: true, attemptCount: true, retryLockedAt: true, retryLockedBy: true } });
 
-    expect(provider.send).toHaveBeenCalledTimes(1);
-    expect(first.claimCount + second.claimCount).toBe(1);
-    expect(finalRow).toMatchObject({ status: EmailDeliveryStatus.SENT_MOCK, attemptCount: 1, retryLockedAt: null, retryLockedBy: null });
+      expect(first.claimCount + second.claimCount).toBe(1);
+      expect(finalUpdates).toHaveLength(1);
+      const finalUpdate = finalUpdates[0];
+      if (!finalUpdate) throw new Error("Expected one final outbox update.");
+      expect(finalUpdate.where).toEqual(expect.objectContaining({ id: deliveryId, organizationId, retryLockedBy: expect.any(String) }));
+      expect(claimTokens).toContain(finalUpdate.where.retryLockedBy);
+      expect(provider.send).toHaveBeenCalledTimes(1);
+      const sendInput = (provider.send as jest.Mock).mock.calls[0][0] as { attachments?: Array<{ filename: string; mimeType: string; content: Buffer; contentHash: string }> };
+      expect(sendInput.attachments).toHaveLength(1);
+      const attachment = sendInput.attachments?.[0];
+      if (!attachment) throw new Error("Expected one PDF attachment.");
+      expect(attachment).toMatchObject({ filename: "statement-local-worker.pdf", mimeType: "application/pdf", contentHash: statementContentHash });
+      expect(attachment.content).toEqual(statementContent);
+      expect(finalRow).toMatchObject({ status: EmailDeliveryStatus.SENT_MOCK, attemptCount: 1, retryLockedAt: null, retryLockedBy: null });
+    } finally {
+      emailOutbox.updateMany = originalUpdateMany;
+    }
   });
 });

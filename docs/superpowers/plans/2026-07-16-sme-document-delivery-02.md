@@ -284,7 +284,7 @@
 
 - [x] **Step 4: Run all email lifecycle tests and commit**
 
-  Evidence: worker unit suite passes with 11 tests; the new customer-document lifecycle suite passes with 2 tests; the local PostgreSQL race fixture compiles and remains skipped because the installed PostgreSQL 17 service is stopped and cannot be opened in this session.
+  Evidence: worker unit suite passes with 11 tests; the new customer-document lifecycle suite passes with 2 tests; the local PostgreSQL race suite passes with 1 suite and 1 test using `CustomerStatement`, exactly one claim winner, exactly one final update bound to the winning worker token, exactly one mock-provider send with one verified PDF attachment, and zero disposable outbox/generated-document/contact rows after teardown. PostgreSQL was stopped afterward and no Compose service remained running.
 
   Commit `test: prove customer document delivery lifecycle` after the mock lifecycle, concurrency race, attachment integrity, suppression, webhook, invitation, password-reset, AP groundwork, and invoice suites are green.
 

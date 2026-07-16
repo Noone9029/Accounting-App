@@ -5,7 +5,7 @@ Date: 2026-07-16
 Branch: `codex/sme-document-delivery-02`
 
 Dependency base: `92abd403efbad760260b03713335eea229e9c8f5` (`origin/main` after PR #376)
-Implementation checkpoint: `cb2ed0e0`
+Implementation checkpoint: `cb2ed0e0`; focused race-proof correction included in the follow-up evidence commit
 Draft PR: [#377](https://github.com/Noone9029/Accounting-App/pull/377)
 
 Remote branch SHA at draft creation: `407f9e16ea610c5b1715949c9648b8e08a12243a`
@@ -41,7 +41,11 @@ Statement dates are normalized to exact `YYYY-MM-DD` values. An omitted `to` bec
 - Mock-only lifecycle proof: 2 tests pass; queue made zero provider calls, explicit worker execution sent once with a verified PDF attachment, and replay did not create another outbox row.
 - Worker service suite: 11 tests pass.
 - Broader document regression: 8 suites and 42 tests pass.
-- The local PostgreSQL two-worker race fixture compiles and remains skipped because the installed PostgreSQL 17 Windows service is stopped and cannot be opened from this session. No hosted database, URL, credential, or real customer data was used.
+- Local PostgreSQL two-worker race: 1 suite and 1 test passed using `CustomerStatement` with the mock provider.
+- Race evidence: exactly 1 conditional claim winner, exactly 1 final outbox state update, exactly 1 winning worker token in the final update predicate, exactly 1 mock-provider send, and exactly 1 verified PDF attachment with matching filename, MIME, hash, and bytes.
+- Teardown evidence: the test removed its outbox, generated-document, and contact rows; the disposable organization query reported zero rows for all four record types after cleanup and organization deletion.
+- `docker compose -f infra/docker-compose.yml stop postgres` completed; no Compose or `infra-*` container remained running.
+- No hosted database, URL, credential, or real customer data was used.
 
 ## Verification evidence
 
@@ -61,11 +65,11 @@ Statement dates are normalized to exact `YYYY-MM-DD` values. An omitted `to` bec
 Review searched the changed surface for credentials, SMTP passwords, tokens, provider payloads, real addresses, PDF/base64 persistence, raw idempotency keys, misleading delivery claims, and unrelated accounting/compliance changes.
 
 - Critical findings: none.
-- Important findings: one generic service/worker error family retained invoice-only wording after generalization; corrected to source-neutral “document email” wording and rechecked type/lint/CI gates.
+- Important findings: one generic service/worker error family retained invoice-only wording after generalization; corrected to source-neutral “document email” wording and rechecked type/lint/CI gates. The local race fixture was then strengthened to expose final-update count, worker-token binding, attachment uniqueness/content, and teardown counts.
 - Minor findings: generated `apps/web/next-env.d.ts` route-reference churn from the Next build was reverted and is not part of the implementation.
 
 ## Explicit boundaries and remaining production gates
 
-This arc did not send real email, configure SMTP credentials, call a provider, deploy, mutate hosted state, apply a hosted migration, use production/customer data, change accounting postings or reports, or change ZATCA, UAE FTA, or Peppol behavior. The mock provider and local worker tests prove queue/worker behavior only. Production SMTP/provider readiness, hosted migration approval, deployment, monitoring, and real recipient testing remain separate release gates.
+This arc did not send real email, configure SMTP credentials, call an external provider, deploy, mutate hosted state, use production/customer data, change accounting postings or reports, or change ZATCA, UAE FTA, or Peppol behavior. The mock provider and disposable local worker test prove queue/worker behavior only. Production SMTP/provider readiness, hosted migration approval, deployment, monitoring, and real recipient testing remain separate release gates.
 
 PR #377 is open as a draft and is not merged. The protected root checkout modification `BANK_STATEMENT_IMPORT_PROOF_REVIEW.md` remains untouched.
