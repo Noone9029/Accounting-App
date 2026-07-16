@@ -6,7 +6,8 @@ Branch: `codex/sme-document-delivery-02`
 
 Dependency base: `92abd403efbad760260b03713335eea229e9c8f5` (`origin/main` after PR #376)
 Implementation checkpoint: `cb2ed0e0`
-Draft PR: [#377](https://github.com/Noone9029/Accounting-App/pull/377)  
+Draft PR: [#377](https://github.com/Noone9029/Accounting-App/pull/377)
+
 Remote branch SHA at draft creation: `407f9e16ea610c5b1715949c9648b8e08a12243a`
 
 ## Outcome
