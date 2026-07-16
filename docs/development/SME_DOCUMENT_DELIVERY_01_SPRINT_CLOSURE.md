@@ -9,6 +9,7 @@ Date: 2026-07-16
 - Branch: `codex/sme-document-delivery-01`.
 - Worktree: `E:\Worktrees\Accounting-App\sme-document-delivery-01`.
 - Final local SHA before publish: `16270ab1` (`fix: harden invoice delivery review findings`).
+- Draft PR: `https://github.com/Noone9029/Accounting-App/pull/376` (open, draft, base `main`, not merged).
 - Protected root checkout `E:\Accounting App` and its unrelated dirty `BANK_STATEMENT_IMPORT_PROOF_REVIEW.md` were not modified.
 
 ## Implemented behavior

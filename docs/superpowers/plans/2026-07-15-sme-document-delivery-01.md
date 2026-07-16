@@ -236,11 +236,11 @@ Create or modify only the files justified by the tasks below. Exact generated Pr
 - [x] Add failing regression tests for the final review findings, observe the expected failures, and run the focused API/web suites and typechecks.
 - [x] Apply only the verified review fixes: audit-failure lock release, invoice source/document attachment enforcement, generic provider failure diagnostics, complete safe history metadata, and stale organization refresh protection.
 - [x] Commit the review-fix milestone: `fix: harden invoice delivery review findings` (`16270ab1`).
-- [ ] Push `codex/sme-document-delivery-01` — explicitly authorized for this review-and-publish handoff; no force push.
-- [ ] Open a draft PR against `main` — explicitly authorized; keep draft and do not merge.
+- [x] Push `codex/sme-document-delivery-01` — exact remote SHA matched local HEAD; no force push.
+- [x] Open draft PR #376 against `main` — `https://github.com/Noone9029/Accounting-App/pull/376`; kept draft and did not merge.
 - [x] Do not merge the PR.
 
-**Final local checkpoint:** The review-fix milestone is `16270ab1`. Full local gates and the post-review focused suites remain required before the authorized GitHub push and draft-PR handoff.
+**Final publish checkpoint:** Review-fix milestone `16270ab1` is followed by documentation checkpoint `a91e88b6`; the exact branch SHA was pushed and matched on `origin/codex/sme-document-delivery-01`, and draft PR #376 is open against `main`. The PR remains unmerged.
 
 **Final report must include:** branch, base/final SHAs, draft PR link, files created/modified, schema/migration summary, API/UI summary, pass/fail counts for every verification command, independent review findings/resolutions, explicit no-real-email and no-hosted-mutation confirmation, explicit ZATCA/UAE FTA unchanged confirmation, and remaining limitations.
 
