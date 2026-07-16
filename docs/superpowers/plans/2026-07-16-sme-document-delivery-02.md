@@ -115,31 +115,31 @@
 - `DocumentDeliveryQueueResult` exposes generic `sourceType`, `sourceId`, `sourceNumber`, `documentLabel`, and safe statement-period metadata in addition to existing invoice-compatible fields.
 - `PreparedCustomerDocumentDelivery` contains organization, actor, source type/id/number, template type, recipient, subject, body text/html, generated-document metadata, idempotency key, and bounded request context.
 
-- [ ] **Step 1: Write failing generic-contract tests**
+- [x] **Step 1: Write failing generic-contract tests**
 
   Add tests proving a non-invoice source hash differs when source type, template/document kind, message, or statement period changes; same normalized key/payload replays; different payload conflicts before PDF generation; raw idempotency keys and bodies are absent from selected persistence/audit metadata; and existing invoice behavior remains compatible.
 
-- [ ] **Step 2: Run the focused tests and observe the expected failures**
+- [x] **Step 2: Run the focused tests and observe the expected failures**
 
   Run `corepack pnpm --filter @ledgerbyte/api test -- --runInBand src/email/document-delivery.service.spec.ts src/email/document-delivery-persistence.spec.ts`; failures must identify missing generic source/hash behavior rather than test setup errors.
 
-- [ ] **Step 3: Implement the generic contract minimally**
+- [x] **Step 3: Implement the generic contract minimally**
 
   Replace invoice-specific request-hash inputs with normalized `{ organizationId, sourceType, sourceId, recipientEmail, subject, message, templateType, documentType, requestContext }`; preserve the unique organization/hash constraint, replay-before-archive call order, suppression checks, safe audit redaction, attachment metadata, and invoice response compatibility. Extend central status mapping without introducing “Delivered” for provider acceptance.
 
-- [ ] **Step 4: Add the additive Prisma changes**
+- [x] **Step 4: Add the additive Prisma changes**
 
   Add `EmailTemplateType.SALES_QUOTE`, `EmailTemplateType.CREDIT_NOTE`, and `EmailTemplateType.CUSTOMER_STATEMENT`; add `SalesQuoteDocumentKind` and `SalesQuote.documentKind` defaulting to `QUOTE`; preserve existing enum values and use a forward-only local PostgreSQL migration.
 
-- [ ] **Step 5: Add permission constants and normalization tests**
+- [x] **Step 5: Add permission constants and normalization tests**
 
   Add `creditNotes.send`, `customerPayments.send`, and `contacts.sendCustomerStatements` to the established registries/matrices. Assert full access permits them, exact permissions permit only their matching route, and existing custom-role permission arrays are not mutated.
 
-- [ ] **Step 6: Implement escaped source templates and verify green**
+- [x] **Step 6: Implement escaped source templates and verify green**
 
   Add quote/proforma, credit-note, payment-receipt, and customer-statement builders. Subject overrides remain CR/LF-free and at most 200 characters; messages remain at most 5,000 characters; all dynamic HTML is escaped; copy does not promise allocation, refund, reconciliation, settlement, cleared funds, or provider delivery.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
   Run the focused API/shared tests and `git diff --check`, then commit `feat: add customer document delivery permissions and templates`.
 

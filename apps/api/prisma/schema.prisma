@@ -72,6 +72,9 @@ enum EmailTemplateType {
   SALES_INVOICE
   INVOICE_PAYMENT_LINK
   PAYMENT_RECEIPT
+  SALES_QUOTE
+  CREDIT_NOTE
+  CUSTOMER_STATEMENT
   FAILED_DELIVERY_NOTIFICATION
 }
 
@@ -607,6 +610,11 @@ enum SalesQuoteStatus {
   EXPIRED
   CANCELLED
   CONVERTED
+}
+
+enum SalesQuoteDocumentKind {
+  QUOTE
+  PROFORMA
 }
 
 enum RecurringInvoiceTemplateStatus {
@@ -2651,6 +2659,9 @@ model EmailOutbox {
   requestHash        String?
   sourceType          String?
   sourceId            String?
+  sourceNumber        String?
+  documentType        DocumentType?
+  sourceContextJson   Json?
   attachmentFilename  String?
   attachmentMimeType  String?
   attachmentSizeBytes Int?
@@ -4644,6 +4655,7 @@ model SalesQuote {
   customerId              String              @db.Uuid
   branchId                String?             @db.Uuid
   status                  SalesQuoteStatus    @default(DRAFT)
+  documentKind            SalesQuoteDocumentKind @default(QUOTE)
   issueDate               DateTime
   expiryDate              DateTime?
   reference               String?

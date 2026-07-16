@@ -84,6 +84,42 @@ describe("DocumentDeliveryService", () => {
     expect(first.provider.send).not.toHaveBeenCalled();
   });
 
+  it("hashes generic source identity, document kind, and bounded request context", async () => {
+    const genericInput = {
+      ...input,
+      salesInvoiceId: null,
+      sourceType: "CustomerStatement",
+      sourceId: "customer-statement:contact-1",
+      sourceNumber: "Statement Acme (2026-01-01 to 2026-06-30)",
+      documentType: "CUSTOMER_STATEMENT",
+      templateType: "CUSTOMER_STATEMENT",
+      requestContext: { from: "2026-01-01", to: "2026-06-30", asOf: "2026-06-30" },
+    };
+    const first = makeService();
+    const created = await first.service.queue(genericInput as never);
+    const stored = first.prisma.emailOutbox.create.mock.calls[0]![0].data;
+    first.prisma.emailOutbox.findFirst.mockResolvedValue({
+      ...stored,
+      ...created,
+      toEmail: "customer@example.test",
+      requestedBy: null,
+      requestHash: stored.requestHash,
+    });
+
+    await expect(first.service.queue(genericInput as never)).resolves.toMatchObject({
+      id: "delivery-1",
+      idempotentReplay: true,
+      sourceType: "CustomerStatement",
+      sourceId: "customer-statement:contact-1",
+      sourceNumber: "Statement Acme (2026-01-01 to 2026-06-30)",
+    });
+    await expect(first.service.queue({
+      ...genericInput,
+      requestContext: { from: "2026-01-01", to: "2026-07-31", asOf: "2026-07-31" },
+    } as never)).rejects.toBeInstanceOf(ConflictException);
+    expect(first.prisma.emailOutbox.create).toHaveBeenCalledTimes(1);
+  });
+
   it("blocks active suppression and unusable providers before creating an outbox row", async () => {
     const suppressed = makeService({ suppression: { id: "suppression-1" } });
     await expect(suppressed.service.queue(input)).rejects.toBeInstanceOf(BadRequestException);

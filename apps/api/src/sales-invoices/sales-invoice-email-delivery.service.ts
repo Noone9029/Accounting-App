@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { EmailTemplateType, SalesInvoiceStatus } from "@prisma/client";
+import { DocumentType, EmailTemplateType, SalesInvoiceStatus } from "@prisma/client";
 import { DocumentDeliveryService, type DocumentDeliveryQueueResult } from "../email/document-delivery.service";
 import { buildSalesInvoiceDeliveryEmail } from "../email/email-templates";
 import { AUDIT_EVENTS } from "../audit-log/audit-events";
@@ -71,6 +71,9 @@ export class SalesInvoiceEmailDeliveryService {
       salesInvoiceId: invoice.id,
       sourceType: "SalesInvoice",
       sourceId: invoice.id,
+      sourceNumber: invoice.invoiceNumber,
+      documentType: DocumentType.SALES_INVOICE,
+      templateType: EmailTemplateType.SALES_INVOICE,
       recipientEmail,
       subject,
       bodyText: template.bodyText,
@@ -100,6 +103,8 @@ export class SalesInvoiceEmailDeliveryService {
       salesInvoiceId: invoice.id,
       sourceType: "SalesInvoice",
       sourceId: invoice.id,
+      sourceNumber: invoice.invoiceNumber,
+      documentType: DocumentType.SALES_INVOICE,
       recipientEmail,
       fromEmail: this.config.get<string>("EMAIL_FROM")?.trim() || "no-reply@ledgerbyte.local",
       subject,

@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { EmailDeliveryStatus, EmailTemplateType, Prisma } from "@prisma/client";
+import { DocumentType, EmailDeliveryStatus, EmailTemplateType, Prisma } from "@prisma/client";
 import { createHash } from "node:crypto";
 import { AUDIT_ENTITY_TYPES, AUDIT_EVENTS } from "../audit-log/audit-events";
 import { AuditLogService } from "../audit-log/audit-log.service";
@@ -18,12 +18,17 @@ export interface DocumentAttachmentMetadata {
   contentHash: string;
 }
 
+export type SafeDeliveryContext = Record<string, string | number | boolean | null>;
+
 export interface QueueDocumentDeliveryInput {
   organizationId: string;
   actorUserId: string;
   salesInvoiceId?: string | null;
   sourceType: string;
   sourceId: string;
+  sourceNumber?: string | null;
+  documentType?: DocumentType | null;
+  requestContext?: SafeDeliveryContext;
   recipientEmail: string;
   fromEmail: string;
   subject: string;
@@ -44,6 +49,10 @@ export interface DocumentDeliveryReplayLookupInput {
   salesInvoiceId?: string | null;
   sourceType: string;
   sourceId: string;
+  sourceNumber?: string | null;
+  documentType?: DocumentType | null;
+  requestContext?: SafeDeliveryContext;
+  templateType?: EmailTemplateType;
   recipientEmail: string;
   subject: string;
   bodyText: string;
@@ -56,6 +65,12 @@ export interface DocumentDeliveryQueueResult {
   id: string;
   organizationId: string | null;
   invoiceId: string | null;
+  sourceType: string | null;
+  sourceId: string | null;
+  sourceNumber: string | null;
+  documentType: DocumentType | null;
+  documentLabel: string | null;
+  statementPeriod: { from: string | null; to: string | null; asOf: string | null } | null;
   generatedDocumentId: string | null;
   attachmentFilename: string | null;
   attachmentMimeType: string | null;
@@ -92,7 +107,18 @@ export class DocumentDeliveryService {
   async queue(input: QueueDocumentDeliveryInput): Promise<DocumentDeliveryQueueResult> {
     const recipientEmail = normalizeEmail(input.recipientEmail);
     const idempotencyKeyHash = hashText(normalizeIdempotencyKey(input.idempotencyKey));
-    const requestHash = buildRequestHash(input.salesInvoiceId, recipientEmail, input.subject, input.bodyText);
+    const requestContext = normalizeRequestContext(input.requestContext);
+    const requestHash = buildRequestHash({
+      organizationId: input.organizationId,
+      sourceType: input.sourceType,
+      sourceId: input.sourceId,
+      recipientEmail,
+      subject: input.subject,
+      bodyText: input.bodyText,
+      templateType: input.templateType,
+      documentType: input.documentType ?? null,
+      requestContext,
+    });
 
     const existing = await this.findByIdempotency(input.organizationId, idempotencyKeyHash);
     if (existing) {
@@ -139,6 +165,9 @@ export class DocumentDeliveryService {
       generatedDocumentId: input.generatedDocument.id,
       sourceType: input.sourceType,
       sourceId: input.sourceId,
+      sourceNumber: input.sourceNumber ?? null,
+      documentType: input.documentType ?? null,
+      sourceContextJson: requestContext ? (requestContext as Prisma.InputJsonObject) : Prisma.JsonNull,
       attachmentFilename: input.generatedDocument.filename,
       attachmentMimeType: input.generatedDocument.mimeType,
       attachmentSizeBytes: input.generatedDocument.sizeBytes,
@@ -153,7 +182,7 @@ export class DocumentDeliveryService {
 
     let created: Prisma.EmailOutboxGetPayload<{ select: typeof safeOutboxSelect }>;
     try {
-      created = await this.prisma.emailOutbox.create({ data, select: safeOutboxSelect });
+      created = await this.prisma.emailOutbox.create({ data, select: safeOutboxSelect }) as Prisma.EmailOutboxGetPayload<{ select: typeof safeOutboxSelect }>;
     } catch (error) {
       if (!isUniqueConstraintError(error)) {
         throw error;
@@ -182,12 +211,24 @@ export class DocumentDeliveryService {
     const idempotencyKeyHash = hashText(normalizeIdempotencyKey(input.idempotencyKey));
     const existing = await this.findByIdempotency(input.organizationId, idempotencyKeyHash);
     if (!existing) return null;
-    return this.replayOrConflict(existing, buildRequestHash(input.salesInvoiceId, recipientEmail, input.subject, input.bodyText), {
+    return this.replayOrConflict(existing, buildRequestHash({
+      organizationId: input.organizationId,
+      sourceType: input.sourceType,
+      sourceId: input.sourceId,
+      recipientEmail,
+      subject: input.subject,
+      bodyText: input.bodyText,
+      templateType: input.templateType ?? EmailTemplateType.SALES_INVOICE,
+      documentType: input.documentType ?? DocumentType.SALES_INVOICE,
+      requestContext: normalizeRequestContext(input.requestContext),
+    }), {
       ...input,
       recipientEmail,
       fromEmail: "",
       bodyHtml: null,
-      templateType: EmailTemplateType.SALES_INVOICE,
+      templateType: input.templateType ?? EmailTemplateType.SALES_INVOICE,
+      documentType: input.documentType ?? DocumentType.SALES_INVOICE,
+      requestContext: normalizeRequestContext(input.requestContext),
       generatedDocument: {
         id: existing.generatedDocumentId ?? "unknown",
         filename: existing.attachmentFilename ?? "unknown",
@@ -290,6 +331,12 @@ export class DocumentDeliveryService {
       id: row.id,
       organizationId: row.organizationId,
       invoiceId: row.salesInvoiceId,
+      sourceType: row.sourceType ?? null,
+      sourceId: row.sourceId ?? null,
+      sourceNumber: row.sourceNumber ?? null,
+      documentType: row.documentType ?? null,
+      documentLabel: row.sourceNumber ?? row.documentType ?? row.sourceType ?? null,
+      statementPeriod: statementPeriodFromContext(row.sourceContextJson),
       generatedDocumentId: row.generatedDocumentId,
       attachmentFilename: row.attachmentFilename,
       attachmentMimeType: row.attachmentMimeType,
@@ -327,6 +374,11 @@ const safeOutboxSelect = {
   providerEventStatus: true,
   generatedDocumentId: true,
   salesInvoiceId: true,
+  sourceType: true,
+  sourceId: true,
+  sourceNumber: true,
+  documentType: true,
+  sourceContextJson: true,
   attachmentFilename: true,
   attachmentMimeType: true,
   attachmentSizeBytes: true,
@@ -358,8 +410,71 @@ function hashText(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
-function buildRequestHash(invoiceId: string | null | undefined, recipientEmail: string, subject: string, bodyText: string): string {
-  return hashText(JSON.stringify({ invoiceId: invoiceId ?? null, recipientEmail, subject, message: bodyText }));
+function buildRequestHash(input: {
+  organizationId: string;
+  sourceType: string;
+  sourceId: string;
+  recipientEmail: string;
+  subject: string;
+  bodyText: string;
+  templateType: EmailTemplateType;
+  documentType: DocumentType | null;
+  requestContext?: SafeDeliveryContext;
+}): string {
+  return hashText(JSON.stringify({
+    organizationId: input.organizationId,
+    sourceType: input.sourceType,
+    sourceId: input.sourceId,
+    recipientEmail: input.recipientEmail,
+    subject: input.subject,
+    message: input.bodyText,
+    templateType: input.templateType,
+    documentType: input.documentType,
+    requestContext: input.requestContext ?? null,
+  }));
+}
+
+function normalizeRequestContext(context?: SafeDeliveryContext): SafeDeliveryContext | undefined {
+  if (!context) return undefined;
+  const entries = Object.entries(context).sort(([left], [right]) => left.localeCompare(right));
+  if (entries.length > 20) {
+    throw new BadRequestException("Email delivery request context is too large.");
+  }
+  const normalized: SafeDeliveryContext = {};
+  for (const [key, value] of entries) {
+    if (!/^[A-Za-z][A-Za-z0-9_.-]{0,63}$/.test(key)) {
+      throw new BadRequestException("Email delivery request context contains an unsafe key.");
+    }
+    if (typeof value === "string" && value.length > 256) {
+      throw new BadRequestException("Email delivery request context contains an oversized value.");
+    }
+    if (typeof value !== "string" && typeof value !== "number" && typeof value !== "boolean" && value !== null) {
+      throw new BadRequestException("Email delivery request context contains an unsafe value.");
+    }
+    normalized[key] = value;
+  }
+  return normalized;
+}
+
+function asSafeDeliveryContext(value: Prisma.JsonValue | null | undefined): SafeDeliveryContext | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const context: SafeDeliveryContext = {};
+  for (const [key, entry] of Object.entries(value)) {
+    if (typeof entry === "string" || typeof entry === "number" || typeof entry === "boolean" || entry === null) {
+      context[key] = entry;
+    }
+  }
+  return context;
+}
+
+function statementPeriodFromContext(value: Prisma.JsonValue | null | undefined) {
+  const context = asSafeDeliveryContext(value);
+  if (!context || !("from" in context) && !("to" in context) && !("asOf" in context)) return null;
+  return {
+    from: typeof context.from === "string" ? context.from : null,
+    to: typeof context.to === "string" ? context.to : null,
+    asOf: typeof context.asOf === "string" ? context.asOf : null,
+  };
 }
 
 function hashBuffer(value: Buffer): string {
@@ -384,6 +499,9 @@ function safeAuditMetadata(input: QueueDocumentDeliveryInput, status: string) {
     invoiceId: input.salesInvoiceId ?? null,
     sourceType: input.sourceType,
     sourceId: input.sourceId,
+    sourceNumber: input.sourceNumber ?? null,
+    documentType: input.documentType ?? null,
+    requestContext: normalizeRequestContext(input.requestContext) ?? null,
     generatedDocumentId: input.generatedDocument.id,
     maskedRecipient: maskEmailAddress(input.recipientEmail),
     templateType: input.templateType,
