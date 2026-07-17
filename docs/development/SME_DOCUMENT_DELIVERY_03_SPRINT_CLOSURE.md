@@ -35,7 +35,7 @@ All local commands were run sequentially with at most three Jest workers and `NO
 - `verify:diff` passed. Credential-environment safety passed 5/5; user-testing cleanup-plan safety passed 6/6.
 - Mandatory local PostgreSQL `SupplierStatement` race passed in-band against a disposable PostgreSQL 16.14 cluster on `127.0.0.1:55432`: claim winners 1, mock-provider sends 1, verified attachments 1, final updates 1; the winning worker token owned the final mutation.
 - Race teardown reported `remainingOutbox: 0`, `remainingDocuments: 0`, `remainingContacts: 0`, and `remainingOrganizations: 0`. `pg_ctl stop -m fast` completed; port `55432` was closed, no `postmaster.pid` remained, and no PostgreSQL process remained.
-- The literal `verify:ci:local` wrapper stopped at `corepack pnpm db:generate` because the managed sandbox denied Corepack's global cache. Its generation, typecheck, test, build, and safety steps were executed through direct local equivalents; no hosted environment was loaded.
+- The literal `verify:ci:local` wrapper passed end-to-end: generation, workspace typecheck, workspace tests, package/API/web builds, credential-environment safety, and user-testing cleanup-plan safety; no hosted environment was loaded.
 
 ## Mandatory PostgreSQL race gate
 
