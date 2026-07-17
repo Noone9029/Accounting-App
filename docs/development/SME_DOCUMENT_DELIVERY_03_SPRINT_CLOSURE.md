@@ -33,13 +33,15 @@ All local commands were run sequentially with at most three Jest workers and `NO
 - All workspace TypeScript lint/typecheck equivalents passed; package, API, and web builds passed. Web generated 149 static pages.
 - Prisma generation passed using `apps/api/prisma/schema.prisma`; Prisma validation passed with explicit local placeholder `DATABASE_URL`/`DIRECT_URL` values.
 - `verify:diff` passed. Credential-environment safety passed 5/5; user-testing cleanup-plan safety passed 6/6.
+- Mandatory local PostgreSQL `SupplierStatement` race passed in-band against a disposable PostgreSQL 16.14 cluster on `127.0.0.1:55432`: claim winners 1, mock-provider sends 1, verified attachments 1, final updates 1; the winning worker token owned the final mutation.
+- Race teardown reported `remainingOutbox: 0`, `remainingDocuments: 0`, `remainingContacts: 0`, and `remainingOrganizations: 0`. `pg_ctl stop -m fast` completed; port `55432` was closed, no `postmaster.pid` remained, and no PostgreSQL process remained.
 - The literal `verify:ci:local` wrapper stopped at `corepack pnpm db:generate` because the managed sandbox denied Corepack's global cache. Its generation, typecheck, test, build, and safety steps were executed through direct local equivalents; no hosted environment was loaded.
 
 ## Mandatory PostgreSQL race gate
 
-The guarded fixture is `apps/api/src/email/email-retry-worker.local-db.integration.spec.ts`. It creates a marker-named disposable organization, supplier contact, `SupplierStatement`, archived PDF metadata, two worker instances, atomic claim instrumentation, attachment verification, and teardown assertions.
+The guarded fixture is `apps/api/src/email/email-retry-worker.local-db.integration.spec.ts`. It created a marker-named disposable organization, supplier contact, `SupplierStatement`, archived PDF metadata, two worker instances, atomic claim instrumentation, attachment verification, and teardown assertions.
 
-The required real PostgreSQL two-worker proof is **not complete**. Docker's local engine was unavailable, TCP `127.0.0.1:5432` was closed, and Windows service `postgresql-x64-17` was stopped. Running the guarded spec with the explicit local placeholder failed at Prisma `$connect()` before fixture setup. Therefore no claim-winner/provider-send/attachment/final-update/cleanup counts are claimed; no race-pass or cleanup proof exists. The fixture must be rerun and pass after disposable local PostgreSQL is available. A skipped or connection-failed run cannot close this gate.
+The required real PostgreSQL two-worker proof **passed** with the exact in-band command from the brief, using only the disposable local database URL. Its logged proof was `{"claimWinners":1,"providerSends":1,"attachments":1,"finalUpdates":1}` and its cleanup log was `{"remainingOutbox":0,"remainingDocuments":0,"remainingContacts":0,"remainingOrganizations":0}`. PostgreSQL was stopped afterward and the disposable binary/data directory was removed.
 
 ## Review, branch, and remaining gates
 
@@ -47,9 +49,9 @@ The complete scoped diff was reviewed for credentials, SMTP secrets, authorizati
 
 - Approved baseline: `3f5c31bc0ad96b3af2deba1348f55b7cead84888`.
 - Branch: `codex/sme-document-delivery-03`.
-- The implementation and documentation tip at the initial PR publication was `ac0a4d08257b98a5dee5e32a979cbc726934430d`.
+- Final implementation SHA before the evidence-only closure update: `af206482888ee1d179bbc865f28c9de7aade9371`.
 - Draft PR: [#378](https://github.com/Noone9029/Accounting-App/pull/378), `SME-DOCUMENT-DELIVERY-03: Extend email delivery to supplier documents`.
-- The branch was subsequently updated with documentation-only closure metadata; the final remote SHA is captured in the task handoff.
+- The branch is subsequently updated with documentation-only closure metadata; the final remote SHA is captured in the task handoff.
 - No merge, deployment, hosted migration/proof, real SMTP/provider call, production credential/data access, mailbox access, accounting mutation, ZATCA, UAE FTA, or Peppol behavior was performed.
 
-The remaining gate is the real local PostgreSQL race proof and its cleanup/stop evidence. Production provider rollout, hosted proof, deployment, and merge remain out of scope.
+All mandatory implementation and local verification gates are complete. Production provider rollout, hosted proof, deployment, and merge remain out of scope.
