@@ -28,7 +28,7 @@ Both reported `networkCallsMade: false`, no body/QR/private-key/token/header out
 
 - the official SDK reference/JAR/configuration and official sample files are absent from this fresh checkout;
 - the reference directory is intentionally ignored, so CI has no approved acquisition/licensing policy;
-- the available Java runtime is 17.0.16, while the wrapper's recorded SDK range is `>=11 <15`.
+- the default Java runtime is 17.0.16, but a compatible local Microsoft JDK 11.0.26.4 was subsequently discovered and can be selected for a future SDK run; it is not itself a remaining blocker.
 
 The result is `CI_BLOCKED_MISSING_SDK_REFERENCE`, not SDK acceptance. It does not prove invoice XML, canonicalization, hash, signature, QR, PIH, ICV, or archive correctness.
 
@@ -36,4 +36,4 @@ The result is `CI_BLOCKED_MISSING_SDK_REFERENCE`, not SDK acceptance. It does no
 
 The current implementation map still identifies unimplemented or unverified areas: canonicalization/hash parity, XAdES/ECDSA/certificate embedding, Phase 2 QR, simplified invoice, debit note, multiple VAT/zero/exempt cases, allowance/rounding cases, invalid-rule fixtures, and a production-safe signing boundary. No live credential, network request, OTP, CSID, clearance, reporting, customer data, or signed artifact was used in this audit.
 
-ARC-07A cannot meet its exit criteria until the owner approves a lawful, reproducible official SDK acquisition/reference policy and a Java 11-14 local runtime. Then each valid fixture must pass the official SDK and each invalid fixture must fail with a recorded safe reason before any sandbox action is considered.
+ARC-07A cannot meet its exit criteria until the owner accepts/authorizes the official ZATCA SDK download terms and provides a lawful, reproducible SDK acquisition/reference policy. Then each valid fixture must pass the official SDK and each invalid fixture must fail with a recorded safe reason before any sandbox action is considered.
