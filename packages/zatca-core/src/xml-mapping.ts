@@ -187,11 +187,11 @@ export const ZATCA_XML_FIELD_MAPPING = [
   {
     id: "invoice-hash-canonicalization",
     category: "hash-icv",
-    ledgerByteSource: "canonicalizeZatcaInvoiceXmlForHash and official SDK -generateHash command",
+    ledgerByteSource: "XML-aware C14N11 provider boundary and official SDK -generateHash command",
     xmlTarget: "Hash input after removing UBLExtensions, QR AdditionalDocumentReference, and Signature nodes",
     status: "NEEDS_OFFICIAL_VERIFICATION",
     requiredForProduction: true,
-    notes: "LedgerByte now exposes documented transform groundwork and blocks local official hash output until SDK -generateHash or a verified C14N11 implementation is used. SDK hash outputs are recorded for local fixtures.",
+    notes: "The compatibility API fails closed rather than applying regex transforms. LedgerByte blocks official hash output until an XML-aware C14N11 provider is used; SDK hash outputs are recorded only as local oracle evidence.",
     officialVerificationRequired: true,
   },
   {

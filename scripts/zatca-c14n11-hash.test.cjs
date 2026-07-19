@@ -2,12 +2,21 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
-const { compareWithOfficialSdkHash, computeZatcaC14n11Hash } = require("./zatca-c14n11-hash.cjs");
+const { compareWithOfficialSdkHash, computeZatcaC14n11Hash, createZatcaC14n11HashProvider } = require("./zatca-c14n11-hash.cjs");
 
 test("skips without configured external SDK/JDK and never exposes XML", () => {
   const result = computeZatcaC14n11Hash({ xml: "<Invoice>secret</Invoice>", env: {}, cwd: path.resolve(__dirname, "..") });
   assert.equal(result.status, "SKIPPED_EXTERNAL_ORACLE");
   assert.equal(result.xmlBodyPrinted, false);
+  assert.equal(JSON.stringify(result).includes("secret"), false);
+});
+
+test("defaults to a disabled C14N11 provider when the external helper is not configured", () => {
+  const provider = createZatcaC14n11HashProvider({ env: {}, cwd: path.resolve(__dirname, "..") });
+  const result = provider.computeHash("<Invoice>secret</Invoice>");
+
+  assert.equal(provider.kind, "DISABLED");
+  assert.equal(result.status, "SKIPPED_EXTERNAL_ORACLE");
   assert.equal(JSON.stringify(result).includes("secret"), false);
 });
 

@@ -205,7 +205,7 @@ describe("ZATCA XML mapping scaffold", () => {
     assert.doesNotMatch(invalidXml.slice(invalidXml.indexOf("<cac:AccountingCustomerParty>")), /<cac:PartyIdentification>/);
   });
 
-  it("prepares documented hash input transforms without pretending to run official C14N11", () => {
+  it("fails closed instead of using regex XML transforms for hash preparation", () => {
     const xml = [
       '<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2" xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2" xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2" xmlns:ext="urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2">',
       "  <ext:UBLExtensions><ext:UBLExtension /></ext:UBLExtensions>",
@@ -219,11 +219,10 @@ describe("ZATCA XML mapping scaffold", () => {
     const result = canonicalizeZatcaInvoiceXmlForHash(xml);
 
     assert.equal(result.officialC14n11Applied, false);
-    assert.equal(result.xmlForHash.includes("<ext:UBLExtensions>"), false);
-    assert.equal(result.xmlForHash.includes("<cbc:ID>QR</cbc:ID>"), false);
-    assert.equal(result.xmlForHash.includes("<cac:Signature>"), false);
-    assert.equal(result.xmlForHash.includes("<cbc:ID>PIH</cbc:ID>"), true);
-    assert.ok(result.blockingReasons.some((reason) => reason.includes("C14N11")));
+    assert.equal(result.xmlForHash, null);
+    assert.deepEqual(result.transformsApplied, []);
+    assert.ok(result.blockingReasons.some((reason) => reason.includes("XML-aware")));
+    assert.ok(result.warnings.some((warning) => warning.includes("No XML was transformed")));
   });
 
   it("blocks local official invoice hash computation until SDK C14N11 hash output is used", () => {

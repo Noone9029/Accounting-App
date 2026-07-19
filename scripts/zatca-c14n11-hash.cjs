@@ -5,14 +5,29 @@ const path = require("node:path");
 
 const HELPER_SOURCE = "scripts/zatca-c14n11-helper.java";
 
-function computeZatcaC14n11Hash({ xml, cwd = process.cwd(), env = process.env, spawn = spawnSync }) {
-  const sdkRoot = env.ZATCA_SDK_ROOT ? path.resolve(env.ZATCA_SDK_ROOT) : null;
-  const javaBin = env.ZATCA_SDK_JAVA_BIN ? path.resolve(env.ZATCA_SDK_JAVA_BIN) : null;
-  const jar = sdkRoot && path.join(sdkRoot, "Apps", "zatca-einvoicing-sdk-238-R3.4.8.jar");
-  const helper = path.resolve(cwd, HELPER_SOURCE);
-  if (!sdkRoot || !javaBin || !jar || !fs.existsSync(jar) || !fs.existsSync(helper)) {
+class DisabledZatcaC14n11HashProvider {
+  kind = "DISABLED";
+
+  computeHash(_xml) {
     return { status: "SKIPPED_EXTERNAL_ORACLE", hash: null, safeErrorCodes: ["C14N11_HELPER_NOT_CONFIGURED"], xmlBodyPrinted: false, networkCallsMade: false };
   }
+}
+
+class LocalJavaZatcaC14n11HashProvider {
+  kind = "LOCAL_JAVA_C14N11";
+
+  constructor({ cwd, env, spawn, sdkRoot, javaBin, jar, helper }) {
+    this.cwd = cwd;
+    this.env = env;
+    this.spawn = spawn;
+    this.sdkRoot = sdkRoot;
+    this.javaBin = javaBin;
+    this.jar = jar;
+    this.helper = helper;
+  }
+
+  computeHash(xml) {
+    const { javaBin, jar, helper, spawn } = this;
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), "ledgerbyte-zatca-c14n11-"));
   try {
     const compile = spawn(javaBin.replace(/java(?:\.exe)?$/i, process.platform === "win32" ? "javac.exe" : "javac"), ["-cp", jar, "-d", temp, helper], { encoding: "utf8", windowsHide: true, timeout: 30000 });
@@ -24,6 +39,22 @@ function computeZatcaC14n11Hash({ xml, cwd = process.cwd(), env = process.env, s
   } finally {
     fs.rmSync(temp, { recursive: true, force: true });
   }
+  }
+}
+
+function createZatcaC14n11HashProvider({ cwd = process.cwd(), env = process.env, spawn = spawnSync } = {}) {
+  const sdkRoot = env.ZATCA_SDK_ROOT ? path.resolve(env.ZATCA_SDK_ROOT) : null;
+  const javaBin = env.ZATCA_SDK_JAVA_BIN ? path.resolve(env.ZATCA_SDK_JAVA_BIN) : null;
+  const jar = sdkRoot && path.join(sdkRoot, "Apps", "zatca-einvoicing-sdk-238-R3.4.8.jar");
+  const helper = path.resolve(cwd, HELPER_SOURCE);
+  if (!sdkRoot || !javaBin || !jar || !fs.existsSync(jar) || !fs.existsSync(helper)) {
+    return new DisabledZatcaC14n11HashProvider();
+  }
+  return new LocalJavaZatcaC14n11HashProvider({ cwd, env, spawn, sdkRoot, javaBin, jar, helper });
+}
+
+function computeZatcaC14n11Hash({ xml, cwd = process.cwd(), env = process.env, spawn = spawnSync }) {
+  return createZatcaC14n11HashProvider({ cwd, env, spawn }).computeHash(xml);
 }
 
 function failed(code) {
@@ -48,4 +79,10 @@ function compareWithOfficialSdkHash({ xml, cwd = process.cwd(), env = process.en
   }
 }
 
-module.exports = { compareWithOfficialSdkHash, computeZatcaC14n11Hash };
+module.exports = {
+  compareWithOfficialSdkHash,
+  computeZatcaC14n11Hash,
+  createZatcaC14n11HashProvider,
+  DisabledZatcaC14n11HashProvider,
+  LocalJavaZatcaC14n11HashProvider,
+};

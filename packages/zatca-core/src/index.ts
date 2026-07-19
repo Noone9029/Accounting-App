@@ -82,7 +82,7 @@ const officialSellerIdentificationSchemeIds = new Set(["CRN", "MOM", "MLS", "SAG
 const officialBuyerIdentificationSchemeIds = new Set(["CRN", "MOM", "MLS", "SAG", "NAT", "IQA", "PAS", "GCC", "OTH", "700"]);
 
 export interface ZatcaCanonicalHashInputResult {
-  xmlForHash: string;
+  xmlForHash: null;
   transformsApplied: string[];
   officialC14n11Applied: false;
   blockingReasons: string[];
@@ -364,20 +364,12 @@ export function calculateRawXmlSha256Base64(xml: string): string {
 }
 
 export function canonicalizeZatcaInvoiceXmlForHash(xml: string): ZatcaCanonicalHashInputResult {
-  const withoutExtensions = removeXmlElementByPrefixAndName(xml, "ext", "UBLExtensions");
-  const withoutQr = removeAdditionalDocumentReferenceById(withoutExtensions, "QR");
-  const withoutSignature = removeXmlElementByPrefixAndName(withoutQr, "cac", "Signature");
-
   return {
-    xmlForHash: withoutSignature,
-    transformsApplied: [
-      "removed ext:UBLExtensions",
-      "removed cac:AdditionalDocumentReference where cbc:ID is QR",
-      "removed cac:Signature",
-    ],
+    xmlForHash: null,
+    transformsApplied: [],
     officialC14n11Applied: false,
-    blockingReasons: ["Official C14N11 canonicalization is not implemented in LedgerByte core; use the official SDK -generateHash command as the hash oracle."],
-    warnings: ["Local transform preparation only. This is not an official ZATCA invoice hash."],
+    blockingReasons: ["An XML-aware C14N11 provider is required. Regex or string XML transforms are prohibited for ZATCA invoice hashing."],
+    warnings: ["No XML was transformed or returned. This compatibility function cannot produce a ZATCA invoice hash."],
   };
 }
 
@@ -514,21 +506,6 @@ function resolvePreviousInvoiceHash(previousInvoiceHash: string | null | undefin
 
 export function isCreditOrDebitNote(invoiceType: ZatcaInvoiceType): boolean {
   return invoiceType === "CREDIT_NOTE" || invoiceType === "DEBIT_NOTE";
-}
-
-function removeXmlElementByPrefixAndName(xml: string, prefix: string, elementName: string): string {
-  const tag = `${prefix}:${elementName}`;
-  return xml.replace(new RegExp(`\\s*<${escapeRegExp(tag)}(?:\\s[^>]*)?>[\\s\\S]*?<\\/${escapeRegExp(tag)}>`, "g"), "");
-}
-
-function removeAdditionalDocumentReferenceById(xml: string, id: string): string {
-  return xml.replace(/\s*<cac:AdditionalDocumentReference(?:\s[^>]*)?>[\s\S]*?<\/cac:AdditionalDocumentReference>/g, (match) =>
-    new RegExp(`<cbc:ID>\\s*${escapeRegExp(id)}\\s*<\\/cbc:ID>`).test(match) ? "" : match,
-  );
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function optionalXml(tagName: string, value: string | null | undefined, indent: number): string {
