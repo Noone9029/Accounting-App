@@ -20,3 +20,17 @@ This matrix defines future alert rules and current local/read-only evidence. No 
 | Unsafe script attempted in non-local env | Safe-script audit and command review | Source evidence; no runtime hook in this PR | Seed/reset/delete/migrate/provider command attempted without approval | SEV-1 or SEV-2 | Engineering/security owner | Stop command path, preserve shell metadata, review guardrails | partial | `docs/security/evidence/SAFE_SCRIPT_AUDIT.md` |
 | Queue lag/failure | Future queue dashboard; email retry-worker plan now | Partial for email retry worker; generic queues future | Oldest job exceeds target or worker unavailable | SEV-3; SEV-2 if core workflow blocked | Engineering owner | Inspect plan/status only; do not force process without approval | partial | `apps/api/src/email/email.controller.ts` |
 | Beta blocker issue filed | Beta issue log/triage runbook | Manual process | Any blocker remains unresolved | SEV-1 or SEV-2 | Support owner | Pause affected testing and escalate | available | `docs/beta-testing/BETA_ISSUE_TRIAGE_RUNBOOK.md` |
+
+## ARC-05 signal catalog
+
+The following catalog is deliberately provider-neutral. Structured logs carry a request ID, HTTP latency/status/error class, route/module/action, and a one-way organization reference only; they never carry raw tenant/user identifiers, bodies, recipient addresses, tax identifiers, XML, PDF bytes, credentials, OTPs, CSIDs, tokens, or raw provider responses. External telemetry remains disabled unless separately configured and approved.
+
+| Signal family | Current signal/source | Truthful state and alert rule |
+| --- | --- | --- |
+| API, liveness, readiness, database | `api.request.completed`/`api.request.failed`; `/health`; `/readiness` | Available locally. Alert on repeated 5xx, latency breach, or failed readiness/database check. |
+| Tenant/runtime-role denial | Safe error class plus tenant-safe log reference and local RLS proof | Partial: application-table RLS and hosted runtime-role evidence remain gated. Treat any confirmed cross-tenant result as SEV-1. |
+| Email queue, age, stale claim, retry, suppression | Email readiness/outbox/retry-worker metadata and suppression records | Partial: no generic queue service or provider monitor. Alert when a reviewed queue age/claim/retry threshold is exceeded; never log recipient/body. |
+| Generated-document storage/hash | Adapter normalized failures and hash/size verification | Available locally for database/S3 adapter checks. Treat hash mismatch or corrupt object as SEV-2; preserve only metadata/hash evidence. |
+| Backup/restore and migration | Restore evidence index, local drill, migration command status | Partial: local recovery proof exists; hosted age/PITR and migration monitoring are not proven. Alert on missing/stale evidence or failed migration. |
+| ZATCA mode, queue/retry, validation, certificate expiry | ZATCA readiness and safe validation codes | Partial/no-network: sandbox/production paths remain disabled. Treat unexpected network, expiry warning, or safe validation failure spike as SEV-1/SEV-2 as applicable. |
+| Webhook signature/replay | Existing provider webhook safeguards and safe rejection outcomes | Partial: provider-specific telemetry is not configured. Count only safe rejection category, never signature/payload. |

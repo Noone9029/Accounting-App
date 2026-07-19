@@ -42,3 +42,17 @@ Date: 2026-07-02
 - Record root cause.
 - Add regression test or monitoring rule.
 - Update readiness score/gate if the incident invalidates prior evidence.
+
+## ARC-05 incident playbooks and evidence preservation
+
+For every incident, preserve only: request ID, tenant-safe reference, route/action, safe error class, timestamp, deployment SHA, readiness state, and approved metadata hashes/counts. Do not preserve request/response bodies, documents, XML, recipient addresses, credentials, tokens, OTPs, CSIDs, or raw provider responses.
+
+| Incident | Severity | Immediate response | Recovery and evidence |
+| --- | --- | --- | --- |
+| Backup failure or stale restore evidence | SEV-2 | Stop expansion and classify target; do not run an unapproved restore. | Use the local recovery evidence index; schedule an approved non-production drill. |
+| Storage corruption/hash mismatch | SEV-2 | Stop serving the affected artifact path and retain metadata/hash only. | Validate provider/key/tenant metadata, use database fallback where applicable, and preserve a redacted reconciliation record. |
+| Cross-tenant/runtime-role denial | SEV-1 | Freeze affected route/deploy and revoke access only under an approved remediation plan. | Preserve request ID and tenant-safe refs; reproduce locally with synthetic data before any hosted action. |
+| Email queue, stale claim, retry, or suppression | SEV-2/3 | Do not force-send or bypass suppression. | Inspect metadata-only queue/retry state; retry only through approved worker controls and record safe outcome. |
+| ZATCA outage, rejection, expiry, or unexpected network | SEV-1/2 | Keep no-network/production refusal active; stop submission path. | Record safe validation/rejection code and mode only; sandbox execution still requires explicit approval. |
+| Credential or webhook-signature compromise | SEV-1 | Stop affected integration and rotate/revoke through the owner-controlled secret system. | Preserve no secret material; record scope, time, safe rejection count, and rotation confirmation. |
+| Rollback | SEV-1/2 | Halt mutation, identify last safe SHA, and use the approved deployment/database rollback plan. | Keep redacted evidence immutable; verify liveness/readiness and tenant boundaries after rollback. |

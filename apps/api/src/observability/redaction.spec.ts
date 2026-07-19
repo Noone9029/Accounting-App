@@ -52,7 +52,7 @@ describe("observability redaction", () => {
         providerPayload: { messageId: "provider-message-id" },
       },
       delivery: {
-        redactedRecipient: "p***@example.test",
+        redactedRecipient: REDACTED_DIAGNOSTIC_VALUE,
         rawEmailBody: "customer@example.com invoice body",
       },
     });
@@ -63,7 +63,7 @@ describe("observability redaction", () => {
       invoicePaymentProviderState: "MOCK_EMAIL",
       emailProviderCredentials: REDACTED_DIAGNOSTIC_VALUE,
       delivery: {
-        redactedRecipient: "p***@example.test",
+        redactedRecipient: REDACTED_DIAGNOSTIC_VALUE,
         rawEmailBody: REDACTED_DIAGNOSTIC_VALUE,
       },
     });
@@ -95,5 +95,28 @@ describe("observability redaction", () => {
       normalizedJson: REDACTED_DIAGNOSTIC_VALUE,
       migrationPayload: REDACTED_DIAGNOSTIC_VALUE,
     });
+  });
+
+  it("redacts ZATCA, recipient, tax, XML, and PDF diagnostic values", () => {
+    expect(redactForDiagnostics({
+      recipient: "buyer@example.test",
+      customerName: "Buyer Name",
+      taxIdentifier: "300000000000003",
+      csidSecret: "csid-secret",
+      otp: "123456",
+      rawProviderResponse: { body: "provider response" },
+      safeCode: "ZATCA_REJECTED",
+    })).toEqual({
+      recipient: REDACTED_DIAGNOSTIC_VALUE,
+      customerName: REDACTED_DIAGNOSTIC_VALUE,
+      taxIdentifier: REDACTED_DIAGNOSTIC_VALUE,
+      csidSecret: REDACTED_DIAGNOSTIC_VALUE,
+      otp: REDACTED_DIAGNOSTIC_VALUE,
+      rawProviderResponse: REDACTED_DIAGNOSTIC_VALUE,
+      safeCode: "ZATCA_REJECTED",
+    });
+    expect(redactText("<?xml version=\"1.0\"?><Invoice />")).toBe(REDACTED_DIAGNOSTIC_VALUE);
+    expect(redactText("%PDF-1.7 binary document")).toBe(REDACTED_DIAGNOSTIC_VALUE);
+    expect(redactText("recipient@example.test")).toBe(REDACTED_DIAGNOSTIC_VALUE);
   });
 });

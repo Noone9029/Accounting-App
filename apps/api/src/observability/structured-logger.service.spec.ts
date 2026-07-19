@@ -22,10 +22,11 @@ describe("StructuredLoggerService", () => {
       module: "SalesInvoices",
       action: "list",
     });
-
     expect(logSpy).toHaveBeenCalledTimes(1);
     const payload = logSpy.mock.calls[0]?.[0];
     expect(typeof payload).toBe("string");
+    expect(JSON.parse(payload as string)).not.toHaveProperty("organizationId");
+    expect(JSON.parse(payload as string)).not.toHaveProperty("userId");
     expect(JSON.parse(payload as string)).toMatchObject({
       level: "info",
       message: "api.request.completed",
@@ -34,8 +35,7 @@ describe("StructuredLoggerService", () => {
       path: "/sales-invoices",
       statusCode: 200,
       durationMs: 12,
-      organizationId: "org-1",
-      userId: "user-1",
+      organizationRef: expect.stringMatching(/^org_[a-f0-9]{16}$/),
       module: "SalesInvoices",
       action: "list",
     });
