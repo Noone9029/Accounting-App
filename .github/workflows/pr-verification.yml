@@ -42,5 +42,8 @@ jobs:
       - name: Verify diff safety
         run: corepack pnpm verify:diff
 
+      - name: Audit production dependencies
+        run: corepack pnpm security:audit:prod
+
       - name: Run local CI verification gate
         run: corepack pnpm verify:ci:local
