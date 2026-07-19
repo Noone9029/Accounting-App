@@ -225,6 +225,25 @@ describe("ZATCA XML mapping scaffold", () => {
     assert.ok(result.warnings.some((warning) => warning.includes("No XML was transformed")));
   });
 
+  it("emits a document-level allowance with its amount, base, and VAT category", () => {
+    const input = readFixtureInput("ledgerbyte-generated-standard-invoice");
+    const xml = buildZatcaInvoiceXml({
+      ...input,
+      subtotal: "100.00",
+      discountTotal: "10.00",
+      discountReason: "Synthetic volume discount",
+      taxableTotal: "90.00",
+      taxTotal: "13.50",
+      total: "103.50",
+    });
+
+    assert.match(xml, /<cac:AllowanceCharge>\n    <cbc:ChargeIndicator>false<\/cbc:ChargeIndicator>\n    <cbc:AllowanceChargeReason>Synthetic volume discount<\/cbc:AllowanceChargeReason>/);
+    assert.match(xml, /<cbc:Amount currencyID="SAR">10\.00<\/cbc:Amount>/);
+    assert.match(xml, /<cbc:BaseAmount currencyID="SAR">100\.00<\/cbc:BaseAmount>/);
+    assert.match(xml, /<cac:AllowanceCharge>[\s\S]*<cbc:Percent>15\.00<\/cbc:Percent>[\s\S]*<\/cac:AllowanceCharge>/);
+    assertMarkersInOrder(xml, ["<cac:AllowanceCharge>", "<cac:TaxTotal>"]);
+  });
+
   it("does not emit placeholder comments into conformance XML", () => {
     const xml = buildZatcaInvoiceXml(readFixtureInput("ledgerbyte-generated-standard-invoice"));
 

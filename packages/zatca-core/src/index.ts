@@ -61,6 +61,7 @@ export interface ZatcaInvoiceInput {
   buyer: ZatcaBuyerInput;
   subtotal: string;
   discountTotal: string;
+  discountReason?: string | null;
   taxableTotal: string;
   taxTotal: string;
   total: string;
@@ -185,6 +186,7 @@ export function buildZatcaInvoiceXml(input: ZatcaInvoiceInput): string {
     buildCustomerPartyXml(input.buyer),
     buildDeliveryXml(input),
     buildPaymentMeansXml(input),
+    buildDocumentAllowanceChargeXml(input),
     buildTaxTotalXml(input),
     buildLegalMonetaryTotalXml(input),
     buildInvoiceLinesXml(input.lines, input.currency),
@@ -356,6 +358,27 @@ export function generateZatcaBasicQr(input: {
   ] as const;
 
   return { status: "PHASE_1_BASIC_ONLY", base64: Buffer.concat(fields.map(([tag, value]) => tlv(tag, value))).toString("base64") };
+}
+
+export function buildDocumentAllowanceChargeXml(input: Pick<ZatcaInvoiceInput, "currency" | "subtotal" | "discountTotal" | "discountReason" | "taxTotal" | "taxableTotal">): string {
+  const discount = Number(input.discountTotal);
+  if (!Number.isFinite(discount) || discount <= 0) {
+    return "";
+  }
+  const taxPercent = formatPercent(input.taxTotal, input.taxableTotal);
+  return [
+    "  <cac:AllowanceCharge>",
+    "    <cbc:ChargeIndicator>false</cbc:ChargeIndicator>",
+    `    <cbc:AllowanceChargeReason>${escapeXml(input.discountReason?.trim() || "Discount")}</cbc:AllowanceChargeReason>`,
+    `    <cbc:Amount currencyID="${escapeXml(input.currency)}">${formatMoney(input.discountTotal)}</cbc:Amount>`,
+    `    <cbc:BaseAmount currencyID="${escapeXml(input.currency)}">${formatMoney(input.subtotal)}</cbc:BaseAmount>`,
+    "    <cac:TaxCategory>",
+    '      <cbc:ID schemeID="UN/ECE 5305" schemeAgencyID="6">S</cbc:ID>',
+    `      <cbc:Percent>${taxPercent}</cbc:Percent>`,
+    "      <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>",
+    "    </cac:TaxCategory>",
+    "  </cac:AllowanceCharge>",
+  ].join("\n");
 }
 
 export function calculateRawXmlSha256Base64(xml: string): string {
