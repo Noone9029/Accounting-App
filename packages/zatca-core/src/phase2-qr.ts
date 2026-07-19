@@ -41,7 +41,7 @@ export interface ZatcaPhase2QrDecoded {
 }
 
 export class ZatcaPhase2QrError extends Error {
-  constructor(readonly code: "ZATCA_QR_MISSING_TAG" | "ZATCA_QR_DUPLICATE_TAG" | "ZATCA_QR_INVALID_ENCODING" | "ZATCA_QR_ARTIFACT_STATE") {
+  constructor(readonly code: "ZATCA_QR_MISSING_TAG" | "ZATCA_QR_DUPLICATE_TAG" | "ZATCA_QR_INVALID_ENCODING" | "ZATCA_QR_INVALID_CERTIFICATE" | "ZATCA_QR_ARTIFACT_STATE") {
     super(messageForQrError(code));
     this.name = "ZatcaPhase2QrError";
   }
@@ -138,6 +138,51 @@ export function verifyZatcaPhase2QrSignature(input: { qrBase64: string; signedIn
   }
 }
 
+/**
+ * Extracts the ECDSA authority signature from the outer X.509 Certificate
+ * signatureValue BIT STRING. The certificate itself stays inside the signing
+ * boundary; callers should never expose it through API responses.
+ */
+export function extractZatcaCertificateAuthoritySignatureDer(certificateDer: Buffer): Buffer {
+  try {
+    const outer = readDerElement(certificateDer, 0);
+    if (outer.tag !== 0x30 || outer.next !== certificateDer.length) {
+      throw new Error("invalid certificate sequence");
+    }
+    const tbsCertificate = readDerElement(certificateDer, outer.contentStart);
+    const signatureAlgorithm = readDerElement(certificateDer, tbsCertificate.next);
+    const signatureValue = readDerElement(certificateDer, signatureAlgorithm.next);
+    if (signatureValue.tag !== 0x03 || signatureValue.contentStart >= signatureValue.end || certificateDer[signatureValue.contentStart] !== 0) {
+      throw new Error("invalid certificate signature bit string");
+    }
+    const signatureDer = certificateDer.subarray(signatureValue.contentStart + 1, signatureValue.end);
+    if (signatureDer.length === 0 || signatureDer[0] !== 0x30) {
+      throw new Error("unsupported certificate signature");
+    }
+    return Buffer.from(signatureDer);
+  } catch {
+    throw new ZatcaPhase2QrError("ZATCA_QR_INVALID_CERTIFICATE");
+  }
+}
+
+/**
+ * QR is intentionally attached after SignedInfo is produced: ZATCA's invoice
+ * transform excludes the QR AdditionalDocumentReference from the invoice
+ * digest and signature reference.
+ */
+export function attachZatcaPhase2QrToSignedInvoice(signedXml: string, qrBase64: string): string {
+  decodeZatcaPhase2Qr(qrBase64);
+  if (!signedXml.includes("<Invoice") || !signedXml.includes("<ds:Signature") || signedXml.includes("<cbc:ID>QR</cbc:ID>")) {
+    throw new ZatcaPhase2QrError("ZATCA_QR_INVALID_ENCODING");
+  }
+  const supplierOffset = signedXml.indexOf("<cac:AccountingSupplierParty");
+  if (supplierOffset < 0) {
+    throw new ZatcaPhase2QrError("ZATCA_QR_INVALID_ENCODING");
+  }
+  const reference = `<cac:AdditionalDocumentReference><cbc:ID>QR</cbc:ID><cac:Attachment><cbc:EmbeddedDocumentBinaryObject mimeCode="text/plain">${qrBase64}</cbc:EmbeddedDocumentBinaryObject></cac:Attachment></cac:AdditionalDocumentReference>`;
+  return `${signedXml.slice(0, supplierOffset)}${reference}${signedXml.slice(supplierOffset)}`;
+}
+
 function assertArtifactState(type: ZatcaPhase2QrInvoiceType, status: ZatcaPhase2QrArtifactStatus): void {
   if (type === "STANDARD_TAX_INVOICE" && status !== "CLEARED") {
     throw new ZatcaPhase2QrError("ZATCA_QR_ARTIFACT_STATE");
@@ -202,6 +247,32 @@ function decodeLength(bytes: Buffer, offset: number): { value: number; consumed:
   return { value, consumed: 1 + count };
 }
 
+function readDerElement(bytes: Buffer, offset: number): { tag: number; contentStart: number; end: number; next: number } {
+  const tag = bytes[offset];
+  const firstLength = bytes[offset + 1];
+  if (tag === undefined || firstLength === undefined) {
+    throw new Error("truncated DER");
+  }
+  let contentStart = offset + 2;
+  let length = firstLength;
+  if (firstLength >= 0x80) {
+    const lengthBytes = firstLength & 0x7f;
+    if (lengthBytes < 1 || lengthBytes > 4 || contentStart + lengthBytes > bytes.length) {
+      throw new Error("invalid DER length");
+    }
+    length = 0;
+    for (let index = 0; index < lengthBytes; index += 1) {
+      length = (length << 8) | (bytes[contentStart + index] ?? 0);
+    }
+    contentStart += lengthBytes;
+  }
+  const end = contentStart + length;
+  if (end > bytes.length) {
+    throw new Error("truncated DER value");
+  }
+  return { tag, contentStart, end, next: end };
+}
+
 function decodeStrictBase64(value: string): Buffer {
   const trimmed = value.trim();
   if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(trimmed)) {
@@ -226,6 +297,8 @@ function messageForQrError(code: ZatcaPhase2QrError["code"]): string {
       return "ZATCA Phase 2 QR rejects duplicate tags.";
     case "ZATCA_QR_INVALID_ENCODING":
       return "ZATCA Phase 2 QR encoding is invalid.";
+    case "ZATCA_QR_INVALID_CERTIFICATE":
+      return "ZATCA Phase 2 QR requires a supported X.509 certificate authority signature.";
     case "ZATCA_QR_ARTIFACT_STATE":
       return "Standard invoices require a cleared artifact and simplified invoices or notes require a reported artifact before Phase 2 QR generation.";
   }

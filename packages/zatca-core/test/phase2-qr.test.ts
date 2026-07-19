@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { generateKeyPairSync, sign } from "node:crypto";
 import { describe, it } from "node:test";
-import { decodeZatcaPhase2Qr, encodeZatcaPhase2Qr, verifyZatcaPhase2QrSignature } from "../src/index.ts";
+import { attachZatcaPhase2QrToSignedInvoice, decodeZatcaPhase2Qr, encodeZatcaPhase2Qr, verifyZatcaPhase2QrSignature } from "../src/index.ts";
 
 describe("ZATCA Phase 2 QR", () => {
   it("round-trips all nine tags with Arabic UTF-8 content and verifies the decoded ECDSA signature", () => {
@@ -27,6 +27,12 @@ describe("ZATCA Phase 2 QR", () => {
     assert.equal(decoded.sellerName, "شركة ليدجربايت العربية");
     assert.equal(decoded.tagOrder.join(","), "1,2,3,4,5,6,7,8,9");
     assert.equal(verifyZatcaPhase2QrSignature({ qrBase64: qr.base64, signedInfoCanonicalBytes: signedInfo }), true);
+    const signedXml = attachZatcaPhase2QrToSignedInvoice(
+      '<Invoice><ds:Signature xmlns:ds="http://www.w3.org/2000/09/xmldsig#"/><cac:AccountingSupplierParty/></Invoice>',
+      qr.base64,
+    );
+    assert.match(signedXml, /<cac:AdditionalDocumentReference><cbc:ID>QR<\/cbc:ID>/);
+    assert.ok(signedXml.indexOf("<cac:AdditionalDocumentReference>") < signedXml.indexOf("<cac:AccountingSupplierParty"));
   });
 
   it("rejects missing cryptographic tags, duplicate tags, unsupported invoice artifact states, and tampering", () => {
