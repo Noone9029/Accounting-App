@@ -379,7 +379,7 @@ describe("ZATCA service rules", () => {
           previousInvoiceHash: "previous-hash",
           invoiceHash: expect.any(String),
           xmlBase64: expect.any(String),
-          qrCodeBase64: expect.any(String),
+          qrCodeBase64: null,
         }),
       }),
     );

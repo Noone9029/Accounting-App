@@ -4783,7 +4783,7 @@ export class ZatcaService {
       const invoiceHash = await this.resolveInvoiceHashForMode({
         hashMode: hashModeSnapshot,
         xmlBase64: payload.xmlBase64,
-        appHash: payload.invoiceHash,
+        appHash: payload.rawXmlSha256Base64,
         invoiceId,
       });
 
@@ -4794,7 +4794,7 @@ export class ZatcaService {
           icv: nextIcv,
           previousInvoiceHash,
           invoiceHash,
-          qrCodeBase64: payload.qrCodeBase64,
+          qrCodeBase64: null,
           xmlBase64: payload.xmlBase64,
           xmlHash: invoiceHash,
           egsUnitId: activeEgs?.id ?? null,

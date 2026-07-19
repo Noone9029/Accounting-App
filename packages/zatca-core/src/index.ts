@@ -68,8 +68,13 @@ export interface ZatcaInvoiceInput {
 export interface ZatcaBuildResult {
   xml: string;
   xmlBase64: string;
-  invoiceHash: string;
-  qrCodeBase64: string;
+  rawXmlSha256Base64: string;
+  basicQr: ZatcaBasicQrResult;
+}
+
+export interface ZatcaBasicQrResult {
+  status: "PHASE_1_BASIC_ONLY";
+  base64: string;
 }
 
 const officialSellerIdentificationSchemeIds = new Set(["CRN", "MOM", "MLS", "SAG", "OTH", "700"]);
@@ -148,22 +153,19 @@ export const initialPreviousInvoiceHash = "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2O
 export const zatcaSdkGenerateHashCommand = "fatoora -generateHash -invoice <filename>" as const;
 
 export function buildZatcaInvoicePayload(input: ZatcaInvoiceInput): ZatcaBuildResult {
-  const qrCodeBase64 =
-    input.qrCodeBase64 ??
-    generateZatcaQrBase64({
-      sellerName: input.seller.name,
-      vatNumber: input.seller.vatNumber,
-      timestamp: formatXmlDateTime(input.issueDate),
-      invoiceTotal: input.total,
-      vatTotal: input.taxTotal,
-    });
-  const xml = buildZatcaInvoiceXml({ ...input, qrCodeBase64 });
-  const invoiceHash = calculateInvoiceHash(xml);
+  const basicQr = generateZatcaBasicQr({
+    sellerName: input.seller.name,
+    vatNumber: input.seller.vatNumber,
+    timestamp: formatXmlDateTime(input.issueDate),
+    invoiceTotal: input.total,
+    vatTotal: input.taxTotal,
+  });
+  const xml = buildZatcaInvoiceXml(input);
   return {
     xml,
     xmlBase64: Buffer.from(xml, "utf8").toString("base64"),
-    invoiceHash,
-    qrCodeBase64,
+    rawXmlSha256Base64: calculateRawXmlSha256Base64(xml),
+    basicQr,
   };
 }
 
@@ -234,15 +236,6 @@ export function buildBillingReferenceXml(input: Pick<ZatcaInvoiceInput, "invoice
 }
 
 export function buildAdditionalDocumentReferencesXml(input: ZatcaInvoiceInput): string {
-  const qrCodeBase64 =
-    input.qrCodeBase64 ??
-    generateZatcaQrBase64({
-      sellerName: input.seller.name,
-      vatNumber: input.seller.vatNumber,
-      timestamp: formatXmlDateTime(input.issueDate),
-      invoiceTotal: input.total,
-      vatTotal: input.taxTotal,
-    });
   const references = [
     input.icv === null || input.icv === undefined
       ? ""
@@ -253,7 +246,7 @@ export function buildAdditionalDocumentReferencesXml(input: ZatcaInvoiceInput): 
           `  </cac:AdditionalDocumentReference>`,
         ].join("\n"),
     buildBinaryAdditionalDocumentReferenceXml("PIH", resolvePreviousInvoiceHash(input.previousInvoiceHash)),
-    qrCodeBase64 ? buildBinaryAdditionalDocumentReferenceXml("QR", qrCodeBase64) : "",
+    input.qrCodeBase64 ? buildBinaryAdditionalDocumentReferenceXml("QR", input.qrCodeBase64) : "",
   ];
 
   return references.filter((line) => line !== "").join("\n");
@@ -347,14 +340,13 @@ export function buildInvoiceLinesXml(lines: ZatcaInvoiceLineInput[], currency: s
   return lines.map((line, index) => buildInvoiceLineXml(line, index + 1, currency)).join("\n");
 }
 
-export function generateZatcaQrBase64(input: {
+export function generateZatcaBasicQr(input: {
   sellerName: string;
   vatNumber: string;
   timestamp: string | Date;
   invoiceTotal: string;
   vatTotal: string;
-}): string {
-  // Basic Phase 1/early-groundwork TLV payload. TODO: add Phase 2 cryptographic tags after signing is implemented.
+}): ZatcaBasicQrResult {
   const fields = [
     [1, input.sellerName],
     [2, input.vatNumber],
@@ -363,10 +355,10 @@ export function generateZatcaQrBase64(input: {
     [5, formatMoney(input.vatTotal)],
   ] as const;
 
-  return Buffer.concat(fields.map(([tag, value]) => tlv(tag, value))).toString("base64");
+  return { status: "PHASE_1_BASIC_ONLY", base64: Buffer.concat(fields.map(([tag, value]) => tlv(tag, value))).toString("base64") };
 }
 
-export function calculateInvoiceHash(xml: string): string {
+export function calculateRawXmlSha256Base64(xml: string): string {
   return createHash("sha256").update(xml, "utf8").digest("base64");
 }
 
