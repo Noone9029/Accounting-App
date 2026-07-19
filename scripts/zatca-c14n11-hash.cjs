@@ -40,7 +40,7 @@ function compareWithOfficialSdkHash({ xml, cwd = process.cwd(), env = process.en
   try {
     const invoice = path.join(temp, "invoice.xml");
     fs.writeFileSync(invoice, xml, "utf8");
-    const result = spawn(javaBin, ["-jar", jar, "-generateHash", "-invoice", invoice], { encoding: "utf8", windowsHide: true, timeout: 60000, maxBuffer: 1024 * 1024 });
+    const result = spawn(javaBin, ["-Dfile.encoding=UTF-8", "-jar", jar, "-generateHash", "-invoice", invoice], { encoding: "utf8", windowsHide: true, timeout: 60000, maxBuffer: 1024 * 1024 });
     const sdkHash = (String(result.stdout || "") + "\n" + String(result.stderr || "")).match(/(?<![A-Za-z0-9+/])[A-Za-z0-9+/]{43}=(?![A-Za-z0-9+/])/g)?.[0] || null;
     return { ...ledgerByte, sdkHash, hashesEqual: Boolean(sdkHash && sdkHash === ledgerByte.hash), status: sdkHash && sdkHash === ledgerByte.hash ? "PASSED" : "FAILED", safeErrorCodes: sdkHash ? [] : ["SDK_HASH_NOT_FOUND"] };
   } finally {
