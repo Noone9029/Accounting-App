@@ -81,7 +81,7 @@ Current CI guard status is `CI_BLOCKED_MISSING_SDK_REFERENCE` because the local 
 
 ## 2026-07-20 Read-only configured SDK validation
 
-With a locally configured `ZATCA_SDK_ROOT`, explicit Java `11.0.26`, and `--no-network`, all six registered fixtures passed `fatoora -validate`. The metadata-only evidence is `docs/zatca/evidence/official-sdk-local-validation-20260720.json`. Official fixture lookup is rooted in `ZATCA_SDK_ROOT`, so this proof does not copy ignored SDK files into a worktree. This local result does not change the CI blocker or authorize signing, sandbox, clearance, reporting, or production use.
+With a locally configured `ZATCA_SDK_ROOT`, explicit Java `11.0.26`, and `--no-network`, all five registered unique fixtures passed `fatoora -validate`. The metadata-only evidence is `docs/zatca/evidence/official-sdk-local-validation-20260720.json`. Official fixture lookup is rooted in `ZATCA_SDK_ROOT`, so this proof does not copy ignored SDK files into a worktree. This local result does not change the CI blocker or authorize signing, sandbox, clearance, reporting, or production use.
 
 The local signed XML plan guard also checks generated fixture path presence by metadata only:
 
