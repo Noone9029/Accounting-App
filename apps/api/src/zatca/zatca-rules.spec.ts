@@ -356,8 +356,9 @@ describe("ZATCA service rules", () => {
     );
   });
 
-  it("generates metadata, increments ICV, and updates the previous hash chain", async () => {
+  it("generates metadata, increments ICV, and updates the previous hash chain from an official SDK hash", async () => {
     const tx = makeGenerationTransactionMock({
+      activeEgsHashMode: "SDK_GENERATED",
       activeEgsLastIcv: 4,
       activeEgsLastInvoiceHash: "previous-hash",
       customerAddressLine1: "King Abdullah Road",
@@ -367,7 +368,8 @@ describe("ZATCA service rules", () => {
     });
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
     const audit = { log: jest.fn() };
-    const service = new ZatcaService(prisma as never, audit as never);
+    const sdk = makeSdkServiceMock({ sdkHash: "official-sdk-hash" });
+    const service = new (ZatcaService as never as new (...args: unknown[]) => ZatcaService)(prisma, audit, undefined, undefined, sdk);
 
     const result = await service.generateInvoiceCompliance("org-1", "user-1", "invoice-1");
 
@@ -377,7 +379,7 @@ describe("ZATCA service rules", () => {
         data: expect.objectContaining({
           icv: 5,
           previousInvoiceHash: "previous-hash",
-          invoiceHash: expect.any(String),
+          invoiceHash: "official-sdk-hash",
           xmlBase64: expect.any(String),
           qrCodeBase64: null,
         }),
@@ -391,13 +393,26 @@ describe("ZATCA service rules", () => {
     expect(generatedXml).toContain("<cbc:CitySubdivisionName>Al Murooj</cbc:CitySubdivisionName>");
     expect(generatedXml.indexOf("<cbc:AdditionalStreetName>Unit 12</cbc:AdditionalStreetName>")).toBeLessThan(generatedXml.indexOf("<cbc:BuildingNumber>1111</cbc:BuildingNumber>"));
     expect(generatedXml.indexOf("<cbc:BuildingNumber>1111</cbc:BuildingNumber>")).toBeLessThan(generatedXml.indexOf("<cbc:CitySubdivisionName>Al Murooj</cbc:CitySubdivisionName>"));
-    expect(tx.zatcaEgsUnit.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ lastIcv: 5, lastInvoiceHash: expect.any(String) }) }));
+    expect(tx.zatcaEgsUnit.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ lastIcv: 5, lastInvoiceHash: "official-sdk-hash" }) }));
     expect(tx.zatcaSubmissionLog.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ requestUrl: "local-generation-only" }) }));
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "GENERATE", entityType: "ZatcaInvoiceMetadata" }));
   });
 
+  it("fails closed instead of persisting a raw XML digest as invoiceHash", async () => {
+    const tx = makeGenerationTransactionMock({ activeEgsHashMode: "LOCAL_DETERMINISTIC" });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    await expect(service.generateInvoiceCompliance("org-1", "user-1", "invoice-1")).rejects.toThrow("diagnostic-only");
+
+    expect(tx.zatcaInvoiceMetadata.update).not.toHaveBeenCalled();
+    expect(tx.zatcaEgsUnit.update).not.toHaveBeenCalled();
+    expect(tx.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+  });
+
   it("uses the stored simplified invoice type and emits ICV when generating XML", async () => {
     const tx = makeGenerationTransactionMock({
+      activeEgsHashMode: "SDK_GENERATED",
       activeEgsLastIcv: 1,
       zatcaInvoiceType: ZatcaInvoiceType.SIMPLIFIED_TAX_INVOICE,
       customerAddressLine1: "Olaya Street",
@@ -406,7 +421,8 @@ describe("ZATCA service rules", () => {
       customerDistrict: "Al Olaya",
     });
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
-    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+    const sdk = makeSdkServiceMock({ sdkHash: "official-sdk-hash" });
+    const service = new (ZatcaService as never as new (...args: unknown[]) => ZatcaService)(prisma, { log: jest.fn() }, undefined, undefined, sdk);
 
     await service.generateInvoiceCompliance("org-1", "user-1", "invoice-1");
 

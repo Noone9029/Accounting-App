@@ -5959,7 +5959,9 @@ export class ZatcaService {
 
   private async resolveInvoiceHashForMode(params: { hashMode: ZatcaHashMode; xmlBase64: string; appHash: string; invoiceId: string }): Promise<string> {
     if (params.hashMode === ZatcaHashMode.LOCAL_DETERMINISTIC) {
-      return params.appHash;
+      throw new BadRequestException(
+        "Local deterministic XML SHA-256 is diagnostic-only and cannot be stored as a ZATCA invoiceHash. Configure the local official C14N11 SDK hash mode before durable invoice generation.",
+      );
     }
     if (!this.zatcaSdkService) {
       throw new BadRequestException("SDK hash generation service is not available.");
