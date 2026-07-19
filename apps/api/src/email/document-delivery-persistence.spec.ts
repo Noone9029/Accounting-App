@@ -16,6 +16,31 @@ describe("sales invoice document delivery persistence contract", () => {
     expect(DEFAULT_ROLE_PERMISSIONS.Purchases).not.toContain(PERMISSIONS.salesInvoices.send);
   });
 
+  it("defines dedicated supplier-document send permissions and keeps them out of sales/viewer roles", () => {
+    const supplierPermissions = [
+      PERMISSIONS.purchaseOrders.send,
+      PERMISSIONS.purchaseDebitNotes.send,
+      PERMISSIONS.supplierPayments.send,
+      PERMISSIONS.contacts.sendSupplierStatements,
+    ];
+
+    expect(supplierPermissions).toEqual([
+      "purchaseOrders.send",
+      "purchaseDebitNotes.send",
+      "supplierPayments.send",
+      "contacts.sendSupplierStatements",
+    ]);
+    for (const permission of supplierPermissions) {
+      expect(hasPermission({ permissions: normalizePermissions([permission]) }, permission)).toBe(true);
+      expect(DEFAULT_ROLE_PERMISSIONS.Owner).toContain(permission);
+      expect(DEFAULT_ROLE_PERMISSIONS.Admin).toContain(permission);
+      expect(DEFAULT_ROLE_PERMISSIONS.Accountant).toContain(permission);
+      expect(DEFAULT_ROLE_PERMISSIONS.Purchases).toContain(permission);
+      expect(DEFAULT_ROLE_PERMISSIONS.Sales).not.toContain(permission);
+      expect(DEFAULT_ROLE_PERMISSIONS.Viewer).not.toContain(permission);
+    }
+  });
+
   it("stores tenant-scoped delivery source and idempotency metadata without PDF bytes", () => {
     expect(schema).toContain("salesInvoiceId");
     expect(schema).toContain("requestedById");

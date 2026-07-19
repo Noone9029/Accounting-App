@@ -6,11 +6,13 @@ import { BankAccountController } from "./bank-accounts/bank-account.controller";
 import { BankAccountReconciliationController } from "./bank-reconciliations/bank-account-reconciliation.controller";
 import { BankReconciliationController } from "./bank-reconciliations/bank-reconciliation.controller";
 import { ComplianceCoreController } from "./compliance-core/compliance-core.controller";
+import { ContactController } from "./contacts/contact.controller";
 import { CreditNoteController } from "./credit-notes/credit-note.controller";
 import { CustomerPaymentController } from "./customer-payments/customer-payment.controller";
 import { GeneratedDocumentController } from "./generated-documents/generated-document.controller";
 import { PurchaseBillController } from "./purchase-bills/purchase-bill.controller";
 import { PurchaseDebitNoteController } from "./purchase-debit-notes/purchase-debit-note.controller";
+import { PurchaseOrderController } from "./purchase-orders/purchase-order.controller";
 import { ReportsController } from "./reports/reports.controller";
 import { SalesInvoiceController } from "./sales-invoices/sales-invoice.controller";
 import { SupplierPaymentController } from "./supplier-payments/supplier-payment.controller";
@@ -86,6 +88,10 @@ describe("accounting tenant isolation and RBAC regression", () => {
     [PurchaseDebitNoteController, "apply", [PERMISSIONS.purchaseDebitNotes.finalize]],
     [PurchaseDebitNoteController, "finalize", [PERMISSIONS.purchaseDebitNotes.finalize]],
     [PurchaseDebitNoteController, "void", [PERMISSIONS.purchaseDebitNotes.void]],
+    [PurchaseDebitNoteController, "emailDelivery", [PERMISSIONS.purchaseDebitNotes.send]],
+    [SupplierPaymentController, "emailDelivery", [PERMISSIONS.supplierPayments.send]],
+    [PurchaseOrderController, "emailDelivery", [PERMISSIONS.purchaseOrders.send]],
+    [ContactController, "supplierStatementEmailDelivery", [PERMISSIONS.contacts.sendSupplierStatements]],
     [BankAccountController, "create", [PERMISSIONS.bankAccounts.manage]],
     [BankAccountController, "update", [PERMISSIONS.bankAccounts.manage]],
     [BankAccountController, "archive", [PERMISSIONS.bankAccounts.manage]],
@@ -117,6 +123,10 @@ describe("accounting tenant isolation and RBAC regression", () => {
     [SupplierPaymentController, "get", [PERMISSIONS.supplierPayments.view]],
     [CreditNoteController, "get", [PERMISSIONS.creditNotes.view]],
     [PurchaseDebitNoteController, "get", [PERMISSIONS.purchaseDebitNotes.view]],
+    [PurchaseDebitNoteController, "emailDeliveryHistory", [PERMISSIONS.purchaseDebitNotes.view]],
+    [SupplierPaymentController, "emailDeliveryHistory", [PERMISSIONS.supplierPayments.view]],
+    [PurchaseOrderController, "emailDeliveryHistory", [PERMISSIONS.purchaseOrders.view]],
+    [ContactController, "supplierStatementEmailDeliveryHistory", [PERMISSIONS.contacts.view]],
     [BankAccountController, "get", [PERMISSIONS.bankAccounts.view]],
     [BankReconciliationController, "get", [PERMISSIONS.bankReconciliations.view]],
     [GeneratedDocumentController, "get", [PERMISSIONS.generatedDocuments.view]],

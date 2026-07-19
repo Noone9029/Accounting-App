@@ -1,5 +1,6 @@
 import { validate } from "class-validator";
 import { CreateSalesInvoiceEmailDeliveryDto } from "../sales-invoices/dto/create-sales-invoice-email-delivery.dto";
+import { CreateSupplierDocumentEmailDeliveryDto } from "./dto/create-supplier-document-email-delivery.dto";
 
 describe("sales invoice delivery DTO", () => {
   it("requires a bounded idempotency key and rejects unsafe subject input", async () => {
@@ -21,5 +22,26 @@ describe("sales invoice delivery DTO", () => {
     });
 
     expect(await validate(dto)).toHaveLength(0);
+  });
+
+  it("validates the common supplier-document DTO with the same bounded delivery contract", async () => {
+    const dto = Object.assign(new CreateSupplierDocumentEmailDeliveryDto(), {
+      recipientEmail: "supplier@example.test",
+      subject: "Supplier document",
+      message: "Please review the attached PDF.",
+      idempotencyKey: "supplier-document-123456",
+    });
+
+    expect(await validate(dto)).toHaveLength(0);
+  });
+
+  it("rejects unsafe supplier recipients and idempotency keys", async () => {
+    const dto = Object.assign(new CreateSupplierDocumentEmailDeliveryDto(), {
+      recipientEmail: "not-an-email",
+      idempotencyKey: "unsafe key with spaces",
+    });
+
+    const errors = await validate(dto);
+    expect(errors.map((error) => error.property)).toEqual(expect.arrayContaining(["recipientEmail", "idempotencyKey"]));
   });
 });

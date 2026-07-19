@@ -120,6 +120,29 @@ describe("DocumentDeliveryService", () => {
     expect(first.prisma.emailOutbox.create).toHaveBeenCalledTimes(1);
   });
 
+  it("includes the normalized source number in the idempotency request hash", async () => {
+    const first = makeService();
+    const sourceInput = {
+      ...input,
+      sourceNumber: "PO-00042",
+      sourceType: "PurchaseOrder",
+      sourceId: "po-1",
+      documentType: "PURCHASE_ORDER",
+      templateType: "PURCHASE_ORDER",
+    };
+    const queued = await first.service.queue(sourceInput as never);
+    const stored = first.prisma.emailOutbox.create.mock.calls[0]![0].data;
+    first.prisma.emailOutbox.findFirst.mockResolvedValue({
+      ...stored,
+      ...queued,
+      toEmail: "customer@example.test",
+      requestedBy: null,
+      requestHash: stored.requestHash,
+    });
+
+    await expect(first.service.queue({ ...sourceInput, sourceNumber: "PO-00043" } as never)).rejects.toBeInstanceOf(ConflictException);
+  });
+
   it("blocks active suppression and unusable providers before creating an outbox row", async () => {
     const suppressed = makeService({ suppression: { id: "suppression-1" } });
     await expect(suppressed.service.queue(input)).rejects.toBeInstanceOf(BadRequestException);

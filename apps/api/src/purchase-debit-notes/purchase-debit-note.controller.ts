@@ -8,17 +8,22 @@ import { RequirePermissions } from "../auth/decorators/require-permissions.decor
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
 import { PermissionGuard } from "../auth/guards/permission.guard";
+import { CreateSupplierDocumentEmailDeliveryDto } from "../email/dto/create-supplier-document-email-delivery.dto";
 import { assertGeneratedDocumentDownloadPermission } from "../generated-documents/generated-document-permissions";
 import { ApplyPurchaseDebitNoteDto } from "./dto/apply-purchase-debit-note.dto";
 import { CreatePurchaseDebitNoteDto } from "./dto/create-purchase-debit-note.dto";
 import { ReversePurchaseDebitNoteAllocationDto } from "./dto/reverse-purchase-debit-note-allocation.dto";
 import { UpdatePurchaseDebitNoteDto } from "./dto/update-purchase-debit-note.dto";
 import { PurchaseDebitNoteService } from "./purchase-debit-note.service";
+import { PurchaseDebitNoteEmailDeliveryService } from "./purchase-debit-note-email-delivery.service";
 
 @Controller("purchase-debit-notes")
 @UseGuards(JwtAuthGuard, OrganizationContextGuard, PermissionGuard)
 export class PurchaseDebitNoteController {
-  constructor(private readonly purchaseDebitNoteService: PurchaseDebitNoteService) {}
+  constructor(
+    private readonly purchaseDebitNoteService: PurchaseDebitNoteService,
+    private readonly purchaseDebitNoteEmailDeliveryService: PurchaseDebitNoteEmailDeliveryService,
+  ) {}
 
   @Get()
   @RequirePermissions(PERMISSIONS.purchaseDebitNotes.view)
@@ -75,6 +80,23 @@ export class PurchaseDebitNoteController {
   @RequirePermissions(PERMISSIONS.purchaseDebitNotes.view)
   pdfData(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
     return this.purchaseDebitNoteService.pdfData(organizationId, id);
+  }
+
+  @Post(":id/email-deliveries")
+  @RequirePermissions(PERMISSIONS.purchaseDebitNotes.send)
+  emailDelivery(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() dto: CreateSupplierDocumentEmailDeliveryDto,
+  ) {
+    return this.purchaseDebitNoteEmailDeliveryService.queue(organizationId, user.id, id, dto);
+  }
+
+  @Get(":id/email-deliveries")
+  @RequirePermissions(PERMISSIONS.purchaseDebitNotes.view)
+  emailDeliveryHistory(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.purchaseDebitNoteEmailDeliveryService.history(organizationId, id);
   }
 
   @Get(":id/pdf")

@@ -34,6 +34,10 @@ jest.mock("@/hooks/use-active-organization", () => ({
   useActiveOrganizationId: () => "org-1",
 }));
 
+jest.mock("@/components/permissions/permission-provider", () => ({
+  usePermissions: () => ({ can: () => true }),
+}));
+
 jest.mock("@/lib/api", () => ({
   apiRequest: (...args: unknown[]) => apiRequestMock(...args),
 }));

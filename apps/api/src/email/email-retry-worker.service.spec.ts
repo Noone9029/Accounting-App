@@ -100,6 +100,19 @@ describe("EmailRetryWorkerService", () => {
     expect(provider.send).toHaveBeenCalledWith(expect.objectContaining({ attachments: [expect.objectContaining({ mimeType: "application/pdf" })] }));
   });
 
+  it.each([
+    [EmailTemplateType.PURCHASE_ORDER, "PurchaseOrder", "po-1"],
+    [EmailTemplateType.PURCHASE_DEBIT_NOTE, "PurchaseDebitNote", "debit-1"],
+    [EmailTemplateType.SUPPLIER_PAYMENT_REMITTANCE, "SupplierPayment", "payment-1"],
+    [EmailTemplateType.SUPPLIER_STATEMENT, "SupplierStatement", "supplier-statement:supplier-1?baseCurrency=SAR&from=2026-07-01&to=2026-07-31"],
+  ])("claims and sends a verified attachment for %s", async (templateType, sourceType, sourceId) => {
+    const { service, provider, documentDelivery } = makeService({ rowOverrides: { templateType, salesInvoiceId: null, sourceType, sourceId } });
+
+    await expect(service.process("org-1", "worker-1", 5)).resolves.toMatchObject({ attemptedCount: 1, sentCount: 1 });
+    expect(documentDelivery.readAttachmentForWorker).toHaveBeenCalledWith("org-1", "delivery-1");
+    expect(provider.send).toHaveBeenCalledWith(expect.objectContaining({ attachments: [expect.objectContaining({ mimeType: "application/pdf" })] }));
+  });
+
   it("does not send when another worker wins the conditional claim", async () => {
     const { service, prisma, provider } = makeService({ claimCount: 0 });
 

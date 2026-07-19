@@ -1049,8 +1049,9 @@ export class ContactLedgerService {
     contactId: string,
     from?: string,
     to?: string,
+    existingData?: CustomerStatementPdfData,
   ): Promise<{ data: CustomerStatementPdfData; buffer: Buffer; filename: string; document: unknown | null }> {
-    const data = await this.supplierStatementPdfData(organizationId, contactId, from, to);
+    const data = existingData ?? (await this.supplierStatementPdfData(organizationId, contactId, from, to));
     const settings = await this.documentSettingsService?.statementRenderSettings(organizationId);
     const renderSettings = settings ? { ...settings, title: supplierStatementTitle(settings.title ?? "Supplier Statement") } : { title: "Supplier Statement" };
     const buffer = await renderCustomerStatementPdf(data, renderSettings);
@@ -2003,6 +2004,10 @@ function statementArchiveAccountingContext(kind: "CUSTOMER_STATEMENT" | "SUPPLIE
 
 export function customerStatementSourceId(contactId: string, data: CustomerStatementPdfData) {
   return statementSourceId("customer-statement", contactId, data);
+}
+
+export function supplierStatementSourceId(contactId: string, data: CustomerStatementPdfData) {
+  return statementSourceId("supplier-statement", contactId, data);
 }
 
 function statementSourceId(kind: "customer-statement" | "supplier-statement", contactId: string, data: CustomerStatementPdfData) {

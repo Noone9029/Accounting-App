@@ -4245,7 +4245,7 @@ export interface PurchaseOrder {
   convertedBillId: string | null;
   createdAt: string;
   updatedAt: string;
-  supplier?: { id: string; name: string; displayName: string | null; type?: ContactType; taxNumber?: string | null; isActive?: boolean };
+  supplier?: { id: string; name: string; displayName: string | null; email?: string | null; type?: ContactType; taxNumber?: string | null; isActive?: boolean };
   branch?: { id: string; name: string; displayName: string | null; taxNumber?: string | null } | null;
   convertedBill?: { id: string; billNumber: string; status: PurchaseBillStatus; billDate?: string; total: string } | null;
   lines?: PurchaseOrderLine[];
@@ -4331,7 +4331,7 @@ export interface PurchaseDebitNote extends DocumentFxFields, TransactionDocument
   finalizedAt: string | null;
   journalEntryId: string | null;
   reversalJournalEntryId: string | null;
-  supplier?: { id: string; name: string; displayName: string | null; type?: ContactType; taxNumber?: string | null };
+  supplier?: { id: string; name: string; displayName: string | null; email?: string | null; type?: ContactType; taxNumber?: string | null };
   originalBill?: { id: string; billNumber: string; billDate?: string; status: PurchaseBillStatus; total: string; supplierId?: string } | null;
   branch?: { id: string; name: string; displayName: string | null; taxNumber?: string | null } | null;
   journalEntry?: { id: string; entryNumber: string; status: JournalStatus; totalDebit?: string; totalCredit?: string } | null;
@@ -4643,7 +4643,7 @@ export interface SupplierPayment {
   voidReversalJournalEntryId: string | null;
   postedAt: string | null;
   voidedAt: string | null;
-  supplier?: { id: string; name: string; displayName: string | null; type?: ContactType };
+  supplier?: { id: string; name: string; displayName: string | null; email?: string | null; type?: ContactType };
   account?: { id: string; code: string; name: string; type?: AccountType };
   journalEntry?: { id: string; entryNumber: string; status: JournalStatus; totalDebit?: string; totalCredit?: string } | null;
   voidReversalJournalEntry?: { id: string; entryNumber: string; status: JournalStatus } | null;

@@ -6,6 +6,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
 import { AttachmentPanel } from "@/components/attachments/attachment-panel";
+import { CustomerDocumentEmailDelivery } from "@/components/email/customer-document-email-delivery";
 import { PurchaseMatchingPanel } from "@/components/purchases/purchase-matching-panel";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { LedgerActionDialog } from "@/components/ui-ledger/action-dialog";
@@ -53,6 +54,7 @@ export default function PurchaseOrderDetailPage() {
   const canConvertOrder = can(PERMISSIONS.purchaseOrders.convertToBill);
   const canCreateReceipt = can(PERMISSIONS.purchaseReceiving.create);
   const canDownloadGeneratedDocuments = can(PERMISSIONS.generatedDocuments.download);
+  const canSendPurchaseOrder = can(PERMISSIONS.purchaseOrders.send);
   const returnTo = safeReturnToFromSearch(searchParams.toString() ? `?${searchParams.toString()}` : "");
   const orderDetailHref = order ? `/purchases/purchase-orders/${order.id}${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ""}` : "";
 
@@ -243,6 +245,23 @@ export default function PurchaseOrderDetailPage() {
       {order ? (
         <div className="mt-5 space-y-5">
           <AttachmentPanel linkedEntityType="PURCHASE_ORDER" linkedEntityId={order.id} />
+
+          <CustomerDocumentEmailDelivery
+            sourceId={order.id}
+            organizationId={organizationId}
+            canSend={canSendPurchaseOrder}
+            eligible={order.status === "APPROVED" || order.status === "SENT"}
+            sourceLabel="purchase order"
+            documentFilename={`purchase-order-${order.purchaseOrderNumber}.pdf`}
+            recipientEmail={order.supplier?.email ?? ""}
+            defaultSubject={`Purchase order ${order.purchaseOrderNumber}`}
+            defaultMessage="Please find the approved purchase order attached for your records."
+            ineligibleMessage="Only approved or sent purchase orders can be queued for email delivery."
+            noPermissionMessage="You do not have permission to send purchase orders by email."
+            successMessage="Purchase order queued for email delivery."
+            emptyHistoryMessage="No purchase order email deliveries queued yet."
+            endpoint={`/purchase-orders/${order.id}/email-deliveries`}
+          />
 
           <div className="rounded-md border border-slate-200 bg-white p-5 shadow-panel">
             <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-4">

@@ -43,7 +43,7 @@ import { UpdatePurchaseDebitNoteDto } from "./dto/update-purchase-debit-note.dto
 import { buildPurchaseDebitNoteJournalLines } from "./purchase-debit-note-accounting";
 
 const purchaseDebitNoteInclude = {
-  supplier: { select: { id: true, name: true, displayName: true, type: true, taxNumber: true } },
+  supplier: { select: { id: true, name: true, displayName: true, email: true, type: true, taxNumber: true } },
   originalBill: { select: { id: true, billNumber: true, billDate: true, total: true, status: true, supplierId: true } },
   branch: { select: { id: true, name: true, displayName: true, taxNumber: true } },
   journalEntry: {

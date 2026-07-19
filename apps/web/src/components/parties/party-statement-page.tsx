@@ -6,6 +6,8 @@ import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
+import { CustomerDocumentEmailDelivery } from "@/components/email/customer-document-email-delivery";
+import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
 import { formatAppMoney } from "@/lib/app-i18n";
@@ -20,6 +22,7 @@ import {
   type PartyKind,
 } from "@/lib/parties";
 import { downloadPdf, statementPdfPath, supplierStatementPdfPath } from "@/lib/pdf-download";
+import { PERMISSIONS } from "@/lib/permissions";
 import type { CustomerPartyDetail, CustomerStatement, SupplierPartyDetail, SupplierStatement } from "@/lib/types";
 import {
   CustomerStatementDocumentGuidance,
@@ -35,6 +38,7 @@ export function PartyStatementPage({ kind }: { kind: PartyKind }) {
   const searchParams = useSearchParams();
   const organizationId = useActiveOrganizationId();
   const { locale, tc } = useAppLocale();
+  const { can } = usePermissions();
   const [detail, setDetail] = useState<PartyDetail | null>(null);
   const [statement, setStatement] = useState<PartyStatement | null>(null);
   const [fromDate, setFromDate] = useState(defaultStatementFromDate());
@@ -68,6 +72,8 @@ export function PartyStatementPage({ kind }: { kind: PartyKind }) {
       : statementReturnHref
         ? `/reports/aged-payables?returnTo=${encodeURIComponent(statementReturnHref)}`
         : "";
+  const supplierContact = kind === "supplier" ? detail?.contact : null;
+  const supplierStatementEligible = Boolean(supplierContact && (supplierContact.type === "SUPPLIER" || supplierContact.type === "BOTH") && fromDate && toDate);
 
   useEffect(() => {
     if (!organizationId || !params.id) {
@@ -228,6 +234,26 @@ export function PartyStatementPage({ kind }: { kind: PartyKind }) {
               </div>
             ) : null}
           </div>
+
+          {kind === "supplier" && params.id ? (
+            <CustomerDocumentEmailDelivery
+              sourceId={params.id}
+              organizationId={organizationId}
+              canSend={can(PERMISSIONS.contacts.sendSupplierStatements)}
+              eligible={supplierStatementEligible}
+              sourceLabel="supplier statement"
+              documentFilename={`supplier-statement-${supplierContact?.displayName ?? supplierContact?.name ?? params.id}-${fromDate || "start"}-to-${toDate || "end"}.pdf`}
+              recipientEmail={supplierContact?.email ?? ""}
+              defaultSubject={`Supplier statement from ${supplierContact?.displayName ?? supplierContact?.name ?? "LedgerByte"}`}
+              defaultMessage="Please find your supplier statement attached for review."
+              ineligibleMessage="A supplier contact and a valid statement period are required before a statement can be queued."
+              noPermissionMessage="You do not have permission to send supplier statements by email."
+              successMessage="Supplier statement queued for email delivery."
+              emptyHistoryMessage="No supplier statement email deliveries queued yet."
+              endpoint={`/contacts/${params.id}/supplier-statement-email-deliveries`}
+              deliveryPeriod={{ from: fromDate, to: toDate, asOf: toDate }}
+            />
+          ) : null}
 
           {statement ? (
             <>

@@ -78,6 +78,49 @@ interface CustomerStatementDeliveryTemplateInput {
   message?: string;
 }
 
+interface PurchaseOrderDeliveryTemplateInput {
+  organizationName: string;
+  supplierDisplayName: string;
+  purchaseOrderNumber: string;
+  currency: string;
+  total: string;
+  orderDate: string;
+  expectedDeliveryDate?: string | null;
+  message?: string;
+}
+
+interface PurchaseDebitNoteDeliveryTemplateInput {
+  organizationName: string;
+  supplierDisplayName: string;
+  debitNoteNumber: string;
+  currency: string;
+  transactionTotal: string;
+  issueDate: string;
+  originalBillNumber?: string | null;
+  message?: string;
+}
+
+interface SupplierPaymentRemittanceDeliveryTemplateInput {
+  organizationName: string;
+  supplierDisplayName: string;
+  paymentNumber: string;
+  currency: string;
+  transactionAmountPaid: string;
+  paymentDate: string;
+  safeDescription?: string | null;
+  message?: string;
+}
+
+interface SupplierStatementDeliveryTemplateInput {
+  organizationName: string;
+  supplierDisplayName: string;
+  periodLabel: string;
+  asOf: string;
+  currency?: string | null;
+  closingBalance: string;
+  message?: string;
+}
+
 export function buildOrganizationInviteEmail(input: OrganizationInviteTemplateInput) {
   const subject = `You're invited to ${input.organizationName} on LedgerByte`;
   const bodyText = [
@@ -259,6 +302,90 @@ export function buildCustomerStatementDeliveryEmail(input: CustomerStatementDeli
 
   return {
     subject: `Customer statement from ${input.organizationName}, ${periodLabel}`,
+    bodyText,
+    bodyHtml: bodyToHtml(bodyText),
+  };
+}
+
+export function buildPurchaseOrderDeliveryEmail(input: PurchaseOrderDeliveryTemplateInput) {
+  const bodyText = input.message ?? [
+    `Hello ${input.supplierDisplayName},`,
+    "",
+    `Please find purchase order ${input.purchaseOrderNumber} attached.`,
+    "",
+    `Order total: ${input.currency} ${input.total}`,
+    `Order date: ${input.orderDate}`,
+    `Expected delivery: ${input.expectedDeliveryDate || "Not specified"}`,
+    "",
+    "Regards,",
+    input.organizationName,
+  ].join("\n");
+
+  return {
+    subject: `Purchase order ${input.purchaseOrderNumber} from ${input.organizationName}`,
+    bodyText,
+    bodyHtml: bodyToHtml(bodyText),
+  };
+}
+
+export function buildPurchaseDebitNoteDeliveryEmail(input: PurchaseDebitNoteDeliveryTemplateInput) {
+  const bodyText = input.message ?? [
+    `Hello ${input.supplierDisplayName},`,
+    "",
+    `Please find purchase debit note ${input.debitNoteNumber} attached.`,
+    "",
+    `Debit note total: ${input.currency} ${input.transactionTotal}`,
+    `Issue date: ${input.issueDate}`,
+    `Related bill: ${input.originalBillNumber || "Not specified"}`,
+    "",
+    "Regards,",
+    input.organizationName,
+  ].join("\n");
+
+  return {
+    subject: `Purchase debit note ${input.debitNoteNumber} from ${input.organizationName}`,
+    bodyText,
+    bodyHtml: bodyToHtml(bodyText),
+  };
+}
+
+export function buildSupplierPaymentRemittanceDeliveryEmail(input: SupplierPaymentRemittanceDeliveryTemplateInput) {
+  const bodyText = input.message ?? [
+    `Hello ${input.supplierDisplayName},`,
+    "",
+    `Please find payment remittance ${input.paymentNumber} attached.`,
+    "",
+    `Payment amount: ${input.currency} ${input.transactionAmountPaid}`,
+    `Payment date: ${input.paymentDate}`,
+    `Reference: ${input.safeDescription || "Not specified"}`,
+    "",
+    "Regards,",
+    input.organizationName,
+  ].join("\n");
+
+  return {
+    subject: `Payment remittance ${input.paymentNumber} from ${input.organizationName}`,
+    bodyText,
+    bodyHtml: bodyToHtml(bodyText),
+  };
+}
+
+export function buildSupplierStatementDeliveryEmail(input: SupplierStatementDeliveryTemplateInput) {
+  const bodyText = input.message ?? [
+    `Hello ${input.supplierDisplayName},`,
+    "",
+    "Please find your supplier statement attached.",
+    "",
+    `Statement period: ${input.periodLabel}`,
+    `As of: ${input.asOf}`,
+    `Closing balance: ${input.currency ?? ""} ${input.closingBalance}`.trim(),
+    "",
+    "Regards,",
+    input.organizationName,
+  ].join("\n");
+
+  return {
+    subject: `Supplier statement from ${input.organizationName}, ${input.periodLabel}`,
     bodyText,
     bodyHtml: bodyToHtml(bodyText),
   };

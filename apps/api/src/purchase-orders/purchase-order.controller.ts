@@ -8,15 +8,20 @@ import { RequirePermissions } from "../auth/decorators/require-permissions.decor
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
 import { PermissionGuard } from "../auth/guards/permission.guard";
+import { CreateSupplierDocumentEmailDeliveryDto } from "../email/dto/create-supplier-document-email-delivery.dto";
 import { assertGeneratedDocumentDownloadPermission } from "../generated-documents/generated-document-permissions";
 import { CreatePurchaseOrderDto } from "./dto/create-purchase-order.dto";
 import { UpdatePurchaseOrderDto } from "./dto/update-purchase-order.dto";
 import { PurchaseOrderService } from "./purchase-order.service";
+import { PurchaseOrderEmailDeliveryService } from "./purchase-order-email-delivery.service";
 
 @Controller("purchase-orders")
 @UseGuards(JwtAuthGuard, OrganizationContextGuard, PermissionGuard)
 export class PurchaseOrderController {
-  constructor(private readonly purchaseOrderService: PurchaseOrderService) {}
+  constructor(
+    private readonly purchaseOrderService: PurchaseOrderService,
+    private readonly purchaseOrderEmailDeliveryService: PurchaseOrderEmailDeliveryService,
+  ) {}
 
   @Get()
   @RequirePermissions(PERMISSIONS.purchaseOrders.view)
@@ -38,6 +43,23 @@ export class PurchaseOrderController {
   @RequirePermissions(PERMISSIONS.purchaseOrders.view)
   get(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
     return this.purchaseOrderService.get(organizationId, id);
+  }
+
+  @Post(":id/email-deliveries")
+  @RequirePermissions(PERMISSIONS.purchaseOrders.send)
+  emailDelivery(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() dto: CreateSupplierDocumentEmailDeliveryDto,
+  ) {
+    return this.purchaseOrderEmailDeliveryService.queue(organizationId, user.id, id, dto);
+  }
+
+  @Get(":id/email-deliveries")
+  @RequirePermissions(PERMISSIONS.purchaseOrders.view)
+  emailDeliveryHistory(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.purchaseOrderEmailDeliveryService.history(organizationId, id);
   }
 
   @Get(":id/pdf-data")

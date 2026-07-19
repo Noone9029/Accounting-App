@@ -22,7 +22,7 @@ export function CustomerDocumentEmailDeliveryHistory({ entries, loading, error, 
         <div className="mt-3 space-y-2">
           {entries.map((entry) => (
             <div key={entry.id} className="grid gap-2 rounded-md border border-slate-200 bg-slate-50/60 p-3 text-sm md:grid-cols-[1.3fr_1fr_1fr_auto] md:items-center">
-              <div><div className="font-medium text-ink">{deliveryStatusLabel(entry)}</div><div className="text-xs text-steel">{formatDeliveryRecipient(entry.maskedRecipient)} · {entry.attachmentFilename ?? "No attachment"}</div><div className="text-xs text-steel">Requested {formatDeliveryDate(entry.createdAt)}</div></div>
+              <div><div className="font-medium text-ink">{deliveryStatusLabel(entry)}</div><div className="text-xs text-steel">{formatDeliveryRecipient(entry.maskedRecipient)} · {entry.attachmentFilename ?? "No attachment"}</div><div className="text-xs text-steel">{"statementPeriod" in entry && entry.statementPeriod ? `Period ${entry.statementPeriod.from ?? "start"} to ${entry.statementPeriod.to ?? "end"}${entry.statementPeriod.asOf ? ` · As of ${entry.statementPeriod.asOf}` : ""} · ` : ""}Requested {formatDeliveryDate(entry.createdAt)}</div></div>
               <div className="text-xs text-steel">{entry.provider} · {entry.attemptCount} attempt{entry.attemptCount === 1 ? "" : "s"}{entry.latestAttemptAt ? ` · Attempted ${formatDeliveryDate(entry.latestAttemptAt)}` : ""}{entry.nextAttemptAt ? ` · Retry ${formatDeliveryDate(entry.nextAttemptAt)}` : ""}</div>
               <div className="text-xs text-steel">{entry.requestedBy?.name ?? "Unknown requester"}{entry.bouncedAt ? ` · Bounced ${formatDeliveryDate(entry.bouncedAt)}` : ""}{entry.complainedAt ? ` · Complaint ${formatDeliveryDate(entry.complainedAt)}` : ""}{entry.suppressionStatus ? ` · ${entry.suppressionStatus}` : ""}</div>
               <LedgerStatusBadge tone={deliveryStatusTone(entry.status)}>{deliveryStatusLabel(entry)}</LedgerStatusBadge>
@@ -34,6 +34,8 @@ export function CustomerDocumentEmailDeliveryHistory({ entries, loading, error, 
     </div>
   );
 }
+
+export { CustomerDocumentEmailDeliveryHistory as DocumentEmailDeliveryHistory };
 
 function formatDeliveryDate(value: string): string {
   return value.slice(0, 16).replace("T", " ");

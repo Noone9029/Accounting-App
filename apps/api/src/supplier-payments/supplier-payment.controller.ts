@@ -8,16 +8,21 @@ import { RequirePermissions } from "../auth/decorators/require-permissions.decor
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
 import { PermissionGuard } from "../auth/guards/permission.guard";
+import { CreateSupplierDocumentEmailDeliveryDto } from "../email/dto/create-supplier-document-email-delivery.dto";
 import { assertGeneratedDocumentDownloadPermission } from "../generated-documents/generated-document-permissions";
 import { ApplyUnappliedSupplierPaymentDto } from "./dto/apply-unapplied-supplier-payment.dto";
 import { CreateSupplierPaymentDto } from "./dto/create-supplier-payment.dto";
 import { ReverseUnappliedSupplierPaymentAllocationDto } from "./dto/reverse-unapplied-supplier-payment-allocation.dto";
 import { SupplierPaymentService } from "./supplier-payment.service";
+import { SupplierPaymentEmailDeliveryService } from "./supplier-payment-email-delivery.service";
 
 @Controller("supplier-payments")
 @UseGuards(JwtAuthGuard, OrganizationContextGuard, PermissionGuard)
 export class SupplierPaymentController {
-  constructor(private readonly supplierPaymentService: SupplierPaymentService) {}
+  constructor(
+    private readonly supplierPaymentService: SupplierPaymentService,
+    private readonly supplierPaymentEmailDeliveryService: SupplierPaymentEmailDeliveryService,
+  ) {}
 
   @Get()
   @RequirePermissions(PERMISSIONS.supplierPayments.view)
@@ -80,6 +85,23 @@ export class SupplierPaymentController {
   @RequirePermissions(PERMISSIONS.supplierPayments.view)
   receiptPdfData(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
     return this.supplierPaymentService.receiptPdfData(organizationId, id);
+  }
+
+  @Post(":id/email-deliveries")
+  @RequirePermissions(PERMISSIONS.supplierPayments.send)
+  emailDelivery(
+    @CurrentOrganizationId() organizationId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Param("id") id: string,
+    @Body() dto: CreateSupplierDocumentEmailDeliveryDto,
+  ) {
+    return this.supplierPaymentEmailDeliveryService.queue(organizationId, user.id, id, dto);
+  }
+
+  @Get(":id/email-deliveries")
+  @RequirePermissions(PERMISSIONS.supplierPayments.view)
+  emailDeliveryHistory(@CurrentOrganizationId() organizationId: string, @Param("id") id: string) {
+    return this.supplierPaymentEmailDeliveryService.history(organizationId, id);
   }
 
   @Get(":id/receipt.pdf")
