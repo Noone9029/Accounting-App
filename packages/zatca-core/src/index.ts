@@ -7,6 +7,7 @@ export * from "./xml-validation.js";
 export * from "./signing-provider.js";
 export * from "./local-pih-icv-chain.js";
 export * from "./xades-signing.js";
+export * from "./phase2-qr.js";
 
 export type ZatcaEnvironment = "SANDBOX" | "SIMULATION" | "PRODUCTION";
 export type ZatcaInvoiceType = "STANDARD_TAX_INVOICE" | "SIMPLIFIED_TAX_INVOICE" | "CREDIT_NOTE" | "DEBIT_NOTE";
