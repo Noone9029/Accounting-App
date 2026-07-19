@@ -24,6 +24,7 @@
     "test:openbook-adoption-guard": "node --test scripts/openbooks-clean-room-validate.test.cjs",
     "production:trust-foundation-gate": "node scripts/production-trust-foundation-gate.cjs",
     "test:production-trust-foundation-gate": "node --test scripts/production-trust-foundation-gate.test.cjs",
+    "security:audit:prod": "node scripts/production-dependency-audit.cjs",
     "production:env-preflight": "node scripts/production-env-preflight.cjs",
     "test:production-env-preflight": "node --test scripts/production-env-preflight.test.cjs",
     "production:env-verification-proof": "node scripts/production-env-verification-proof.cjs",
