@@ -17,6 +17,7 @@ describe("ZATCA signing provider boundary", () => {
 
     await assert.rejects(() => provider.getCertificateMetadata(), ZatcaSigningProviderDisabledError);
     await assert.rejects(() => provider.getPublicKey(), ZatcaSigningProviderDisabledError);
+    await assert.rejects(() => provider.getCertificateDerForSigning(), ZatcaSigningProviderDisabledError);
     await assert.rejects(() => provider.signCanonicalizedData(Buffer.from("canonical signed info", "utf8")), ZatcaSigningProviderDisabledError);
     assert.ok(provider instanceof DisabledZatcaSigningProvider);
   });
@@ -39,6 +40,7 @@ describe("ZATCA signing provider boundary", () => {
       const metadata = await provider.getCertificateMetadata();
       const signature = await provider.signCanonicalizedData(data);
       const returnedPublicKey = await provider.getPublicKey();
+      await assert.rejects(() => provider.getCertificateDerForSigning(), /certificate/i);
 
       assert.equal(metadata.algorithm, "EC_SECP256K1");
       assert.equal(metadata.keyId, "local-test-key-rotation-1");
@@ -89,5 +91,29 @@ describe("ZATCA signing provider boundary", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+
+  it("reads matching external local certificate material only for internal signing", async (t) => {
+    const sdkRoot = process.env.ZATCA_SDK_ROOT;
+    if (!sdkRoot) {
+      t.skip("external SDK is not configured");
+      return;
+    }
+    const certificatePath = join(sdkRoot, "Data", "Certificates", "cert.pem");
+    const privateKeyPath = join(sdkRoot, "Data", "Certificates", "ec-secp256k1-priv-key.pem");
+    const provider = new LocalExternalPathZatcaSigningProvider({
+      environment: "LOCAL_TEST",
+      privateKeyPath,
+      certificatePath,
+      keyId: "external-local-sdk-dummy-key",
+      certificate: { status: "ACTIVE", expiresAt: null, revokedAt: null },
+    });
+
+    const [metadata, certificateDer, publicKey] = await Promise.all([provider.getCertificateMetadata(), provider.getCertificateDerForSigning(), provider.getPublicKey()]);
+    assert.ok(certificateDer.length > 0);
+    assert.ok(publicKey.length > 0);
+    assert.match(metadata.certificateIssuer ?? "", /CN=/);
+    assert.ok(metadata.certificateSerialNumber);
+    assert.doesNotMatch(JSON.stringify(metadata), /BEGIN CERTIFICATE|BEGIN PRIVATE KEY|cert\.pem|ec-secp256k1/i);
   });
 });

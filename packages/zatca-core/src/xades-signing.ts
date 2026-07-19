@@ -8,7 +8,6 @@ export interface ZatcaXmlCanonicalizationProvider {
 export interface ZatcaXadesSigningInput {
   unsignedXml: string;
   invoiceHashBase64: string;
-  certificateDerBase64: string;
   signingTime: string;
   canonicalize: ZatcaXmlCanonicalizationProvider["canonicalize"];
   signingProvider: ZatcaSigningProvider;
@@ -33,7 +32,7 @@ export class ZatcaXadesSigningError extends Error {
 
 export async function createZatcaXadesSignedInvoice(input: ZatcaXadesSigningInput): Promise<ZatcaXadesSignedInvoice> {
   assertUnsignedUblInput(input.unsignedXml);
-  const certificateDer = decodeBase64(input.certificateDerBase64);
+  const certificateDer = await input.signingProvider.getCertificateDerForSigning();
   const metadata = await input.signingProvider.getCertificateMetadata();
   if (!metadata.signingEnabled || metadata.certificateStatus !== "ACTIVE" || !metadata.certificateIssuer || !metadata.certificateSerialNumber) {
     throw new ZatcaXadesSigningError("ZATCA_XADES_CERTIFICATE_METADATA");
@@ -52,7 +51,7 @@ export async function createZatcaXadesSignedInvoice(input: ZatcaXadesSigningInpu
     throw new ZatcaXadesSigningError("ZATCA_XADES_SIGNATURE_FAILED");
   }
   const signatureDerBase64 = p1363ToDer(signatureP1363).toString("base64");
-  const extension = xadesExtensionXml({ signedInfo, signatureDerBase64, certificateDerBase64: input.certificateDerBase64.trim(), signedProperties });
+  const extension = xadesExtensionXml({ signedInfo, signatureDerBase64, certificateDerBase64: certificateDer.toString("base64"), signedProperties });
   const xml = injectXadesXml(input.unsignedXml, extension);
   return { xml, invoiceHashBase64: input.invoiceHashBase64, signedInfoCanonicalBytes, signatureP1363, signatureDerBase64, localOnly: true, sdkGenerated: false };
 }
@@ -91,14 +90,6 @@ async function canonicalizeSafely(canonicalize: ZatcaXadesSigningInput["canonica
   } catch {
     throw new ZatcaXadesSigningError("ZATCA_XADES_SIGNATURE_FAILED");
   }
-}
-
-function decodeBase64(value: string): Buffer {
-  const trimmed = value.trim();
-  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(trimmed)) throw new ZatcaXadesSigningError("ZATCA_XADES_INVALID_INPUT");
-  const result = Buffer.from(trimmed, "base64");
-  if (!result.length) throw new ZatcaXadesSigningError("ZATCA_XADES_INVALID_INPUT");
-  return result;
 }
 
 function base64OfSha256Hex(bytes: Buffer): string { return Buffer.from(createHash("sha256").update(bytes).digest("hex"), "utf8").toString("base64"); }

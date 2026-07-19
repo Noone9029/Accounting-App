@@ -1,4 +1,4 @@
-import { createPrivateKey, createPublicKey, sign, type KeyObject } from "node:crypto";
+import { createPrivateKey, createPublicKey, sign, X509Certificate, type KeyObject } from "node:crypto";
 import { readFileSync } from "node:fs";
 
 export type ZatcaSigningProviderKind = "DISABLED" | "LOCAL_EXTERNAL_PATH" | "FUTURE_EXTERNAL_KMS" | "FUTURE_EXTERNAL_HSM";
@@ -25,6 +25,8 @@ export interface ZatcaCertificateMetadata {
 export interface ZatcaSigningProvider {
   getCertificateMetadata(): Promise<ZatcaCertificateMetadata>;
   getPublicKey(): Promise<Buffer>;
+  /** Internal signing use only. Never expose certificate bytes through an API response. */
+  getCertificateDerForSigning(): Promise<Buffer>;
   /** Signs canonicalized SignedInfo bytes with ECDSA-SHA256 in IEEE P1363 form. */
   signCanonicalizedData(canonicalizedData: Buffer): Promise<Buffer>;
 }
@@ -41,6 +43,7 @@ export interface ZatcaLocalCertificateMetadataInput {
 export interface LocalExternalPathZatcaSigningProviderOptions {
   environment: ZatcaSigningEnvironment;
   privateKeyPath: string;
+  certificatePath?: string;
   keyId: string;
   certificate: ZatcaLocalCertificateMetadataInput;
   rotationStatus?: ZatcaKeyRotationStatus;
@@ -61,7 +64,7 @@ export class ZatcaSigningProviderDisabledError extends Error {
 }
 
 export class ZatcaSigningProviderError extends Error {
-  constructor(readonly code: "ZATCA_SIGNING_LOCAL_ONLY" | "ZATCA_SIGNING_INVALID_KEY" | "ZATCA_SIGNING_FAILED") {
+  constructor(readonly code: "ZATCA_SIGNING_LOCAL_ONLY" | "ZATCA_SIGNING_INVALID_KEY" | "ZATCA_SIGNING_CERTIFICATE_UNAVAILABLE" | "ZATCA_SIGNING_FAILED") {
     super(messageForSigningProviderError(code));
     this.name = "ZatcaSigningProviderError";
   }
@@ -73,6 +76,10 @@ export class DisabledZatcaSigningProvider implements ZatcaSigningProvider {
   }
 
   async getPublicKey(): Promise<Buffer> {
+    throw new ZatcaSigningProviderDisabledError();
+  }
+
+  async getCertificateDerForSigning(): Promise<Buffer> {
     throw new ZatcaSigningProviderDisabledError();
   }
 
@@ -114,12 +121,43 @@ export class LocalExternalPathZatcaSigningProvider implements ZatcaSigningProvid
   }
 
   async getCertificateMetadata(): Promise<ZatcaCertificateMetadata> {
-    return { ...this.metadata };
+    if (!this.options.certificatePath?.trim()) {
+      return { ...this.metadata };
+    }
+    try {
+      const certificate = loadExternalCertificate(this.options.certificatePath);
+      return {
+        ...this.metadata,
+        certificateFingerprint: certificate.fingerprint256.replace(/:/g, "").toLowerCase(),
+        certificateSerialNumber: certificate.serialNumber,
+        certificateIssuer: certificate.issuer,
+        certificateExpiresAt: new Date(certificate.validTo).toISOString(),
+      };
+    } catch {
+      throw new ZatcaSigningProviderError("ZATCA_SIGNING_CERTIFICATE_UNAVAILABLE");
+    }
   }
 
   async getPublicKey(): Promise<Buffer> {
     const privateKey = this.loadSecp256k1PrivateKey();
     return Buffer.from(createPublicKey(privateKey).export({ type: "spki", format: "der" }));
+  }
+
+  async getCertificateDerForSigning(): Promise<Buffer> {
+    if (!this.options.certificatePath?.trim()) {
+      throw new ZatcaSigningProviderError("ZATCA_SIGNING_CERTIFICATE_UNAVAILABLE");
+    }
+    try {
+      const certificate = loadExternalCertificate(this.options.certificatePath);
+      const certificatePublicKey = Buffer.from(certificate.publicKey.export({ type: "spki", format: "der" }));
+      if (!certificatePublicKey.equals(await this.getPublicKey())) {
+        throw new ZatcaSigningProviderError("ZATCA_SIGNING_CERTIFICATE_UNAVAILABLE");
+      }
+      return Buffer.from(certificate.raw);
+    } catch (error) {
+      if (error instanceof ZatcaSigningProviderError) throw error;
+      throw new ZatcaSigningProviderError("ZATCA_SIGNING_CERTIFICATE_UNAVAILABLE");
+    }
   }
 
   async signCanonicalizedData(canonicalizedData: Buffer): Promise<Buffer> {
@@ -136,7 +174,7 @@ export class LocalExternalPathZatcaSigningProvider implements ZatcaSigningProvid
 
   private loadSecp256k1PrivateKey(): KeyObject {
     try {
-      const key = createPrivateKey(readFileSync(this.options.privateKeyPath));
+      const key = loadExternalPrivateKey(this.options.privateKeyPath);
       if (key.asymmetricKeyType !== "ec" || key.asymmetricKeyDetails?.namedCurve !== "secp256k1") {
         throw new ZatcaSigningProviderError("ZATCA_SIGNING_INVALID_KEY");
       }
@@ -165,12 +203,28 @@ function optionalSafeMetadata(value: string | null | undefined): string | null {
   return trimmed;
 }
 
+function loadExternalCertificate(path: string): X509Certificate {
+  const raw = readFileSync(path);
+  const text = raw.toString("utf8").trim();
+  return new X509Certificate(text.startsWith("-----BEGIN CERTIFICATE-----") ? text : Buffer.from(text, "base64"));
+}
+
+function loadExternalPrivateKey(path: string): KeyObject {
+  const raw = readFileSync(path);
+  const text = raw.toString("utf8").trim();
+  return text.startsWith("-----BEGIN")
+    ? createPrivateKey(text)
+    : createPrivateKey({ key: Buffer.from(text, "base64"), format: "der", type: "sec1" });
+}
+
 function messageForSigningProviderError(code: ZatcaSigningProviderError["code"]): string {
   switch (code) {
     case "ZATCA_SIGNING_LOCAL_ONLY":
       return "The local dummy ZATCA signing provider is local-only and is rejected outside LOCAL_TEST.";
     case "ZATCA_SIGNING_INVALID_KEY":
       return "ZATCA signing requires an externally configured EC secp256k1 private key.";
+    case "ZATCA_SIGNING_CERTIFICATE_UNAVAILABLE":
+      return "ZATCA signing requires an externally configured certificate matching the signing key.";
     case "ZATCA_SIGNING_FAILED":
       return "ZATCA signing provider operation failed. Sensitive key details were redacted.";
   }

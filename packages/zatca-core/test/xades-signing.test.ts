@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { generateKeyPairSync, sign, verify } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { describe, it } from "node:test";
-import { createZatcaXadesSignedInvoice, type ZatcaSigningProvider } from "../src/index.ts";
+import { buildZatcaInvoiceXml, createZatcaXadesSignedInvoice, LocalExternalPathZatcaSigningProvider, type ZatcaSigningProvider } from "../src/index.ts";
 
 describe("LedgerByte XAdES invoice construction", () => {
   it("constructs the official UBL XAdES shape and verifies its LedgerByte ECDSA signature", async () => {
@@ -17,6 +19,9 @@ describe("LedgerByte XAdES invoice construction", () => {
       async getPublicKey() {
         return Buffer.from(publicKey.export({ type: "spki", format: "der" }));
       },
+      async getCertificateDerForSigning() {
+        return Buffer.from("synthetic-public-certificate", "utf8");
+      },
       async signCanonicalizedData(bytes) {
         return sign("sha256", bytes, { key: privateKey, dsaEncoding: "ieee-p1363" });
       },
@@ -24,7 +29,6 @@ describe("LedgerByte XAdES invoice construction", () => {
     const result = await createZatcaXadesSignedInvoice({
       unsignedXml: '<?xml version="1.0" encoding="UTF-8"?><Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2" xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"><cac:AccountingSupplierParty/></Invoice>',
       invoiceHashBase64: Buffer.alloc(32, 1).toString("base64"),
-      certificateDerBase64: Buffer.from("synthetic-public-certificate", "utf8").toString("base64"),
       signingTime: "2026-07-20T12:00:00Z",
       canonicalize: async (xml) => Buffer.from(xml, "utf8"),
       signingProvider: provider,
@@ -39,5 +43,43 @@ describe("LedgerByte XAdES invoice construction", () => {
     assert.match(result.xml, /<cac:Signature>/);
     assert.equal(verify("sha256", result.signedInfoCanonicalBytes, { key: publicKey, dsaEncoding: "ieee-p1363" }, result.signatureP1363), true);
     assert.equal(result.xml.includes("PRIVATE KEY"), false);
+  });
+
+  it("signs a LedgerByte fixture with external local-only material and C14N11 bytes", async (t) => {
+    const sdkRoot = process.env.ZATCA_SDK_ROOT;
+    const javaBin = process.env.ZATCA_SDK_JAVA_BIN;
+    if (!sdkRoot || !javaBin) {
+      t.skip("external SDK/JDK are not configured");
+      return;
+    }
+    const root = resolve(__dirname, "../../..");
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const c14n = require(join(root, "scripts", "zatca-c14n11-hash.cjs")) as typeof import("../../../scripts/zatca-c14n11-hash.cjs");
+    const invoice = JSON.parse(readFileSync(join(root, "packages", "zatca-core", "fixtures", "ledgerbyte-generated-standard-invoice.input.json"), "utf8"));
+    const unsignedXml = buildZatcaInvoiceXml(invoice);
+    const hash = c14n.computeZatcaC14n11Hash({ xml: unsignedXml, cwd: root, env: process.env });
+    assert.equal(hash.status, "PASSED");
+    const provider = new LocalExternalPathZatcaSigningProvider({
+      environment: "LOCAL_TEST",
+      privateKeyPath: join(sdkRoot, "Data", "Certificates", "ec-secp256k1-priv-key.pem"),
+      certificatePath: join(sdkRoot, "Data", "Certificates", "cert.pem"),
+      keyId: "external-local-sdk-dummy-key",
+      certificate: { status: "ACTIVE", expiresAt: null, revokedAt: null },
+    });
+    const result = await createZatcaXadesSignedInvoice({
+      unsignedXml,
+      invoiceHashBase64: hash.hash,
+      signingTime: "2026-07-20T12:00:00Z",
+      canonicalize: async (xml) => {
+        const canonical = c14n.canonicalizeZatcaXmlC14n11({ xml, cwd: root, env: process.env });
+        if (canonical.status !== "PASSED" || !canonical.canonicalBytes) throw new Error("C14N11 helper failed");
+        return canonical.canonicalBytes;
+      },
+      signingProvider: provider,
+    });
+
+    assert.equal(verify("sha256", result.signedInfoCanonicalBytes, { key: await provider.getPublicKey(), format: "der", type: "spki", dsaEncoding: "ieee-p1363" }, result.signatureP1363), true);
+    assert.match(result.xml, /<ds:SignatureValue>[A-Za-z0-9+/]+=*<\/ds:SignatureValue>/);
+    assert.doesNotMatch(result.xml, /PRIVATE KEY/);
   });
 });
