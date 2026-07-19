@@ -1,4 +1,5 @@
 import { Injectable, LoggerService } from "@nestjs/common";
+import { createHash } from "node:crypto";
 import { redactForDiagnostics } from "./redaction";
 
 export type StructuredLogLevel = "info" | "warn" | "error" | "debug";
@@ -17,6 +18,7 @@ export interface StructuredLogEntry {
   action?: string;
   errorName?: string;
   prismaArgument?: string;
+  organizationRef?: string;
 }
 
 @Injectable()
@@ -42,10 +44,12 @@ export class StructuredLoggerService implements LoggerService {
   }
 
   emit(entry: StructuredLogEntry): void {
+    const { organizationId, userId, ...safeEntryFields } = entry;
     const safeEntry = redactForDiagnostics({
       timestamp: new Date().toISOString(),
-      level: entry.level ?? "info",
-      ...entry,
+      level: safeEntryFields.level ?? "info",
+      ...safeEntryFields,
+      ...(organizationId ? { organizationRef: tenantSafeReference(organizationId) } : {}),
     });
     const serialized = JSON.stringify(safeEntry);
     if (entry.level === "error") {
@@ -56,4 +60,8 @@ export class StructuredLoggerService implements LoggerService {
       console.log(serialized);
     }
   }
+}
+
+export function tenantSafeReference(organizationId: string): string {
+  return `org_${createHash("sha256").update(organizationId).digest("hex").slice(0, 16)}`;
 }
