@@ -1,9 +1,11 @@
 import { createHash } from "node:crypto";
+import { initialPreviousInvoiceHash } from "./local-pih-icv-chain.js";
 
 export * from "./compliance-checklist.js";
 export * from "./xml-mapping.js";
 export * from "./xml-validation.js";
 export * from "./signing-provider.js";
+export * from "./local-pih-icv-chain.js";
 
 export type ZatcaEnvironment = "SANDBOX" | "SIMULATION" | "PRODUCTION";
 export type ZatcaInvoiceType = "STANDARD_TAX_INVOICE" | "SIMPLIFIED_TAX_INVOICE" | "CREDIT_NOTE" | "DEBIT_NOTE";
@@ -150,7 +152,6 @@ const zatcaTransactionCodeFlags: Record<ZatcaInvoiceType, string> = {
   DEBIT_NOTE: "0100000",
 };
 
-export const initialPreviousInvoiceHash = "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ==";
 export const zatcaSdkGenerateHashCommand = "fatoora -generateHash -invoice <filename>" as const;
 
 export function buildZatcaInvoicePayload(input: ZatcaInvoiceInput): ZatcaBuildResult {

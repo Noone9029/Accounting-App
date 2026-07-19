@@ -44,6 +44,8 @@ The official SDK readme requires an EC `secp256k1` private key for signing. Ledg
 
 The local Java C14N 1.1 provider removes the required nodes through namespace-aware DOM traversal, applies C14N 1.1 without comments, and was compared byte-for-byte with the configured official SDK `-generateHash` oracle for the three current LedgerByte-generated valid fixtures. This is narrow local hash-parity evidence only: it does not prove LedgerByte-owned signing, Phase 2 QR, or the future expanded fixture set. The provider is disabled without the explicitly configured external SDK/JDK and returns metadata-only safe statuses; it does not print or persist input XML or canonical XML.
 
+`docs/zatca/ARC_07A_LOCAL_PIH_ICV_STATE_CONTRACT.md` defines the local-only PIH/ICV proof state machine. It verifies ordered A/B/C progression, rejects duplicate/skipped/concurrent ICV claims and wrong/reused PIHs, and rolls back failed signing, validation, or local conformance attempts without changing durable production state. It is not wired to Prisma or any ZATCA endpoint.
+
 ## Required remaining conformance work
 
 The current implementation map still identifies unimplemented or unverified areas: LedgerByte-owned XAdES/ECDSA/certificate embedding, Phase 2 QR, debit note, multiple VAT/zero/exempt cases, allowance/rounding cases, invalid-rule fixtures, and a full production-safe signing implementation. C14N11/hash parity is proven only for the current three LedgerByte-generated fixtures and must expand with the fixture matrix. No live credential, network request, OTP, CSID, clearance, reporting, customer data, or signed artifact was used in this audit.
