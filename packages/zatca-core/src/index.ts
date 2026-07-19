@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 export * from "./compliance-checklist.js";
 export * from "./xml-mapping.js";
 export * from "./xml-validation.js";
+export * from "./signing-provider.js";
 
 export type ZatcaEnvironment = "SANDBOX" | "SIMULATION" | "PRODUCTION";
 export type ZatcaInvoiceType = "STANDARD_TAX_INVOICE" | "SIMPLIFIED_TAX_INVOICE" | "CREDIT_NOTE" | "DEBIT_NOTE";
