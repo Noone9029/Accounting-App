@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import forge from "node-forge";
 
 export * from "./compliance-checklist.js";
 export * from "./xml-mapping.js";
@@ -405,8 +404,7 @@ export function computeZatcaInvoiceHash(xml: string): ZatcaInvoiceHashGroundwork
 }
 
 export function generateEgsPrivateKeyPem(): string {
-  const keys = forge.pki.rsa.generateKeyPair({ bits: 2048, e: 0x10001 });
-  return forge.pki.privateKeyToPem(keys.privateKey);
+  throw new Error("Legacy ZATCA RSA key generation is disabled. The official SDK requires an EC secp256k1 key; use the approved SDK/KMS custody workflow instead.");
 }
 
 export function buildZatcaCsrSubject(input: ZatcaCsrInput): ZatcaCsrSubjectAttribute[] {
@@ -424,36 +422,8 @@ export function buildZatcaCsrSubject(input: ZatcaCsrInput): ZatcaCsrSubjectAttri
 }
 
 export function generateZatcaCsrPem(input: ZatcaCsrInput): ZatcaCsrResult {
-  validateZatcaCsrInput(input);
-  const keys = forge.pki.rsa.generateKeyPair({ bits: 2048, e: 0x10001 });
-  const csr = forge.pki.createCertificationRequest();
-  csr.publicKey = keys.publicKey;
-  csr.setSubject(buildZatcaCsrSubject(input));
-  csr.setAttributes([
-    {
-      name: "extensionRequest",
-      extensions: [
-        {
-          name: "subjectAltName",
-          altNames: [
-            { type: 6, value: `urn:ledgerbyte:zatca:device:${input.deviceSerialNumber.trim()}` },
-            { type: 6, value: `urn:ledgerbyte:zatca:vat:${input.vatNumber.trim()}` },
-          ],
-        },
-      ],
-    },
-  ]);
-  csr.sign(keys.privateKey, forge.md.sha256.create());
-
-  if (!csr.verify()) {
-    throw new Error("Generated ZATCA CSR failed local verification.");
-  }
-
-  return {
-    // Development helper output only. Production private keys must be generated and stored in KMS/secrets manager, never logged.
-    privateKeyPem: forge.pki.privateKeyToPem(keys.privateKey),
-    csrPem: forge.pki.certificationRequestToPem(csr),
-  };
+  void input;
+  throw new Error("Legacy ZATCA RSA CSR generation is disabled. The official SDK requires an EC secp256k1 key; use the approved SDK/KMS custody workflow instead.");
 }
 
 export function validateZatcaCsrInput(input: ZatcaCsrInput): void {

@@ -14,13 +14,11 @@ import {
 } from "@ledgerbyte/shared";
 import {
   buildZatcaInvoicePayload,
-  generateZatcaCsrPem,
   initialPreviousInvoiceHash,
   validateLocalZatcaXml,
   ZATCA_CHECKLIST_CATEGORIES,
   ZATCA_PHASE_2_CHECKLIST,
   ZATCA_XML_FIELD_MAPPING,
-  type ZatcaCsrInput,
   type ZatcaChecklistCategory,
   type ZatcaChecklistItem,
   type ZatcaInvoiceInput,
@@ -1020,45 +1018,12 @@ export class ZatcaService {
   }
 
   async generateEgsCsr(organizationId: string, actorUserId: string, id: string) {
-    const existing = await this.getEgsUnitInternal(organizationId, id);
-    const profile = await this.getProfile(organizationId);
-    const readiness = getZatcaProfileReadiness(profile);
-    if (!readiness.ready) {
-      throw new BadRequestException(`ZATCA profile is missing required CSR fields: ${readiness.missingFields.join(", ")}.`);
-    }
-
-    const csrInput = this.toCsrInput(profile, existing);
-    const { privateKeyPem, csrPem } = generateZatcaCsrPem(csrInput);
-    const updated = await this.prisma.$transaction(async (tx) => {
-      const unit = await tx.zatcaEgsUnit.update({
-        where: { id },
-        data: {
-          csrPem,
-          // Development-only storage. Production must use KMS/secrets manager. Never log or expose privateKeyPem.
-          privateKeyPem,
-          status: ZatcaRegistrationStatus.OTP_REQUIRED,
-        },
-        select: safeEgsUnitSelect,
-      });
-      await tx.zatcaOrganizationProfile.update({
-        where: { organizationId },
-        data: { registrationStatus: ZatcaRegistrationStatus.OTP_REQUIRED },
-      });
-      return unit;
-    });
-
-    const publicBefore = this.toPublicEgsUnit(existing);
-    const publicUpdated = this.toPublicEgsUnit(updated);
-    await this.auditLogService.log({
-      organizationId,
-      actorUserId,
-      action: "GENERATE_CSR",
-      entityType: "ZatcaEgsUnit",
-      entityId: id,
-      before: publicBefore,
-      after: publicUpdated,
-    });
-    return publicUpdated;
+    void organizationId;
+    void actorUserId;
+    void id;
+    throw new NotImplementedException(
+      "In-process ZATCA CSR generation is disabled because the official SDK requires EC secp256k1 keys. Use the approved local SDK CSR custody workflow instead.",
+    );
   }
 
   async getEgsCsr(organizationId: string, id: string): Promise<string> {
@@ -8122,31 +8087,6 @@ export class ZatcaService {
 
   private withReadiness<T extends { sellerName?: string | null; vatNumber?: string | null; city?: string | null; countryCode?: string | null }>(profile: T) {
     return { ...profile, readiness: getZatcaProfileReadiness(profile) };
-  }
-
-  private toCsrInput(
-    profile: {
-      sellerName?: string | null;
-      vatNumber?: string | null;
-      companyIdNumber?: string | null;
-      city?: string | null;
-      countryCode?: string | null;
-      businessCategory?: string | null;
-    },
-    egsUnit: InternalEgsUnitRecord,
-  ): ZatcaCsrInput {
-    return {
-      sellerName: profile.sellerName ?? "",
-      vatNumber: profile.vatNumber ?? "",
-      organizationIdentifier: profile.companyIdNumber ?? profile.vatNumber ?? "",
-      organizationUnitName: egsUnit.name,
-      organizationName: profile.sellerName ?? "",
-      countryCode: profile.countryCode ?? "SA",
-      city: profile.city ?? "",
-      deviceSerialNumber: egsUnit.deviceSerialNumber,
-      solutionName: egsUnit.solutionName,
-      businessCategory: profile.businessCategory?.trim() || "General business",
-    };
   }
 
   private hashForLog(value: string): string {

@@ -17,7 +17,7 @@ const FIXTURES = [
     fixtureType: "official",
     invoiceKind: "standard-invoice",
     standardOrSimplified: "standard",
-    relativePath: "reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Standard/Invoice/Standard_Invoice.xml",
+    sdkRelativePath: "Data/Samples/Standard/Invoice/Standard_Invoice.xml",
     expectedResult: "PASS_OR_SAFE_SDK_WARNING",
     bodyOutputForbidden: true,
   },
@@ -28,7 +28,7 @@ const FIXTURES = [
     fixtureType: "official",
     invoiceKind: "simplified-invoice",
     standardOrSimplified: "simplified",
-    relativePath: "reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Simplified/Invoice/Simplified_Invoice.xml",
+    sdkRelativePath: "Data/Samples/Simplified/Invoice/Simplified_Invoice.xml",
     expectedResult: "PASS_OR_SAFE_SDK_WARNING",
     bodyOutputForbidden: true,
   },
@@ -313,7 +313,7 @@ function runFixtureValidation({ repoRoot, fixtureId, sdk, java, javaBin, spawnSy
     });
   }
 
-  const fixturePath = path.resolve(repoRoot, fixture.relativePath);
+  const fixturePath = resolveFixturePath({ repoRoot, fixture, sdk });
   const blockers = [];
   const safeErrorCodes = [];
   if (!fs.existsSync(fixturePath)) {
@@ -386,6 +386,13 @@ function runFixtureValidation({ repoRoot, fixtureId, sdk, java, javaBin, spawnSy
       displayCommand: commandPlan.displayCommand,
     },
   };
+}
+
+function resolveFixturePath({ repoRoot, fixture, sdk }) {
+  if (fixture.fixtureType === "official" && fixture.sdkRelativePath) {
+    return path.resolve(sdk.sdkRoot, fixture.sdkRelativePath);
+  }
+  return path.resolve(repoRoot, fixture.relativePath);
 }
 
 function buildValidationCommand({ sdk, fixturePath, javaBin }) {
@@ -643,6 +650,7 @@ module.exports = {
   parseArgs,
   parseJavaMajorVersion,
   parseJavaVersion,
+  resolveFixturePath,
   resolveFixture,
   runValidationSet,
   sanitizeText,

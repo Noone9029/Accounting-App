@@ -13,7 +13,7 @@ The following sources were retrieved directly from ZATCA on 2026-07-20. SHA-256 
 | Simplified technical guide | Page last updated 5 Mar 2026 | `https://www.zatca.gov.sa/en/E-Invoicing/SystemsDevelopers/Pages/Simplified-technical-guide.aspx` | `33B711CC93634AF867F3E486FA22DD022141C37634D6C46C2018C2EE92AB093F` | Simplified/B2C requirements | Simplified invoice handling needs its own current official review; it cannot be inferred from standard fixtures. |
 | Download SDK | Current ZATCA Developer Portal page | `https://www.zatca.gov.sa/en/E-Invoicing/SystemsDevelopers/ComplianceEnablementToolbox/Pages/DownloadSDK.aspx` | `9328B227F777A20D7C353A5B78E1183A90D45EB38A34A3AA513DBF9EB967DA0D` | Local, offline validation | The official SDK is the required local validation oracle for invoice, credit-note, debit-note, and QR structure checks. |
 
-Superseded material: the repository's ignored `reference/` SDK/document snapshot and historical status claims are not accepted as current normative proof until an approved, checksum-recorded official SDK/package acquisition is available. No unofficial source was used.
+Superseded material: historical status claims are not accepted as current normative proof. No unofficial source was used.
 
 ## Offline execution result
 
@@ -24,16 +24,24 @@ node scripts/zatca-sdk-ci-readiness.cjs --plan --no-network --json
 node scripts/zatca-sdk-validate-local.cjs --all --no-network --json
 ```
 
-Both reported `networkCallsMade: false`, no body/QR/private-key/token/header output, and `productionComplianceEnabled: false`. Validation was not attempted for any of the six registered fixtures because:
+The initial unconfigured fresh-checkout commands reported `networkCallsMade: false`, no body/QR/private-key/token/header output, and `productionComplianceEnabled: false`. Validation was not attempted because the ignored SDK reference is deliberately unavailable in a fresh checkout.
 
-- the official SDK reference/JAR/configuration and official sample files are absent from this fresh checkout;
-- the reference directory is intentionally ignored, so CI has no approved acquisition/licensing policy;
-- the default Java runtime is 17.0.16, but a compatible local Microsoft JDK 11.0.26.4 was subsequently discovered and can be selected for a future SDK run; it is not itself a remaining blocker.
+After the owner authorized local-only acceptance of the official SDK terms, the runner used an existing local SDK reference read-only through `ZATCA_SDK_ROOT`; no SDK file was copied into this worktree or committed. Its JAR was SHA-256 verified as `48ABEB828D453EF6FAFBA792FDDBBB2701DA5C7018C24BDE918853E80FF5D530`. With the explicit Microsoft JDK `11.0.26` binary, the following no-network command completed successfully:
 
-The result is `CI_BLOCKED_MISSING_SDK_REFERENCE`, not SDK acceptance. It does not prove invoice XML, canonicalization, hash, signature, QR, PIH, ICV, or archive correctness.
+```text
+node scripts/zatca-sdk-validate-local.cjs --all --no-network --json --out docs/zatca/evidence/official-sdk-local-validation-20260720.json
+```
+
+The metadata-only artifact records six SDK validation passes: the two official SDK samples plus four LedgerByte standard-invoice/credit-note fixtures. It records `networkCallsMade: false`, `productionComplianceEnabled: false`, and no XML, QR, private-key, token, or header output. The runner now resolves official samples from the explicitly configured SDK root rather than assuming that ignored material exists in a clean worktree.
+
+This is local unsigned XML validation only. The CI readiness guard correctly remains `CI_BLOCKED_MISSING_SDK_REFERENCE` for a fresh checkout because no reproducible licensed SDK acquisition policy exists. The result does not prove canonicalization/hash parity, signed XML, Phase 2 QR, PIH/ICV chain progression, sandbox acceptance, or production compliance.
+
+## Key-generation safety correction
+
+The official SDK readme requires an EC `secp256k1` private key for signing. LedgerByte's legacy in-process RSA key/CSR helpers and API route have therefore been disabled. They can no longer generate or persist an incompatible RSA key; future local non-production CSR work must use the SDK/KMS custody workflow. This is a fail-closed correction, not a claim that a production key-custody implementation is complete.
 
 ## Required remaining conformance work
 
-The current implementation map still identifies unimplemented or unverified areas: canonicalization/hash parity, XAdES/ECDSA/certificate embedding, Phase 2 QR, simplified invoice, debit note, multiple VAT/zero/exempt cases, allowance/rounding cases, invalid-rule fixtures, and a production-safe signing boundary. No live credential, network request, OTP, CSID, clearance, reporting, customer data, or signed artifact was used in this audit.
+The current implementation map still identifies unimplemented or unverified areas: canonicalization/hash parity, XAdES/ECDSA/certificate embedding, Phase 2 QR, debit note, multiple VAT/zero/exempt cases, allowance/rounding cases, invalid-rule fixtures, and a production-safe signing boundary. No live credential, network request, OTP, CSID, clearance, reporting, customer data, or signed artifact was used in this audit.
 
-ARC-07A cannot meet its exit criteria until the owner accepts/authorizes the official ZATCA SDK download terms and provides a lawful, reproducible SDK acquisition/reference policy. Then each valid fixture must pass the official SDK and each invalid fixture must fail with a recorded safe reason before any sandbox action is considered.
+ARC-07A cannot meet its exit criteria until the missing local implementation and fixture coverage is completed. A lawful, reproducible SDK acquisition/reference policy is additionally required before SDK validation can become CI evidence. Before any sandbox action, each intended valid fixture must pass the official SDK and every invalid fixture must fail with a recorded safe reason.

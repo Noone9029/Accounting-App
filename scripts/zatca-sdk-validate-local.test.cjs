@@ -53,6 +53,33 @@ test("uses a configured Java 11-14 binary path without changing global Java", ()
   assert.equal(evidence.runs[0].networkCallsMade, false);
 });
 
+test("resolves official sample fixtures from an explicitly configured SDK root", () => {
+  const repo = makeRepo();
+  const sdkRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ledgerbyte-zatca-sdk-external-"));
+  writeFakeSdk(repo, sdkRoot);
+  writeFixture(sdkRoot, "Data/Samples/Standard/Invoice/Standard_Invoice.xml", "<Invoice />");
+  const calls = [];
+
+  const evidence = runValidationSet({
+    cwd: repo,
+    parsed: parseArgs(["--fixture", "official-standard-invoice", "--no-network", "--json"]),
+    env: { ZATCA_SDK_ROOT: sdkRoot },
+    spawnSync: (command, args) => {
+      calls.push({ command, args });
+      if (args.includes("-version")) {
+        return { status: 0, stdout: "", stderr: 'openjdk version "11.0.26"' };
+      }
+      return { status: 0, stdout: "GLOBAL VALIDATION RESULT = PASSED", stderr: "" };
+    },
+    validationRunId: "test-run",
+    timestamp: "2026-06-06T00:00:00.000Z",
+  });
+
+  assert.equal(evidence.runs[0].status, "PASSED");
+  assert.equal(evidence.runs[0].networkCallsMade, false);
+  assert.equal(calls.some(({ args }) => args.some((arg) => String(arg).includes(path.join("Data", "Samples", "Standard", "Invoice", "Standard_Invoice.xml")))), true);
+});
+
 test("returns a metadata blocker when the SDK is missing", () => {
   const repo = makeRepo();
   const evidence = runValidationSet({
@@ -174,8 +201,8 @@ function writeFixture(repo, relativePath, body) {
   fs.writeFileSync(target, body, "utf8");
 }
 
-function writeFakeSdk(repo) {
-  const sdkRoot = path.join(repo, "reference", "zatca-einvoicing-sdk-Java-238-R3.4.8");
+function writeFakeSdk(repo, configuredSdkRoot) {
+  const sdkRoot = configuredSdkRoot || path.join(repo, "reference", "zatca-einvoicing-sdk-Java-238-R3.4.8");
   const apps = path.join(sdkRoot, "Apps");
   const config = path.join(sdkRoot, "Configuration");
   fs.mkdirSync(apps, { recursive: true });

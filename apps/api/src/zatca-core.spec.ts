@@ -146,14 +146,9 @@ describe("zatca-core CSR helpers", () => {
     businessCategory: "Accounting software",
   };
 
-  it("generates PEM private keys and CSR PEM values", () => {
-    const privateKeyPem = generateEgsPrivateKeyPem();
-    const result = generateZatcaCsrPem(csrInput);
-
-    expect(privateKeyPem).toContain("BEGIN RSA PRIVATE KEY");
-    expect(result.privateKeyPem).toContain("BEGIN RSA PRIVATE KEY");
-    expect(result.csrPem).toContain("BEGIN CERTIFICATE REQUEST");
-    expect(result.csrPem).not.toContain("BEGIN RSA PRIVATE KEY");
+  it("disables legacy RSA key and CSR generation", () => {
+    expect(() => generateEgsPrivateKeyPem()).toThrow("EC secp256k1");
+    expect(() => generateZatcaCsrPem(csrInput)).toThrow("EC secp256k1");
   });
 
   it("validates required CSR fields", () => {

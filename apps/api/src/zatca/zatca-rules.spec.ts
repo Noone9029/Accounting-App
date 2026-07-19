@@ -176,39 +176,21 @@ describe("ZATCA service rules", () => {
     expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
   });
 
-  it("generates CSR only when profile fields are ready and never returns the private key", async () => {
-    const egsUnit = makeEgsUnit({ id: "egs-1", csrPem: null });
-    const updatedUnit = makeEgsUnit({ id: "egs-1", csrPem: "-----BEGIN CERTIFICATE REQUEST-----\nCSR\n-----END CERTIFICATE REQUEST-----", status: ZatcaRegistrationStatus.OTP_REQUIRED });
+  it("blocks the legacy in-process CSR route before it can persist an incompatible key", async () => {
     const prisma = {
       zatcaEgsUnit: {
-        findFirst: jest.fn().mockResolvedValue({ ...egsUnit, privateKeyPem: null }),
+        findFirst: jest.fn(),
       },
-      $transaction: jest.fn((callback: (tx: unknown) => Promise<unknown>) =>
-        callback({
-          zatcaEgsUnit: { update: jest.fn().mockResolvedValue(updatedUnit) },
-          zatcaOrganizationProfile: { update: jest.fn().mockResolvedValue({}) },
-        }),
-      ),
+      $transaction: jest.fn(),
     };
     const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
-    jest.spyOn(service, "getProfile").mockResolvedValue({
-      id: "profile-1",
-      sellerName: "Seller",
-      vatNumber: "300000000000003",
-      city: "Riyadh",
-      countryCode: "SA",
-      businessCategory: "Services",
-      readiness: { ready: true, missingFields: [] },
-    } as never);
 
-    const result = await service.generateEgsCsr("org-1", "user-1", "egs-1");
-
-    expect(result).toMatchObject({ hasCsr: true, status: ZatcaRegistrationStatus.OTP_REQUIRED });
-    expect(result).not.toHaveProperty("privateKeyPem");
-    expect(JSON.stringify(result)).not.toContain("PRIVATE KEY");
+    await expect(service.generateEgsCsr("org-1", "user-1", "egs-1")).rejects.toThrow("EC secp256k1");
+    expect(prisma.zatcaEgsUnit.findFirst).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it("rejects CSR generation when required profile fields are missing", async () => {
+  it("keeps the legacy CSR route disabled even when profile fields are missing", async () => {
     const service = new ZatcaService(
       { zatcaEgsUnit: { findFirst: jest.fn().mockResolvedValue({ ...makeEgsUnit(), privateKeyPem: null }) } } as never,
       { log: jest.fn() } as never,
@@ -221,7 +203,7 @@ describe("ZATCA service rules", () => {
       readiness: { ready: false, missingFields: ["sellerName", "city"] },
     } as never);
 
-    await expect(service.generateEgsCsr("org-1", "user-1", "egs-1")).rejects.toThrow("sellerName, city");
+    await expect(service.generateEgsCsr("org-1", "user-1", "egs-1")).rejects.toThrow("EC secp256k1");
   });
 
   it("returns CSR PEM without exposing private keys", async () => {

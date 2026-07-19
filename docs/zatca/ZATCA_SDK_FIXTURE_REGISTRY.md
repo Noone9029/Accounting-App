@@ -17,8 +17,8 @@ LedgerByte is controlled beta/user-testing only. This registry supports local/no
 
 | Fixture ID | Source file path | Fixture type | Standard/simplified | Invoice kind | Validation mode | Expected result | Official or LedgerByte | Sensitive data | Body output |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `official-standard-invoice` | `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Standard/Invoice/Standard_Invoice.xml` | SDK sample | Standard | Invoice | `OFFICIAL_SDK_VALIDATE_NO_NETWORK` | Pass or safe SDK warning, depending local SDK/Java state | Official SDK sample | Official sample data only | Forbidden |
-| `official-simplified-invoice` | `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Simplified/Invoice/Simplified_Invoice.xml` | SDK sample | Simplified | Invoice | `OFFICIAL_SDK_VALIDATE_NO_NETWORK` | Pass or safe SDK warning, depending local SDK/Java state | Official SDK sample | Official sample data only | Forbidden |
+| `official-standard-invoice` | `<ZATCA_SDK_ROOT>/Data/Samples/Standard/Invoice/Standard_Invoice.xml` (or the default local reference root) | SDK sample | Standard | Invoice | `OFFICIAL_SDK_VALIDATE_NO_NETWORK` | Pass or safe SDK warning, depending local SDK/Java state | Official SDK sample | Official sample data only | Forbidden |
+| `official-simplified-invoice` | `<ZATCA_SDK_ROOT>/Data/Samples/Simplified/Invoice/Simplified_Invoice.xml` (or the default local reference root) | SDK sample | Simplified | Invoice | `OFFICIAL_SDK_VALIDATE_NO_NETWORK` | Pass or safe SDK warning, depending local SDK/Java state | Official SDK sample | Official sample data only | Forbidden |
 | `ledgerbyte-standard-invoice` | `packages/zatca-core/fixtures/local-standard-tax-invoice.expected.xml` | Local deterministic XML fixture | Standard | Invoice | `OFFICIAL_SDK_VALIDATE_NO_NETWORK` | Pass, fail, or safe SDK warning from local validation | LedgerByte-generated fixture | Demo/local fixture data only | Forbidden |
 | `ledgerbyte-credit-note` | `packages/zatca-core/fixtures/ledgerbyte-generated-credit-note.expected.xml` | Local deterministic XML fixture | Standard | Credit note | `OFFICIAL_SDK_VALIDATE_NO_NETWORK` | Pass under Java 11-14 local SDK validation; safe blocker under unsupported Java | LedgerByte-generated fixture | Demo/local fixture data only | Forbidden |
 | `ledgerbyte-generated-standard-invoice` | `packages/zatca-core/fixtures/ledgerbyte-generated-standard-invoice.expected.xml` | Local deterministic XML fixture | Standard | Invoice | `OFFICIAL_SDK_VALIDATE_NO_NETWORK` | Pass under Java 11-14 local SDK validation; safe blocker under unsupported Java | LedgerByte-generated fixture | Demo/local fixture data only | Forbidden |
@@ -79,6 +79,10 @@ corepack pnpm zatca:sdk-ci-readiness -- --plan --no-network --json
 ```
 
 Current CI guard status is `CI_BLOCKED_MISSING_SDK_REFERENCE` because the local official SDK reference is ignored and not available from a fresh checkout. The fixture registry and generated fixture paths are present locally, but that does not enable SDK validation in PR CI.
+
+## 2026-07-20 Read-only configured SDK validation
+
+With a locally configured `ZATCA_SDK_ROOT`, explicit Java `11.0.26`, and `--no-network`, all six registered fixtures passed `fatoora -validate`. The metadata-only evidence is `docs/zatca/evidence/official-sdk-local-validation-20260720.json`. Official fixture lookup is rooted in `ZATCA_SDK_ROOT`, so this proof does not copy ignored SDK files into a worktree. This local result does not change the CI blocker or authorize signing, sandbox, clearance, reporting, or production use.
 
 The local signed XML plan guard also checks generated fixture path presence by metadata only:
 
