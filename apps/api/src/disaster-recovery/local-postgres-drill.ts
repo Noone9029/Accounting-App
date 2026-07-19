@@ -214,11 +214,17 @@ export function getRestoreVerificationChecks(): RestoreVerificationCheck[] {
   return [
     check("organization-table", "Organization", "Seeded tenant root records restored.", `SELECT COUNT(*) FROM "Organization";`, "positive-number"),
     check("user-table", "User", "Seeded user records restored.", `SELECT COUNT(*) FROM "User";`, "positive-number"),
+    check("membership-table", "OrganizationMember", "Seeded organization membership and role records restored.", `SELECT COUNT(*) FROM "OrganizationMember" member JOIN "Role" role ON role.id = member."roleId" AND role."organizationId" = member."organizationId";`, "positive-number"),
     check("account-table", "Account", "Seeded chart of accounts records restored.", `SELECT COUNT(*) FROM "Account";`, "positive-number"),
     check("journal-entry-table", "JournalEntry", "Seeded journal entry records restored.", `SELECT COUNT(*) FROM "JournalEntry";`, "positive-number"),
     check("journal-line-table", "JournalLine", "Seeded journal line records restored.", `SELECT COUNT(*) FROM "JournalLine";`, "positive-number"),
     check("sales-invoice-table", "SalesInvoice", "Seeded sales invoice records restored.", `SELECT COUNT(*) FROM "SalesInvoice";`, "positive-number"),
     check("purchase-bill-table", "PurchaseBill", "Seeded purchase bill records restored.", `SELECT COUNT(*) FROM "PurchaseBill";`, "positive-number"),
+    check("email-outbox-table", "EmailOutbox", "Seeded document-delivery outbox records restored.", `SELECT COUNT(*) FROM "EmailOutbox";`, "positive-number"),
+    check("event-outbox-table", "EventOutboxItem", "Seeded transactional outbox records restored.", `SELECT COUNT(*) FROM "EventOutboxItem";`, "positive-number"),
+    check("fixed-asset-table", "FixedAsset", "Seeded fixed asset records restored.", `SELECT COUNT(*) FROM "FixedAsset";`, "positive-number"),
+    check("recurring-template-table", "RecurringTransactionTemplate", "Seeded recurring transaction template records restored.", `SELECT COUNT(*) FROM "RecurringTransactionTemplate";`, "positive-number"),
+    check("recurring-run-table", "RecurringTransactionRun", "Seeded recurring run records restored.", `SELECT COUNT(*) FROM "RecurringTransactionRun";`, "positive-number"),
     check("tenant-scope-sample", "Organization", "Seeded tenant-scoped records include at least two organizations.", `SELECT COUNT(DISTINCT "organizationId") >= 2 FROM "Account";`, "true"),
     check(
       "tenant-scope-no-cross-org-journal-lines",
@@ -228,6 +234,12 @@ export function getRestoreVerificationChecks(): RestoreVerificationCheck[] {
       "true",
     ),
     check("prisma-migrations", "_prisma_migrations", "Prisma migration history exists after restore.", `SELECT COUNT(*) FROM "_prisma_migrations";`, "positive-number"),
+    check("core-schema", "information_schema.tables", "Core tenant, accounting, document, outbox, asset, recurring, and audit tables exist after restore.", `SELECT COUNT(*) = 13 FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('Organization', 'OrganizationMember', 'Account', 'JournalEntry', 'SalesInvoice', 'PurchaseBill', 'GeneratedDocument', 'EmailOutbox', 'EventOutboxItem', 'FixedAsset', 'RecurringTransactionTemplate', 'RecurringTransactionRun', 'AuditLog');`, "true"),
+    check("journal-money-integrity", "JournalEntry", "Seeded journal debit and credit totals remain balanced.", `SELECT COUNT(*) = 1 FROM "JournalEntry" WHERE "totalDebit" = "totalCredit" AND "totalDebit" = 100.0000;`, "true"),
+    check("sales-document-money-integrity", "SalesInvoice", "Seeded sales invoice total remains consistent with its line total.", `SELECT COUNT(*) = 1 FROM "SalesInvoice" invoice JOIN "SalesInvoiceLine" line ON line."invoiceId" = invoice.id WHERE invoice.total = line."lineTotal" AND invoice.total = 100.0000;`, "true"),
+    check("generated-document-hash", "GeneratedDocument", "Generated document metadata retains non-empty content hashes.", `SELECT COUNT(*) = 2 FROM "GeneratedDocument" WHERE "contentHash" <> '';`, "true"),
+    check("fixed-asset-carrying-amount", "FixedAsset", "Fixed asset carrying amount remains acquisition cost less accumulated depreciation.", `SELECT COUNT(*) = 1 FROM "FixedAsset" WHERE "carryingAmount" = "baseAcquisitionCost" - "accumulatedDepreciation";`, "true"),
+    check("recurring-run-relationship", "RecurringTransactionRun", "Recurring run remains linked to its template and generated sales invoice in the same tenant.", `SELECT COUNT(*) = 1 FROM "RecurringTransactionRun" run JOIN "RecurringTransactionTemplate" template ON template.id = run."templateId" AND template."organizationId" = run."organizationId" JOIN "SalesInvoice" invoice ON invoice.id = run."generatedSalesInvoiceId" AND invoice."organizationId" = run."organizationId";`, "true"),
     check(
       "audit-log-request-id",
       "AuditLog",
@@ -481,6 +493,14 @@ INSERT INTO "Organization" (id, name, "legalName", "countryCode", "baseCurrency"
 INSERT INTO "User" (id, email, "passwordHash", name, "createdAt", "updatedAt") VALUES
   ('33333333-3333-4333-8333-333333333333', 'drill.user@example.invalid', 'local-drill-not-a-real-password-hash', 'Local DR User', NOW(), NOW());
 
+INSERT INTO "Role" (id, "organizationId", name, permissions, "isSystem", "createdAt", "updatedAt") VALUES
+  ('34343434-3434-4343-8343-343434343431', '11111111-1111-4111-8111-111111111111', 'Local DR Owner', '["organization:read"]'::jsonb, false, NOW(), NOW()),
+  ('34343434-3434-4343-8343-343434343432', '22222222-2222-4222-8222-222222222222', 'Local DR Viewer', '["organization:read"]'::jsonb, false, NOW(), NOW());
+
+INSERT INTO "OrganizationMember" (id, "organizationId", "userId", "roleId", status, "createdAt", "updatedAt") VALUES
+  ('35353535-3535-4353-8353-353535353531', '11111111-1111-4111-8111-111111111111', '33333333-3333-4333-8333-333333333333', '34343434-3434-4343-8343-343434343431', 'ACTIVE', NOW(), NOW()),
+  ('35353535-3535-4353-8353-353535353532', '22222222-2222-4222-8222-222222222222', '33333333-3333-4333-8333-333333333333', '34343434-3434-4343-8343-343434343432', 'ACTIVE', NOW(), NOW());
+
 INSERT INTO "Contact" (id, "organizationId", type, name, "displayName", "countryCode", "createdAt", "updatedAt") VALUES
   ('44444444-4444-4444-8444-444444444441', '11111111-1111-4111-8111-111111111111', 'CUSTOMER', 'Local DR Customer', 'Local DR Customer', 'SA', NOW(), NOW()),
   ('44444444-4444-4444-8444-444444444442', '11111111-1111-4111-8111-111111111111', 'SUPPLIER', 'Local DR Supplier', 'Local DR Supplier', 'SA', NOW(), NOW());
@@ -498,14 +518,14 @@ INSERT INTO "JournalLine" (id, "organizationId", "journalEntryId", "accountId", 
   ('77777777-7777-4777-8777-777777777771', '11111111-1111-4111-8111-111111111111', '66666666-6666-4666-8666-666666666661', '55555555-5555-4555-8555-555555555551', 1, 'Cash debit', 100.0000, 0.0000, 'SAR', 1.00000000, NOW()),
   ('77777777-7777-4777-8777-777777777772', '11111111-1111-4111-8111-111111111111', '66666666-6666-4666-8666-666666666661', '55555555-5555-4555-8555-555555555552', 2, 'Revenue credit', 0.0000, 100.0000, 'SAR', 1.00000000, NOW());
 
-INSERT INTO "SalesInvoice" (id, "organizationId", "invoiceNumber", "customerId", "issueDate", currency, status, "taxMode", subtotal, "taxableTotal", "taxTotal", total, "balanceDue", "createdById", "createdAt", "updatedAt") VALUES
-  ('88888888-8888-4888-8888-888888888881', '11111111-1111-4111-8111-111111111111', 'DR-SI-0001', '44444444-4444-4444-8444-444444444441', DATE '2026-07-08', 'SAR', 'DRAFT', 'TAX_EXCLUSIVE', 100.0000, 100.0000, 0.0000, 100.0000, 100.0000, '33333333-3333-4333-8333-333333333333', NOW(), NOW());
+INSERT INTO "SalesInvoice" (id, "organizationId", "invoiceNumber", "customerId", "issueDate", currency, "baseCurrency", "exchangeRate", "rateDate", "rateSource", status, "taxMode", subtotal, "taxableTotal", "taxTotal", total, "balanceDue", "createdById", "createdAt", "updatedAt") VALUES
+  ('88888888-8888-4888-8888-888888888881', '11111111-1111-4111-8111-111111111111', 'DR-SI-0001', '44444444-4444-4444-8444-444444444441', DATE '2026-07-08', 'SAR', 'SAR', 1.00000000, DATE '2026-07-08', 'SYSTEM_RATE_1', 'DRAFT', 'TAX_EXCLUSIVE', 100.0000, 100.0000, 0.0000, 100.0000, 100.0000, '33333333-3333-4333-8333-333333333333', NOW(), NOW());
 
 INSERT INTO "SalesInvoiceLine" (id, "organizationId", "invoiceId", description, "accountId", quantity, "unitPrice", "lineGrossAmount", "taxableAmount", "lineSubtotal", "lineTotal", "createdAt", "updatedAt") VALUES
   ('99999999-9999-4999-8999-999999999991', '11111111-1111-4111-8111-111111111111', '88888888-8888-4888-8888-888888888881', 'Local DR service line', '55555555-5555-4555-8555-555555555552', 1.0000, 100.0000, 100.0000, 100.0000, 100.0000, 100.0000, NOW(), NOW());
 
-INSERT INTO "PurchaseBill" (id, "organizationId", "billNumber", "supplierId", "billDate", currency, status, subtotal, "taxableTotal", "taxTotal", total, "balanceDue", "createdById", "createdAt", "updatedAt") VALUES
-  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1', '11111111-1111-4111-8111-111111111111', 'DR-PB-0001', '44444444-4444-4444-8444-444444444442', DATE '2026-07-08', 'SAR', 'DRAFT', 50.0000, 50.0000, 0.0000, 50.0000, 50.0000, '33333333-3333-4333-8333-333333333333', NOW(), NOW());
+INSERT INTO "PurchaseBill" (id, "organizationId", "billNumber", "supplierId", "billDate", currency, "baseCurrency", "exchangeRate", "rateDate", "rateSource", status, subtotal, "taxableTotal", "taxTotal", total, "balanceDue", "createdById", "createdAt", "updatedAt") VALUES
+  ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1', '11111111-1111-4111-8111-111111111111', 'DR-PB-0001', '44444444-4444-4444-8444-444444444442', DATE '2026-07-08', 'SAR', 'SAR', 1.00000000, DATE '2026-07-08', 'SYSTEM_RATE_1', 'DRAFT', 50.0000, 50.0000, 0.0000, 50.0000, 50.0000, '33333333-3333-4333-8333-333333333333', NOW(), NOW());
 
 INSERT INTO "PurchaseBillLine" (id, "organizationId", "billId", description, "accountId", quantity, "unitPrice", "lineGrossAmount", "taxableAmount", "lineTotal", "createdAt", "updatedAt") VALUES
   ('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2', '11111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1', 'Local DR expense line', '55555555-5555-4555-8555-555555555553', 1.0000, 50.0000, 50.0000, 50.0000, 50.0000, NOW(), NOW());
@@ -517,6 +537,9 @@ INSERT INTO "AuditLog" (id, "organizationId", "actorUserId", action, "entityType
 INSERT INTO "GeneratedDocument" (id, "organizationId", "documentType", "sourceType", "sourceId", "documentNumber", filename, "mimeType", "storageProvider", "contentHash", "sizeBytes", status, "requestId", "generatedById", "generatedAt", "createdAt") VALUES
   ('cccccccc-cccc-4ccc-8ccc-ccccccccccc1', '11111111-1111-4111-8111-111111111111', 'SALES_INVOICE', 'SalesInvoice', '88888888-8888-4888-8888-888888888881', 'DR-SI-0001', 'dr-local-invoice.pdf', 'application/pdf', 'database', 'sha256-local-drill-placeholder-1', 0, 'GENERATED', NULL, '33333333-3333-4333-8333-333333333333', NOW(), NOW()),
   ('cccccccc-cccc-4ccc-8ccc-ccccccccccc2', '11111111-1111-4111-8111-111111111111', 'PURCHASE_BILL', 'PurchaseBill', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1', 'DR-PB-0001', 'dr-local-bill.pdf', 'application/pdf', 'database', 'sha256-local-drill-placeholder-2', 0, 'GENERATED', 'req_local_drill_002', '33333333-3333-4333-8333-333333333333', NOW(), NOW());
+
+INSERT INTO "EmailOutbox" (id, "organizationId", "toEmail", "fromEmail", subject, "templateType", "bodyText", status, provider, "generatedDocumentId", "salesInvoiceId", "requestedById", "idempotencyKeyHash", "requestHash", "sourceType", "sourceId", "sourceNumber", "documentType", "attachmentFilename", "attachmentMimeType", "attachmentSizeBytes", "attachmentContentHash", "createdAt", "updatedAt") VALUES
+  ('cdcdcdcd-cdcd-4dcd-8dcd-cdcdcdcdcdc1', '11111111-1111-4111-8111-111111111111', 'recipient@example.invalid', 'sender@example.invalid', 'Local DR invoice', 'SALES_INVOICE', 'Synthetic local drill delivery.', 'QUEUED', 'mock', 'cccccccc-cccc-4ccc-8ccc-ccccccccccc1', '88888888-8888-4888-8888-888888888881', '33333333-3333-4333-8333-333333333333', 'local-drill-idempotency', 'local-drill-request-hash', 'SalesInvoice', '88888888-8888-4888-8888-888888888881', 'DR-SI-0001', 'SALES_INVOICE', 'dr-local-invoice.pdf', 'application/pdf', 0, 'sha256-local-drill-placeholder-1', NOW(), NOW());
 
 INSERT INTO "Attachment" (id, "organizationId", "linkedEntityType", "linkedEntityId", filename, "originalFilename", "mimeType", "sizeBytes", "storageProvider", "contentHash", status, "uploadedById", "uploadedAt", "createdAt", "updatedAt") VALUES
   ('dddddddd-dddd-4ddd-8ddd-ddddddddddd1', '11111111-1111-4111-8111-111111111111', 'PURCHASE_BILL', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1', 'dr-local-receipt.pdf', 'dr-local-receipt.pdf', 'application/pdf', 0, 'DATABASE', 'sha256-local-drill-attachment', 'ACTIVE', '33333333-3333-4333-8333-333333333333', NOW(), NOW(), NOW());
@@ -541,6 +564,21 @@ INSERT INTO "PaymentProviderEvent" (id, "organizationId", provider, status, "eve
 
 INSERT INTO "InvoicePaymentLink" (id, "organizationId", "salesInvoiceId", provider, status, "paymentUrl", "externalReference", "redactedMetadataJson", "createdById", "createdAt", "updatedAt") VALUES
   ('15151515-1515-4151-8151-151515151511', '11111111-1111-4111-8111-111111111111', '88888888-8888-4888-8888-888888888881', 'NONE', 'BLOCKED_PROVIDER_DISABLED', NULL, 'local-drill-payment-link', '{"redacted":true}'::jsonb, '33333333-3333-4333-8333-333333333333', NOW(), NOW());
+
+INSERT INTO "EventOutboxItem" (id, "organizationId", "eventType", "aggregateType", "aggregateId", status, "safePayloadSummary", "requestId", "createdAt", "updatedAt") VALUES
+  ('16161616-1616-4161-8161-161616161611', '11111111-1111-4111-8111-111111111111', 'sales.invoice.created', 'SalesInvoice', '88888888-8888-4888-8888-888888888881', 'PENDING', '{"synthetic":true}'::jsonb, 'req_local_drill_006', NOW(), NOW());
+
+INSERT INTO "FixedAssetCategory" (id, "organizationId", code, name, "assetCostAccountId", "accumulatedDepreciationAccountId", "depreciationExpenseAccountId", "disposalGainAccountId", "disposalLossAccountId", "defaultUsefulLifeMonths", "defaultSalvageValue", "createdByUserId", "updatedByUserId", "createdAt", "updatedAt") VALUES
+  ('17171717-1717-4171-8171-171717171711', '11111111-1111-4111-8111-111111111111', 'DR-EQUIP', 'Local DR Equipment', '55555555-5555-4555-8555-555555555551', '55555555-5555-4555-8555-555555555552', '55555555-5555-4555-8555-555555555553', '55555555-5555-4555-8555-555555555552', '55555555-5555-4555-8555-555555555553', 12, 0.0000, '33333333-3333-4333-8333-333333333333', '33333333-3333-4333-8333-333333333333', NOW(), NOW());
+
+INSERT INTO "FixedAsset" (id, "organizationId", "assetNumber", "categoryId", name, status, "acquisitionSource", "acquisitionDate", "inServiceDate", "baseCurrencyCode", "transactionAcquisitionCost", "baseAcquisitionCost", "baseSalvageValue", "usefulLifeMonths", "depreciationMethod", "accumulatedDepreciation", "carryingAmount", "createdByUserId", "updatedByUserId", "createdAt", "updatedAt") VALUES
+  ('18181818-1818-4181-8181-181818181811', '11111111-1111-4111-8111-111111111111', 'DR-FA-0001', '17171717-1717-4171-8171-171717171711', 'Local DR Laptop', 'ACTIVE', 'MANUAL', DATE '2026-07-08', DATE '2026-07-08', 'SAR', 1200.0000, 1200.0000, 0.0000, 12, 'STRAIGHT_LINE', 100.0000, 1100.0000, '33333333-3333-4333-8333-333333333333', '33333333-3333-4333-8333-333333333333', NOW(), NOW());
+
+INSERT INTO "RecurringTransactionTemplate" (id, "organizationId", "transactionType", "templateCode", name, status, timezone, frequency, interval, "startDate", "nextRunAt", "catchUpPolicy", "generationMode", "templateVersion", "currencyCode", "exchangeRatePolicy", "partyId", "paidThroughAccountId", subtotal, "discountTotal", "taxableTotal", "taxTotal", total, "createdByUserId", "updatedByUserId", "createdAt", "updatedAt") VALUES
+  ('19191919-1919-4191-8191-191919191911', '11111111-1111-4111-8111-111111111111', 'SALES_INVOICE', 'DR-REC-0001', 'Local DR recurring invoice', 'ACTIVE', 'Asia/Riyadh', 'MONTHLY', 1, DATE '2026-07-01', NOW(), 'SKIP_MISSED', 'DRAFT_ONLY', 1, 'SAR', 'BASE_CURRENCY_ONLY', '44444444-4444-4444-8444-444444444441', '55555555-5555-4555-8555-555555555551', 100.0000, 0.0000, 100.0000, 0.0000, 100.0000, '33333333-3333-4333-8333-333333333333', '33333333-3333-4333-8333-333333333333', NOW(), NOW());
+
+INSERT INTO "RecurringTransactionRun" (id, "organizationId", "templateId", "templateVersion", "scheduledFor", "scheduledLocalDate", timezone, trigger, status, "idempotencyKey", "generatedSalesInvoiceId", "requestId", "sourceSnapshot", "createdAt", "updatedAt") VALUES
+  ('20202020-2020-4202-8202-202020202021', '11111111-1111-4111-8111-111111111111', '19191919-1919-4191-8191-191919191911', 1, NOW(), DATE '2026-07-08', 'Asia/Riyadh', 'MANUAL', 'GENERATED', 'local-drill-recurring-run', '88888888-8888-4888-8888-888888888881', 'req_local_drill_007', '{"synthetic":true}'::jsonb, NOW(), NOW());
 `;
 }
 
@@ -665,7 +703,6 @@ const defaultExecutor: CommandExecutor = {
     const result = spawnSync(command, args, {
       encoding: "utf8",
       env: options.env,
-      shell: process.platform === "win32",
     });
     return { status: result.status, stdout: result.stdout ?? "", stderr: result.stderr ?? "" };
   },

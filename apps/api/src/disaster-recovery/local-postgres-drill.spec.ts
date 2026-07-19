@@ -153,12 +153,42 @@ describe("local PostgreSQL disaster recovery drill", () => {
     expect(checks.find((check) => check.id === "tenant-scope-no-cross-org-journal-lines")).toMatchObject({
       expected: "true",
     });
+    expect(checks.map((check) => check.id)).toEqual(
+      expect.arrayContaining([
+        "membership-table",
+        "email-outbox-table",
+        "event-outbox-table",
+        "fixed-asset-table",
+        "recurring-template-table",
+        "recurring-run-table",
+        "core-schema",
+        "journal-money-integrity",
+        "sales-document-money-integrity",
+        "generated-document-hash",
+        "fixed-asset-carrying-amount",
+        "recurring-run-relationship",
+      ]),
+    );
   });
 
   it("seeds production-shaped local data for requestId-bearing model verification", () => {
     const seedSql = buildLocalDrillSeedSql();
 
-    for (const table of ["AuditLog", "GeneratedDocument", "DocumentExtractionResult", "DocumentReviewDecision", "PaymentProviderEvent", "InvoicePaymentLink"]) {
+    for (const table of [
+      "AuditLog",
+      "GeneratedDocument",
+      "DocumentExtractionResult",
+      "DocumentReviewDecision",
+      "PaymentProviderEvent",
+      "InvoicePaymentLink",
+      "OrganizationMember",
+      "EmailOutbox",
+      "EventOutboxItem",
+      "FixedAssetCategory",
+      "FixedAsset",
+      "RecurringTransactionTemplate",
+      "RecurringTransactionRun",
+    ]) {
       expect(seedSql).toContain(`"${table}"`);
     }
     expect(seedSql).toContain("req_local_drill_");
