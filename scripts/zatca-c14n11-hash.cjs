@@ -11,6 +11,10 @@ class DisabledZatcaC14n11HashProvider {
   computeHash(_xml) {
     return { status: "SKIPPED_EXTERNAL_ORACLE", hash: null, safeErrorCodes: ["C14N11_HELPER_NOT_CONFIGURED"], xmlBodyPrinted: false, networkCallsMade: false };
   }
+
+  canonicalize(_xml) {
+    return { status: "SKIPPED_EXTERNAL_ORACLE", canonicalBytes: null, safeErrorCodes: ["C14N11_HELPER_NOT_CONFIGURED"], xmlBodyPrinted: false, networkCallsMade: false };
+  }
 }
 
 class LocalJavaZatcaC14n11HashProvider {
@@ -36,9 +40,24 @@ class LocalJavaZatcaC14n11HashProvider {
     const hash = String(result.stdout || "").trim();
     if (result.status !== 0 || !/^[A-Za-z0-9+/]{43}=$/.test(hash)) return failed("C14N11_HASH_FAILED");
     return { status: "PASSED", hash, safeErrorCodes: [], xmlBodyPrinted: false, networkCallsMade: false, canonicalization: "C14N11_OMIT_COMMENTS" };
-  } finally {
-    fs.rmSync(temp, { recursive: true, force: true });
+    } finally {
+      fs.rmSync(temp, { recursive: true, force: true });
+    }
   }
+
+  canonicalize(xml) {
+    const { javaBin, jar, helper, spawn } = this;
+    const temp = fs.mkdtempSync(path.join(os.tmpdir(), "ledgerbyte-zatca-c14n11-"));
+    try {
+      const compile = spawn(javaBin.replace(/java(?:\.exe)?$/i, process.platform === "win32" ? "javac.exe" : "javac"), ["-cp", jar, "-d", temp, helper], { encoding: "utf8", windowsHide: true, timeout: 30000 });
+      if (compile.status !== 0) return { status: "FAILED", canonicalBytes: null, safeErrorCodes: ["C14N11_HELPER_COMPILE_FAILED"], xmlBodyPrinted: false, networkCallsMade: false };
+      const result = spawn(javaBin, ["-cp", `${temp}${path.delimiter}${jar}`, "ZatcaC14n11Helper", "--canonicalize-stdin"], { input: xml, encoding: "utf8", windowsHide: true, timeout: 30000, maxBuffer: 1024 * 1024 });
+      const output = String(result.stdout || "").trim();
+      if (result.status !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(output)) return { status: "FAILED", canonicalBytes: null, safeErrorCodes: ["C14N11_CANONICALIZATION_FAILED"], xmlBodyPrinted: false, networkCallsMade: false };
+      return { status: "PASSED", canonicalBytes: Buffer.from(output, "base64"), safeErrorCodes: [], xmlBodyPrinted: false, networkCallsMade: false, canonicalization: "C14N11_OMIT_COMMENTS" };
+    } finally {
+      fs.rmSync(temp, { recursive: true, force: true });
+    }
   }
 }
 
@@ -55,6 +74,10 @@ function createZatcaC14n11HashProvider({ cwd = process.cwd(), env = process.env,
 
 function computeZatcaC14n11Hash({ xml, cwd = process.cwd(), env = process.env, spawn = spawnSync }) {
   return createZatcaC14n11HashProvider({ cwd, env, spawn }).computeHash(xml);
+}
+
+function canonicalizeZatcaXmlC14n11({ xml, cwd = process.cwd(), env = process.env, spawn = spawnSync }) {
+  return createZatcaC14n11HashProvider({ cwd, env, spawn }).canonicalize(xml);
 }
 
 function failed(code) {
@@ -82,6 +105,7 @@ function compareWithOfficialSdkHash({ xml, cwd = process.cwd(), env = process.en
 module.exports = {
   compareWithOfficialSdkHash,
   computeZatcaC14n11Hash,
+  canonicalizeZatcaXmlC14n11,
   createZatcaC14n11HashProvider,
   DisabledZatcaC14n11HashProvider,
   LocalJavaZatcaC14n11HashProvider,

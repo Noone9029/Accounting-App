@@ -24,14 +24,18 @@ final class ZatcaC14n11Helper {
   private ZatcaC14n11Helper() {}
 
   public static void main(String[] args) throws Exception {
-    if (args.length != 1 || !"--hash-stdin".equals(args[0])) {
-      throw new IllegalArgumentException("Usage: ZatcaC14n11Helper --hash-stdin");
+    if (args.length != 1 || !("--hash-stdin".equals(args[0]) || "--canonicalize-stdin".equals(args[0]))) {
+      throw new IllegalArgumentException("Usage: ZatcaC14n11Helper --hash-stdin|--canonicalize-stdin");
     }
     byte[] xml = readAll();
     Document document = parseSecurely(xml);
-    removeExcludedNodes(document);
     Init.init();
     Canonicalizer canonicalizer = Canonicalizer.getInstance(Canonicalizer.ALGO_ID_C14N11_OMIT_COMMENTS);
+    if ("--canonicalize-stdin".equals(args[0])) {
+      System.out.print(Base64.getEncoder().encodeToString(canonicalizer.canonicalizeSubtree(document)));
+      return;
+    }
+    removeExcludedNodes(document);
     byte[] canonical = canonicalizer.canonicalizeSubtree(document);
     byte[] digest = MessageDigest.getInstance("SHA-256").digest(canonical);
     System.out.print(Base64.getEncoder().encodeToString(digest));

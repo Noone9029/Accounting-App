@@ -1,8 +1,9 @@
 const assert = require("node:assert/strict");
+const { createHash } = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
-const { compareWithOfficialSdkHash, computeZatcaC14n11Hash, createZatcaC14n11HashProvider } = require("./zatca-c14n11-hash.cjs");
+const { compareWithOfficialSdkHash, computeZatcaC14n11Hash, createZatcaC14n11HashProvider, canonicalizeZatcaXmlC14n11 } = require("./zatca-c14n11-hash.cjs");
 
 test("skips without configured external SDK/JDK and never exposes XML", () => {
   const result = computeZatcaC14n11Hash({ xml: "<Invoice>secret</Invoice>", env: {}, cwd: path.resolve(__dirname, "..") });
@@ -17,6 +18,13 @@ test("defaults to a disabled C14N11 provider when the external helper is not con
 
   assert.equal(provider.kind, "DISABLED");
   assert.equal(result.status, "SKIPPED_EXTERNAL_ORACLE");
+  assert.equal(JSON.stringify(result).includes("secret"), false);
+});
+
+test("does not expose canonical XML when the external C14N11 helper is unavailable", () => {
+  const result = canonicalizeZatcaXmlC14n11({ xml: "<Invoice>secret</Invoice>", env: {}, cwd: path.resolve(__dirname, "..") });
+  assert.equal(result.status, "SKIPPED_EXTERNAL_ORACLE");
+  assert.equal(result.canonicalBytes, null);
   assert.equal(JSON.stringify(result).includes("secret"), false);
 });
 
@@ -51,6 +59,23 @@ test("computes a C14N 1.1 digest through the local helper without XML output", (
   assert.equal(result.status, "PASSED");
   assert.match(result.hash, /^[A-Za-z0-9+/]{43}=$/);
   assert.equal(result.xmlBodyPrinted, false);
+});
+
+test("returns C14N 1.1 bytes only in memory for signing callers", (t) => {
+  const root = path.resolve(__dirname, "..");
+  if (!process.env.ZATCA_SDK_ROOT || !process.env.ZATCA_SDK_JAVA_BIN) {
+    t.skip("external SDK/JDK are not configured");
+    return;
+  }
+  const xml = '<SignedInfo xmlns="http://www.w3.org/2000/09/xmldsig#"><Reference URI=""/></SignedInfo>';
+  const canonical = canonicalizeZatcaXmlC14n11({ xml, cwd: root, env: process.env });
+  const hash = computeZatcaC14n11Hash({ xml, cwd: root, env: process.env });
+
+  assert.equal(canonical.status, "PASSED");
+  assert.ok(Buffer.isBuffer(canonical.canonicalBytes));
+  assert.ok(canonical.canonicalBytes.length > 0);
+  assert.equal(createHash("sha256").update(canonical.canonicalBytes).digest("base64"), hash.hash);
+  assert.equal(canonical.xmlBodyPrinted, false);
 });
 
 test("changes the canonical hash for required invoice mutations but not line-ending-only formatting", (t) => {
