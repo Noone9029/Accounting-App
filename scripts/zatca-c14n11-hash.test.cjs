@@ -52,3 +52,33 @@ test("computes a C14N 1.1 digest through the local helper without XML output", (
   assert.match(result.hash, /^[A-Za-z0-9+/]{43}=$/);
   assert.equal(result.xmlBodyPrinted, false);
 });
+
+test("changes the canonical hash for required invoice mutations but not line-ending-only formatting", (t) => {
+  const root = path.resolve(__dirname, "..");
+  if (!process.env.ZATCA_SDK_ROOT || !process.env.ZATCA_SDK_JAVA_BIN) {
+    t.skip("external SDK/JDK are not configured");
+    return;
+  }
+  const xml = fs.readFileSync(path.join(root, "packages", "zatca-core", "fixtures", "ledgerbyte-generated-standard-invoice.expected.xml"), "utf8");
+  const original = computeZatcaC14n11Hash({ xml, cwd: root, env: process.env });
+  assert.equal(original.status, "PASSED");
+  const mutations = {
+    monetaryValue: xml.replace('>115.00</cbc:TaxInclusiveAmount>', '>116.00</cbc:TaxInclusiveAmount>'),
+    invoiceUuid: xml.replace('22222222-2222-4222-8222-222222222222', '33333333-3333-4333-8333-333333333333'),
+    invoiceCounterValue: xml.replace('<cbc:UUID>1001</cbc:UUID>', '<cbc:UUID>1002</cbc:UUID>'),
+    previousInvoiceHash: xml.replace('NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ==', 'QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE='),
+    invoiceLine: xml.replace('VAT 15%', 'VAT 15 percent'),
+    sellerIdentifier: xml.replace('399999999900003', '399999999900004'),
+  };
+  for (const [name, mutatedXml] of Object.entries(mutations)) {
+    const result = computeZatcaC14n11Hash({ xml: mutatedXml, cwd: root, env: process.env });
+    assert.equal(result.status, "PASSED", name);
+    assert.notEqual(result.hash, original.hash, name);
+  }
+  const lfFormattedXml = xml.replace(/\r\n/g, "\n");
+  const lfFormatted = computeZatcaC14n11Hash({ xml: lfFormattedXml, cwd: root, env: process.env });
+  const formatted = computeZatcaC14n11Hash({ xml: lfFormattedXml.replace(/\n/g, "\r\n"), cwd: root, env: process.env });
+  assert.equal(lfFormatted.status, "PASSED");
+  assert.equal(formatted.status, "PASSED");
+  assert.equal(formatted.hash, lfFormatted.hash);
+});
