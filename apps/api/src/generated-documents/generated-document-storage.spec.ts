@@ -1,9 +1,11 @@
-import { NotFoundException } from "@nestjs/common";
+import { ConflictException, NotFoundException } from "@nestjs/common";
 import {
   createGeneratedDocumentStorageAdapter,
   DatabaseGeneratedDocumentStorageAdapter,
   DisabledGeneratedDocumentObjectStorageAdapter,
   FakeLocalGeneratedDocumentObjectStorageAdapter,
+  GeneratedDocumentStorageAdapterRouter,
+  S3GeneratedDocumentStorageAdapter,
 } from "./generated-document-storage";
 
 describe("generated document storage adapters", () => {
@@ -268,4 +270,106 @@ describe("generated document storage adapters", () => {
       "Unsupported generated-document storage adapter mode: hosted-s3",
     );
   });
+
+  it("keeps S3 objects immutable while allowing deterministic duplicate writes", async () => {
+    const objects = new Map<string, { buffer: Buffer; metadata: Record<string, string> }>();
+    const send = jest.fn(async (command: { constructor: { name: string }; input: { Key: string; Body?: Buffer; Metadata?: Record<string, string> } }) => {
+      if (command.constructor.name === "HeadObjectCommand") {
+        const stored = objects.get(command.input.Key);
+        if (!stored) throw { name: "NotFound" };
+        return { ContentLength: stored.buffer.byteLength, Metadata: stored.metadata };
+      }
+      if (command.constructor.name === "PutObjectCommand") {
+        objects.set(command.input.Key, { buffer: command.input.Body!, metadata: command.input.Metadata! });
+        return {};
+      }
+      throw new Error(`Unexpected command ${command.constructor.name}`);
+    });
+    const adapter = s3AdapterWithSend(send);
+    const input = {
+      organizationId: "org-1",
+      generatedDocumentId: "doc-1",
+      filename: "invoice.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.from("%PDF immutable document"),
+    };
+
+    const first = await adapter.writeGeneratedDocumentContent(input);
+    const second = await adapter.writeGeneratedDocumentContent(input);
+
+    expect(second).toEqual(first);
+    expect(send.mock.calls.filter(([command]) => command.constructor.name === "PutObjectCommand")).toHaveLength(1);
+    await expect(adapter.writeGeneratedDocumentContent({ ...input, buffer: Buffer.from("%PDF changed") })).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  it("fails closed before S3 access for wrong-tenant object metadata", async () => {
+    const send = jest.fn();
+    const adapter = s3AdapterWithSend(send);
+
+    await expect(
+      adapter.readGeneratedDocumentContent({
+        organizationId: "org-2",
+        generatedDocumentId: "doc-1",
+        storageProvider: "s3",
+        storageKey: "org/org-1/generated-documents/doc-1/invoice.pdf",
+        contentBase64: null,
+        contentHash: "hash",
+        sizeBytes: 4,
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("uses the stored provider for reads so database rollback does not strand S3 records", async () => {
+    const database = new DatabaseGeneratedDocumentStorageAdapter();
+    const s3 = {
+      getStorageBackendName: () => "s3",
+      writeGeneratedDocumentContent: jest.fn(),
+      readGeneratedDocumentContent: jest.fn().mockResolvedValue(Buffer.from("S3 archived bytes")),
+      getGeneratedDocumentReadUrl: jest.fn(),
+      verifyGeneratedDocumentContentHash: jest.fn(),
+      deriveGeneratedDocumentObjectKey: jest.fn(),
+    } as unknown as S3GeneratedDocumentStorageAdapter;
+    const router = new GeneratedDocumentStorageAdapterRouter(
+      { generatedDocumentProvider: "database" } as never,
+      database,
+      s3,
+    );
+    const databaseSaved = await database.writeGeneratedDocumentContent({
+      organizationId: "org-1",
+      generatedDocumentId: "database-doc",
+      filename: "database.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.from("database archived bytes"),
+    });
+
+    await expect(router.readGeneratedDocumentContent(databaseSaved)).resolves.toEqual(Buffer.from("database archived bytes"));
+    await expect(
+      router.readGeneratedDocumentContent({
+        organizationId: "org-1",
+        generatedDocumentId: "s3-doc",
+        storageProvider: "s3",
+        storageKey: "org/org-1/generated-documents/s3-doc/s3.pdf",
+        contentBase64: null,
+        contentHash: "hash",
+        sizeBytes: 17,
+      }),
+    ).resolves.toEqual(Buffer.from("S3 archived bytes"));
+    expect(s3.readGeneratedDocumentContent).toHaveBeenCalledTimes(1);
+  });
 });
+
+function s3AdapterWithSend(send: jest.Mock): S3GeneratedDocumentStorageAdapter {
+  const config = {
+    s3BlockingReasons: () => [],
+    s3Bucket: "synthetic-bucket",
+    s3Endpoint: "http://127.0.0.1:9001",
+    s3Region: "us-east-1",
+    s3ForcePathStyle: true,
+    s3AccessKeyId: "synthetic-access-key",
+    s3SecretAccessKey: "synthetic-secret-key",
+  };
+  const adapter = new S3GeneratedDocumentStorageAdapter(config as never);
+  (adapter as unknown as { client: { send: jest.Mock } }).client = { send };
+  return adapter;
+}
