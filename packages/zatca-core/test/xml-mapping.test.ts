@@ -225,6 +225,12 @@ describe("ZATCA XML mapping scaffold", () => {
     assert.ok(result.warnings.some((warning) => warning.includes("No XML was transformed")));
   });
 
+  it("does not emit placeholder comments into conformance XML", () => {
+    const xml = buildZatcaInvoiceXml(readFixtureInput("ledgerbyte-generated-standard-invoice"));
+
+    assert.doesNotMatch(xml, /<!--|TODO:|foundation skeleton/i);
+  });
+
   it("blocks local official invoice hash computation until SDK C14N11 hash output is used", () => {
     const result = computeZatcaInvoiceHash(buildZatcaInvoiceXml(readFixtureInput("local-standard-tax-invoice")));
 

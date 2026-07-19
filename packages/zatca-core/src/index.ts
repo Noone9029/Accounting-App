@@ -193,11 +193,7 @@ export function buildZatcaInvoiceXml(input: ZatcaInvoiceInput): string {
 }
 
 export function buildZatcaExtensionPlaceholdersXml(): string {
-  return [
-    "  <!-- LedgerByte local ZATCA foundation skeleton. UBL child order now follows official SDK samples for unsigned XML fields. -->",
-    "  <!-- TODO: ZATCA extension fields need official implementation. -->",
-    "  <!-- TODO: signature block pending; canonicalization pending; invoice hash canonical source pending; PDF/A-3 embedding pending. -->",
-  ].join("\n");
+  return "";
 }
 
 export function buildInvoiceHeaderXml(input: ZatcaInvoiceInput): string {
