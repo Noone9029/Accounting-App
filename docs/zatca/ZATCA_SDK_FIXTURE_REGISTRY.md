@@ -22,7 +22,6 @@ LedgerByte is controlled beta/user-testing only. This registry supports local/no
 | `ledgerbyte-standard-invoice` | `packages/zatca-core/fixtures/local-standard-tax-invoice.expected.xml` | Local deterministic XML fixture | Standard | Invoice | `OFFICIAL_SDK_VALIDATE_NO_NETWORK` | Pass, fail, or safe SDK warning from local validation | LedgerByte-generated fixture | Demo/local fixture data only | Forbidden |
 | `ledgerbyte-credit-note` | `packages/zatca-core/fixtures/ledgerbyte-generated-credit-note.expected.xml` | Local deterministic XML fixture | Standard | Credit note | `OFFICIAL_SDK_VALIDATE_NO_NETWORK` | Pass under Java 11-14 local SDK validation; safe blocker under unsupported Java | LedgerByte-generated fixture | Demo/local fixture data only | Forbidden |
 | `ledgerbyte-generated-standard-invoice` | `packages/zatca-core/fixtures/ledgerbyte-generated-standard-invoice.expected.xml` | Local deterministic XML fixture | Standard | Invoice | `OFFICIAL_SDK_VALIDATE_NO_NETWORK` | Pass under Java 11-14 local SDK validation; safe blocker under unsupported Java | LedgerByte-generated fixture | Demo/local fixture data only | Forbidden |
-| `ledgerbyte-generated-credit-note` | `packages/zatca-core/fixtures/ledgerbyte-generated-credit-note.expected.xml` | Local deterministic XML fixture | Standard | Credit note | `OFFICIAL_SDK_VALIDATE_NO_NETWORK` | Pass under Java 11-14 local SDK validation; safe blocker under unsupported Java | LedgerByte-generated fixture | Demo/local fixture data only | Forbidden |
 
 ## 2026-06-06 Generated LedgerByte Fixture Entries
 
@@ -56,7 +55,7 @@ LedgerByte is controlled beta/user-testing only. This registry supports local/no
 ## Aliases
 
 - `ledgerbyte-local-standard-invoice` maps to `ledgerbyte-standard-invoice`.
-- `ledgerbyte-local-credit-note` maps to `ledgerbyte-credit-note`.
+- `ledgerbyte-local-credit-note`, `ledgerbyte-generated-credit-note`, and `ledgerbyte-local-generated-credit-note` map to `ledgerbyte-credit-note`; aliases are excluded from aggregate validation counts.
 
 ## Current Command Coverage
 

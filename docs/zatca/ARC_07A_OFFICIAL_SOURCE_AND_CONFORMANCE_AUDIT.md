@@ -32,9 +32,9 @@ After the owner authorized local-only acceptance of the official SDK terms, the 
 node scripts/zatca-sdk-validate-local.cjs --all --no-network --json --out docs/zatca/evidence/official-sdk-local-validation-20260720.json
 ```
 
-The metadata-only artifact records six SDK validation passes: the two official SDK samples plus four LedgerByte standard-invoice/credit-note fixtures. It records `networkCallsMade: false`, `productionComplianceEnabled: false`, and no XML, QR, private-key, token, or header output. The runner now resolves official samples from the explicitly configured SDK root rather than assuming that ignored material exists in a clean worktree.
+The refreshed metadata-only artifact records five unique SDK validation artifacts: two official SDK samples and three LedgerByte-generated fixtures. Historical `ledgerbyte-generated-credit-note` is an alias of `ledgerbyte-credit-note` and is excluded from aggregates. Evidence reports registered/unique/official/LedgerByte-generated/valid/invalid counts, `networkCallsMade: false`, `productionComplianceEnabled: false`, and no XML, QR, private-key, token, or header output. The runner now resolves official samples from the explicitly configured SDK root rather than assuming that ignored material exists in a clean worktree.
 
-This is local unsigned XML validation only. The CI readiness guard correctly remains `CI_BLOCKED_MISSING_SDK_REFERENCE` for a fresh checkout because no reproducible licensed SDK acquisition policy exists. The result does not prove canonicalization/hash parity, signed XML, Phase 2 QR, PIH/ICV chain progression, sandbox acceptance, or production compliance.
+This is local unsigned XML validation only. LedgerByte cryptographic signing, LedgerByte Phase 2 QR generation, and LedgerByte C14N 1.1/invoice-hash parity have not been proven. Any SDK-generated signing evidence is not LedgerByte-owned signing evidence, and SDK validation is not ZATCA approval. The CI readiness guard correctly remains `CI_BLOCKED_MISSING_SDK_REFERENCE` for a fresh checkout because no reproducible licensed SDK acquisition policy exists.
 
 ## Key-generation safety correction
 

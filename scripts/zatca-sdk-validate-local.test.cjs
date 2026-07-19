@@ -19,8 +19,8 @@ test("parses explicit fixture and all-fixture arguments", () => {
   const all = parseArgs(["--all", "--no-network"]);
   assert.equal(all.fixtures.includes("official-standard-invoice"), true);
   assert.equal(all.fixtures.includes("ledgerbyte-generated-standard-invoice"), true);
-  assert.equal(all.fixtures.includes("ledgerbyte-generated-credit-note"), true);
   assert.equal(all.fixtures.includes("ledgerbyte-credit-note"), true);
+  assert.equal(all.fixtures.includes("ledgerbyte-generated-credit-note"), false);
 
   const withPnpmSeparator = parseArgs(["--", "--all", "--no-network"]);
   assert.equal(withPnpmSeparator.fixtures.includes("official-simplified-invoice"), true);
@@ -51,6 +51,27 @@ test("uses a configured Java 11-14 binary path without changing global Java", ()
   assert.equal(evidence.runs[0].status, "PASSED");
   assert.equal(evidence.runs[0].javaVersion, "11.0.26");
   assert.equal(evidence.runs[0].networkCallsMade, false);
+});
+
+test("reports unique artifact counts and treats the historical credit-note id as an alias", () => {
+  const repo = makeRepo();
+  writeFixture(repo, "packages/zatca-core/fixtures/ledgerbyte-generated-credit-note.expected.xml", "<Invoice />");
+  writeFakeSdk(repo);
+  const evidence = runValidationSet({
+    cwd: repo,
+    parsed: parseArgs(["--fixture", "ledgerbyte-generated-credit-note", "--no-network", "--json"]),
+    spawnSync: fakeJava("11.0.26"),
+    validationRunId: "test-run",
+    timestamp: "2026-06-06T00:00:00.000Z",
+  });
+
+  assert.equal(evidence.runs[0].fixtureId, "ledgerbyte-credit-note");
+  assert.equal(evidence.summary.registeredFixtureCount, 5);
+  assert.equal(evidence.summary.uniqueXmlArtifactCount, 1);
+  assert.equal(evidence.summary.officialSampleCount, 0);
+  assert.equal(evidence.summary.ledgerbyteGeneratedUniqueFixtureCount, 1);
+  assert.equal(evidence.summary.validFixtureCount, 1);
+  assert.equal(evidence.summary.invalidFixtureCount, 0);
 });
 
 test("resolves official sample fixtures from an explicitly configured SDK root", () => {
@@ -163,7 +184,7 @@ test("generated fixture evidence stays metadata-only", () => {
   });
 
   const serialized = JSON.stringify(evidence);
-  assert.equal(evidence.runs[0].fixtureId, "ledgerbyte-generated-credit-note");
+  assert.equal(evidence.runs[0].fixtureId, "ledgerbyte-credit-note");
   assert.equal(evidence.runs[0].status, "PASSED");
   assert.equal(evidence.runs[0].xmlBodyPrinted, false);
   assert.equal(evidence.runs[0].qrPayloadPrinted, false);
