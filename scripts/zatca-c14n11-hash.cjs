@@ -30,4 +30,22 @@ function failed(code) {
   return { status: "FAILED", hash: null, safeErrorCodes: [code], xmlBodyPrinted: false, networkCallsMade: false };
 }
 
-module.exports = { computeZatcaC14n11Hash };
+function compareWithOfficialSdkHash({ xml, cwd = process.cwd(), env = process.env, spawn = spawnSync }) {
+  const ledgerByte = computeZatcaC14n11Hash({ xml, cwd, env, spawn });
+  if (ledgerByte.status !== "PASSED") return { ...ledgerByte, sdkHash: null, hashesEqual: false };
+  const sdkRoot = path.resolve(env.ZATCA_SDK_ROOT);
+  const javaBin = path.resolve(env.ZATCA_SDK_JAVA_BIN);
+  const jar = path.join(sdkRoot, "Apps", "zatca-einvoicing-sdk-238-R3.4.8.jar");
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "ledgerbyte-zatca-sdk-hash-"));
+  try {
+    const invoice = path.join(temp, "invoice.xml");
+    fs.writeFileSync(invoice, xml, "utf8");
+    const result = spawn(javaBin, ["-jar", jar, "-generateHash", "-invoice", invoice], { encoding: "utf8", windowsHide: true, timeout: 60000, maxBuffer: 1024 * 1024 });
+    const sdkHash = (String(result.stdout || "") + "\n" + String(result.stderr || "")).match(/(?<![A-Za-z0-9+/])[A-Za-z0-9+/]{43}=(?![A-Za-z0-9+/])/g)?.[0] || null;
+    return { ...ledgerByte, sdkHash, hashesEqual: Boolean(sdkHash && sdkHash === ledgerByte.hash), status: sdkHash && sdkHash === ledgerByte.hash ? "PASSED" : "FAILED", safeErrorCodes: sdkHash ? [] : ["SDK_HASH_NOT_FOUND"] };
+  } finally {
+    fs.rmSync(temp, { recursive: true, force: true });
+  }
+}
+
+module.exports = { compareWithOfficialSdkHash, computeZatcaC14n11Hash };
