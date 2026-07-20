@@ -15,6 +15,10 @@ class DisabledZatcaC14n11HashProvider {
   canonicalize(_xml) {
     return { status: "SKIPPED_EXTERNAL_ORACLE", canonicalBytes: null, safeErrorCodes: ["C14N11_HELPER_NOT_CONFIGURED"], xmlBodyPrinted: false, networkCallsMade: false };
   }
+
+  verifySignedArtifact(_xml) {
+    return verificationFailure("UNSUPPORTED_ALGORITHM", "C14N11_HELPER_NOT_CONFIGURED");
+  }
 }
 
 class LocalJavaZatcaC14n11HashProvider {
@@ -59,6 +63,20 @@ class LocalJavaZatcaC14n11HashProvider {
       fs.rmSync(temp, { recursive: true, force: true });
     }
   }
+
+  verifySignedArtifact(xml) {
+    const { javaBin, jar, helper, spawn } = this;
+    const temp = fs.mkdtempSync(path.join(os.tmpdir(), "ledgerbyte-zatca-verify-"));
+    try {
+      const compile = spawn(javaBin.replace(/java(?:\.exe)?$/i, process.platform === "win32" ? "javac.exe" : "javac"), ["-cp", jar, "-d", temp, helper], { encoding: "utf8", windowsHide: true, timeout: 30000 });
+      if (compile.status !== 0) return verificationFailure("UNSUPPORTED_ALGORITHM", "C14N11_HELPER_COMPILE_FAILED");
+      const result = spawn(javaBin, ["-cp", `${temp}${path.delimiter}${jar}`, "ZatcaC14n11Helper", "--verify-signed-stdin"], { input: xml, encoding: "utf8", windowsHide: true, timeout: 30000, maxBuffer: 1024 * 1024 });
+      if (result.status !== 0) return verificationFailure("MALFORMED_XML", "SIGNED_ARTIFACT_VERIFIER_EXEC_FAILED");
+      return parseVerificationResult(String(result.stdout || "").trim());
+    } finally {
+      fs.rmSync(temp, { recursive: true, force: true });
+    }
+  }
 }
 
 function createZatcaC14n11HashProvider({ cwd = process.cwd(), env = process.env, spawn = spawnSync } = {}) {
@@ -78,6 +96,26 @@ function computeZatcaC14n11Hash({ xml, cwd = process.cwd(), env = process.env, s
 
 function canonicalizeZatcaXmlC14n11({ xml, cwd = process.cwd(), env = process.env, spawn = spawnSync }) {
   return createZatcaC14n11HashProvider({ cwd, env, spawn }).canonicalize(xml);
+}
+
+function verifyZatcaSignedArtifactLocally({ xml, cwd = process.cwd(), env = process.env, spawn = spawnSync }) {
+  return createZatcaC14n11HashProvider({ cwd, env, spawn }).verifySignedArtifact(xml);
+}
+
+function verificationFailure(status, code) {
+  return { valid: false, status, safeErrorCodes: [code], checks: { safeXml: false, uniqueIds: false, referencesResolved: false, documentDigestValid: false, signedPropertiesDigestValid: false, certificateDigestValid: false, signatureValid: false, qrBindingValid: false } };
+}
+
+function parseVerificationResult(output) {
+  try {
+    const parsed = JSON.parse(output);
+    const statuses = new Set(["VALID", "MALFORMED_XML", "UNSAFE_XML", "SIGNATURE_MISSING", "MULTIPLE_SIGNATURES", "DUPLICATE_ID", "REFERENCE_INVALID", "DIGEST_MISMATCH", "SIGNED_PROPERTIES_INVALID", "CERTIFICATE_INVALID", "SIGNATURE_INVALID", "QR_BINDING_INVALID", "UNSUPPORTED_ALGORITHM"]);
+    const checkNames = ["safeXml", "uniqueIds", "referencesResolved", "documentDigestValid", "signedPropertiesDigestValid", "certificateDigestValid", "signatureValid", "qrBindingValid"];
+    if (!parsed || typeof parsed.valid !== "boolean" || !statuses.has(parsed.status) || !Array.isArray(parsed.safeErrorCodes) || !parsed.safeErrorCodes.every((code) => typeof code === "string" && /^[A-Z0-9_]{1,96}$/.test(code)) || !parsed.checks || !checkNames.every((name) => typeof parsed.checks[name] === "boolean")) throw new Error("invalid result");
+    return { valid: parsed.valid, status: parsed.status, safeErrorCodes: [...new Set(parsed.safeErrorCodes)].sort(), checks: Object.fromEntries(checkNames.map((name) => [name, parsed.checks[name]])) };
+  } catch {
+    return verificationFailure("MALFORMED_XML", "SIGNED_ARTIFACT_VERIFIER_OUTPUT_INVALID");
+  }
 }
 
 function failed(code) {
@@ -106,6 +144,7 @@ module.exports = {
   compareWithOfficialSdkHash,
   computeZatcaC14n11Hash,
   canonicalizeZatcaXmlC14n11,
+  verifyZatcaSignedArtifactLocally,
   createZatcaC14n11HashProvider,
   DisabledZatcaC14n11HashProvider,
   LocalJavaZatcaC14n11HashProvider,
