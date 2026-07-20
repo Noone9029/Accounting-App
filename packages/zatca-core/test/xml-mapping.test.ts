@@ -311,6 +311,14 @@ describe("ZATCA XML mapping scaffold", () => {
     assert.ok(result.errors.includes("Seller VAT number must be a 15-digit Saudi VAT number that starts and ends with 3."));
   });
 
+  it("local validation reports a defined failure for unsupported invoice type flags", () => {
+    const input = readFixtureInput("local-standard-tax-invoice");
+    const result = validateLocalZatcaXml({ ...input, invoiceType: "UNSUPPORTED_INVOICE_TYPE" as never });
+
+    assert.equal(result.valid, false);
+    assert.ok(result.errors.includes("Invoice type must be one of the supported ZATCA invoice types."));
+  });
+
   it("local validation rejects missing invoice lines", () => {
     const input = readFixtureInput("local-standard-tax-invoice");
     const result = validateLocalZatcaXml({ ...input, lines: [] });

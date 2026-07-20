@@ -22,6 +22,9 @@ export function validateLocalZatcaXml(input: ZatcaInvoiceInput): ZatcaLocalXmlVa
     errors.push("Seller VAT number must be a 15-digit Saudi VAT number that starts and ends with 3.");
   }
   requireText(input.issueDate instanceof Date ? input.issueDate.toISOString() : input.issueDate, "Issue date is required.", errors);
+  if (!isSupportedInvoiceType(input.invoiceType)) {
+    errors.push("Invoice type must be one of the supported ZATCA invoice types.");
+  }
 
   if (!Array.isArray(input.lines) || input.lines.length === 0) {
     errors.push("At least one invoice line is required.");
@@ -131,6 +134,10 @@ function addBuyerAddressReadinessWarnings(input: ZatcaInvoiceInput, warnings: st
 
 function isCreditOrDebitNote(invoiceType: ZatcaInvoiceInput["invoiceType"]): boolean {
   return invoiceType === "CREDIT_NOTE" || invoiceType === "DEBIT_NOTE";
+}
+
+function isSupportedInvoiceType(invoiceType: unknown): boolean {
+  return ["STANDARD_TAX_INVOICE", "SIMPLIFIED_TAX_INVOICE", "CREDIT_NOTE", "DEBIT_NOTE"].includes(String(invoiceType));
 }
 
 function requireText(value: string | null | undefined, message: string, errors: string[]): void {
