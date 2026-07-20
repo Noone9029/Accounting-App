@@ -5364,7 +5364,6 @@ export class ZatcaService {
       invoiceUuid,
       previousInvoiceHash,
       icv,
-      includeBasicQr: true,
     });
   }
 
