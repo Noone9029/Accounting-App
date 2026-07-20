@@ -19,6 +19,8 @@ import type {
  */
 export class FakeLoopbackZatcaSandboxAdapter implements ZatcaOnboardingAdapter {
   readonly calls: string[] = [];
+  /** This test seam never derives, stores, resolves, or contacts a target. */
+  readonly networkTargets: readonly string[] = [];
 
   constructor(private readonly loopbackHandler: ZatcaOnboardingAdapter) {}
 
@@ -45,5 +47,13 @@ export class FakeLoopbackZatcaSandboxAdapter implements ZatcaOnboardingAdapter {
   async submitReporting(input: ReportingInput): Promise<ZatcaAdapterResult<ZatcaReportingResponse>> {
     this.calls.push("submitReporting");
     return this.loopbackHandler.submitReporting(input);
+  }
+
+  getEvidence(): { inProcessOnly: true; externalNetworkAttempted: false; operationCount: number } {
+    return {
+      inProcessOnly: true,
+      externalNetworkAttempted: false,
+      operationCount: this.calls.length,
+    };
   }
 }

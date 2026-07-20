@@ -19,6 +19,7 @@ function makePrisma(overrides: Record<string, unknown> = {}) {
     payloadHash: "payload-hash",
     invoiceUuid: "invoice-uuid",
     invoiceType: "STANDARD_TAX_INVOICE",
+    operation: ZatcaSandboxSubmissionOperation.COMPLIANCE_DOCUMENT,
     icv: 1,
     previousInvoiceHash: "initial-hash",
     canonicalInvoiceHash: "canonical-hash",
@@ -127,5 +128,70 @@ describe("ZATCA sandbox transactional submission state", () => {
     await expect(service.reserve({ ...reserveInput, credentialReferenceId: "-----BEGIN CERTIFICATE-----" })).rejects.toMatchObject({ code: "ZATCA_SANDBOX_SENSITIVE_METADATA" });
     await expect(service.accept({ organizationId, submissionStateId: "state-id", requestHash: "request", responseCode: "response", correlationId: "correlation", warningCodes: ["<Invoice>raw body</Invoice>"] })).rejects.toMatchObject({ code: "ZATCA_SANDBOX_SENSITIVE_METADATA" });
     expect(otherOrganizationId).not.toBe(organizationId);
+  });
+
+  it("rejects every changed immutable artifact field under an existing source identity", async () => {
+    const existing = {
+      ...makePrisma().state,
+      signedArtifactHash: "signed-artifact-hash",
+      credentialReferenceId: "credential-reference",
+      signingKeyReferenceId: "signing-key-reference",
+      certificateFingerprint: "certificate-fingerprint",
+    };
+    const { prisma, tx } = makePrisma();
+    tx.zatcaSandboxSubmissionState.findFirst.mockReset().mockResolvedValue(existing);
+    const service = new ZatcaSandboxSubmissionStateService(prisma as never);
+    const exact = { ...reserveInput, signedArtifactHash: existing.signedArtifactHash, credentialReferenceId: existing.credentialReferenceId, signingKeyReferenceId: existing.signingKeyReferenceId, certificateFingerprint: existing.certificateFingerprint };
+
+    await expect(service.reserve(exact)).resolves.toMatchObject({ disposition: "REPLAY", state: { id: existing.id } });
+    for (const changed of [
+      { signedArtifactHash: "changed-signed-artifact" },
+      { canonicalInvoiceHash: "changed-canonical-hash" },
+      { invoiceUuid: "changed-invoice-uuid" },
+      { invoiceType: "SIMPLIFIED_TAX_INVOICE" as const },
+      { operation: ZatcaSandboxSubmissionOperation.CLEARANCE },
+      { credentialReferenceId: "changed-credential-reference" },
+      { signingKeyReferenceId: "changed-signing-key-reference" },
+      { certificateFingerprint: "changed-certificate-fingerprint" },
+    ]) {
+      await expect(service.reserve({ ...exact, ...changed })).rejects.toMatchObject({ code: "ZATCA_SANDBOX_IDEMPOTENCY_CONFLICT" });
+    }
+  });
+
+  it("allows an exact uncertain retry identity but blocks altered artifact identity and terminal states", async () => {
+    const { prisma, tx, state } = makePrisma();
+    tx.zatcaSandboxSubmissionState.findFirst.mockReset().mockResolvedValue({ ...state, status: ZatcaSandboxSubmissionStateStatus.UNCERTAIN });
+    const service = new ZatcaSandboxSubmissionStateService(prisma as never);
+    const retry = { organizationId, submissionStateId: state.id, sourceIdentityHash: state.sourceIdentityHash, payloadHash: state.payloadHash, canonicalInvoiceHash: state.canonicalInvoiceHash, invoiceUuid: state.invoiceUuid, invoiceType: "STANDARD_TAX_INVOICE" as const, previousInvoiceHash: state.previousInvoiceHash, operation: ZatcaSandboxSubmissionOperation.COMPLIANCE_DOCUMENT };
+
+    await expect(service.loadExactUncertainRetry(retry)).resolves.toMatchObject({ id: state.id, status: "UNCERTAIN" });
+    await expect(service.loadExactUncertainRetry({ ...retry, payloadHash: "changed" })).rejects.toMatchObject({ code: "ZATCA_SANDBOX_RETRY_IDENTITY_MISMATCH" });
+    tx.zatcaSandboxSubmissionState.findFirst.mockResolvedValue({ ...state, status: ZatcaSandboxSubmissionStateStatus.ACCEPTED });
+    await expect(service.loadExactUncertainRetry(retry)).rejects.toMatchObject({ code: "ZATCA_SANDBOX_STATE_NOT_ACCEPTABLE" });
+  });
+
+  it("allows UNCERTAIN to remain uncertain as a second bounded attempt but blocks terminal mutation", async () => {
+    const { prisma, tx, state } = makePrisma();
+    tx.zatcaSandboxSubmissionState.findFirst.mockReset().mockResolvedValue({ ...state, status: ZatcaSandboxSubmissionStateStatus.UNCERTAIN });
+    const service = new ZatcaSandboxSubmissionStateService(prisma as never);
+    await expect(service.recordUncertain({ organizationId, submissionStateId: state.id, requestHash: "retry-request", responseCode: "SIMULATED_TIMEOUT", correlationId: "retry-correlation", retryClassification: "RETRYABLE" })).resolves.toBeDefined();
+    expect(tx.zatcaSandboxSubmissionAttempt.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "UNCERTAIN" }) }));
+    tx.zatcaSandboxSubmissionState.findFirst.mockResolvedValue({ ...state, status: ZatcaSandboxSubmissionStateStatus.ACCEPTED });
+    await expect(service.recordUncertain({ organizationId, submissionStateId: state.id, requestHash: "retry-request", responseCode: "SIMULATED_TIMEOUT", correlationId: "retry-correlation-two" })).rejects.toMatchObject({ code: "ZATCA_SANDBOX_STATE_NOT_ACCEPTABLE" });
+  });
+
+  it("blocks every provider-result transition from terminal states", async () => {
+    const attempt = { organizationId, submissionStateId: "state-id", requestHash: "request", responseHash: "response", responseCode: "SIMULATED_ACCEPTED", correlationId: "correlation" };
+    const transitions = ["accept", "reject", "recordUncertain"] as const;
+    for (const status of [ZatcaSandboxSubmissionStateStatus.ACCEPTED, ZatcaSandboxSubmissionStateStatus.REJECTED]) {
+      for (const transition of transitions) {
+        const { prisma, tx, state } = makePrisma();
+        tx.zatcaSandboxSubmissionState.findFirst.mockReset().mockResolvedValue({ ...state, id: attempt.submissionStateId, status });
+        const service = new ZatcaSandboxSubmissionStateService(prisma as never);
+        await expect(service[transition](attempt)).rejects.toMatchObject({ code: "ZATCA_SANDBOX_STATE_NOT_ACCEPTABLE" });
+        expect(tx.zatcaSandboxSubmissionAttempt.create).not.toHaveBeenCalled();
+        expect(tx.zatcaSandboxSubmissionState.update).not.toHaveBeenCalled();
+      }
+    }
   });
 });
