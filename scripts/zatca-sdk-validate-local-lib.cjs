@@ -90,6 +90,17 @@ const FIXTURES = [
     expectedResult: "PASS_OR_SAFE_SDK_WARNING",
     bodyOutputForbidden: true,
   },
+  {
+    id: "ledgerbyte-multiline-invoice",
+    label: "LedgerByte Local Multiple-Line VAT Invoice Fixture",
+    source: "ledgerbyte-local",
+    fixtureType: "ledgerbyte-generated",
+    invoiceKind: "standard-invoice",
+    standardOrSimplified: "standard",
+    relativePath: "packages/zatca-core/fixtures/ledgerbyte-generated-multiline-invoice.expected.xml",
+    expectedResult: "PASS_OR_SAFE_SDK_WARNING",
+    bodyOutputForbidden: true,
+  },
 ];
 
 function parseArgs(argv) {

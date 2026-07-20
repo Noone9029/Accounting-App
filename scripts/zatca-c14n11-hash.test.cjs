@@ -41,6 +41,7 @@ test("matches the official SDK hash oracle for every current LedgerByte-generate
     "ledgerbyte-generated-debit-note.expected.xml",
     "ledgerbyte-generated-allowance-invoice.expected.xml",
     "ledgerbyte-generated-arabic-simplified-invoice.expected.xml",
+    "ledgerbyte-generated-multiline-invoice.expected.xml",
   ];
   for (const fixture of fixtures) {
     const result = compareWithOfficialSdkHash({ xml: fs.readFileSync(path.join(root, "packages", "zatca-core", "fixtures", fixture), "utf8"), cwd: root, env: process.env });

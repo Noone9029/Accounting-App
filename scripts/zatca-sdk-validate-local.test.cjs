@@ -20,6 +20,7 @@ test("parses explicit fixture and all-fixture arguments", () => {
   assert.equal(all.fixtures.includes("official-standard-invoice"), true);
   assert.equal(all.fixtures.includes("ledgerbyte-generated-standard-invoice"), true);
   assert.equal(all.fixtures.includes("ledgerbyte-credit-note"), true);
+  assert.equal(all.fixtures.includes("ledgerbyte-multiline-invoice"), true);
   assert.equal(all.fixtures.includes("ledgerbyte-generated-credit-note"), false);
 
   const withPnpmSeparator = parseArgs(["--", "--all", "--no-network"]);
@@ -66,7 +67,7 @@ test("reports unique artifact counts and treats the historical credit-note id as
   });
 
   assert.equal(evidence.runs[0].fixtureId, "ledgerbyte-credit-note");
-  assert.equal(evidence.summary.registeredFixtureCount, 7);
+  assert.equal(evidence.summary.registeredFixtureCount, 8);
   assert.equal(evidence.summary.uniqueXmlArtifactCount, 1);
   assert.equal(evidence.summary.officialSampleCount, 0);
   assert.equal(evidence.summary.ledgerbyteGeneratedUniqueFixtureCount, 1);

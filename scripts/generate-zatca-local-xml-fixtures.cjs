@@ -34,6 +34,12 @@ const FIXTURES = [
     input: "ledgerbyte-generated-arabic-simplified-invoice.input.json",
     output: "ledgerbyte-generated-arabic-simplified-invoice.expected.xml",
   },
+  {
+    id: "ledgerbyte-generated-multiline-invoice",
+    type: "standard-invoice-with-multiple-vat-lines",
+    input: "ledgerbyte-generated-multiline-invoice.input.json",
+    output: "ledgerbyte-generated-multiline-invoice.expected.xml",
+  },
 ];
 
 main();

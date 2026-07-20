@@ -24,6 +24,7 @@ LedgerByte is controlled beta/user-testing only. This registry supports local/no
 | `ledgerbyte-generated-standard-invoice` | `packages/zatca-core/fixtures/ledgerbyte-generated-standard-invoice.expected.xml` | Local deterministic XML fixture | Standard | Invoice | `OFFICIAL_SDK_VALIDATE_NO_NETWORK` | Pass under Java 11-14 local SDK validation; safe blocker under unsupported Java | LedgerByte-generated fixture | Demo/local fixture data only | Forbidden |
 | `ledgerbyte-debit-note` | `packages/zatca-core/fixtures/ledgerbyte-generated-debit-note.expected.xml` | Local deterministic XML fixture | Standard | Debit note | `OFFICIAL_SDK_VALIDATE_NO_NETWORK` | Pass or safe SDK warning from local validation | LedgerByte-generated fixture | Demo/local fixture data only | Forbidden |
 | `ledgerbyte-allowance-invoice` | `packages/zatca-core/fixtures/ledgerbyte-generated-allowance-invoice.expected.xml` | Local deterministic XML fixture | Standard | Invoice with document allowance | `OFFICIAL_SDK_VALIDATE_NO_NETWORK` | Pass or safe SDK warning from local validation | LedgerByte-generated fixture | Demo/local fixture data only | Forbidden |
+| `ledgerbyte-multiline-invoice` | `packages/zatca-core/fixtures/ledgerbyte-generated-multiline-invoice.expected.xml` | Local deterministic XML fixture | Standard | Invoice with multiple 15% VAT lines | `OFFICIAL_SDK_VALIDATE_NO_NETWORK` | Pass or safe SDK warning from local validation | LedgerByte-generated fixture | Demo/local fixture data only | Forbidden |
 | `ledgerbyte-arabic-simplified-invoice` | `packages/zatca-core/fixtures/ledgerbyte-generated-arabic-simplified-invoice.expected.xml` | Local deterministic XML fixture | Simplified | Invoice with Arabic seller, buyer, and line description | LedgerByte-signed Tier 2 validation | Unsigned SDK validation is expected to reject missing signature/QR; the temporary LedgerByte-signed QR artifact passes the offline SDK | LedgerByte-generated fixture | Demo/local fixture data only | Forbidden |
 
 ## 2026-06-06 Generated LedgerByte Fixture Entries
@@ -84,7 +85,7 @@ Current CI guard status is `CI_BLOCKED_MISSING_SDK_REFERENCE` because the local 
 
 ## 2026-07-20 Read-only configured SDK validation
 
-With a locally configured `ZATCA_SDK_ROOT`, explicit Java `11.0.26`, and `--no-network`, all five registered unique fixtures passed `fatoora -validate`. The metadata-only evidence is `docs/zatca/evidence/official-sdk-local-validation-20260720.json`. Official fixture lookup is rooted in `ZATCA_SDK_ROOT`, so this proof does not copy ignored SDK files into a worktree. This local result does not change the CI blocker or authorize signing, sandbox, clearance, reporting, or production use.
+With a locally configured `ZATCA_SDK_ROOT`, explicit Java `11.0.26`, and `--no-network`, all eight registered unique unsigned fixtures passed `fatoora -validate`: two official samples and six LedgerByte-generated fixtures. The metadata-only evidence is `docs/zatca/evidence/official-sdk-local-validation-20260720.json`. Official fixture lookup is rooted in `ZATCA_SDK_ROOT`, so this proof does not copy ignored SDK files into a worktree. This local result does not change the CI blocker or authorize signing, sandbox, clearance, reporting, or production use.
 
 The local signed XML plan guard also checks generated fixture path presence by metadata only:
 

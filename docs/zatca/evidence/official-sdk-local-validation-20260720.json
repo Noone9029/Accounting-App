@@ -1,6 +1,6 @@
 {
-  "validationRunId": "zatca-sdk-local-20260719230121-575da2c2",
-  "timestamp": "2026-07-19T23:01:21.984Z",
+  "validationRunId": "zatca-sdk-local-20260720001433-323b2cab",
+  "timestamp": "2026-07-20T00:14:33.455Z",
   "environment": "LOCAL_SDK_NO_NETWORK",
   "validationMode": "OFFICIAL_SDK_VALIDATE_NO_NETWORK",
   "noNetworkOnly": true,
@@ -8,14 +8,14 @@
   "javaVersion": "11.0.26",
   "sdkVersion": "238-R3.4.8",
   "summary": {
-    "fixtureCount": 5,
-    "registeredFixtureCount": 5,
-    "uniqueXmlArtifactCount": 5,
+    "fixtureCount": 8,
+    "registeredFixtureCount": 8,
+    "uniqueXmlArtifactCount": 8,
     "officialSampleCount": 2,
-    "ledgerbyteGeneratedUniqueFixtureCount": 3,
-    "validFixtureCount": 5,
+    "ledgerbyteGeneratedUniqueFixtureCount": 6,
+    "validFixtureCount": 8,
     "invalidFixtureCount": 0,
-    "passedCount": 5,
+    "passedCount": 8,
     "failedCount": 0,
     "blockedCount": 0,
     "networkCallsMade": false,
@@ -23,8 +23,8 @@
   },
   "runs": [
     {
-      "validationRunId": "zatca-sdk-local-20260719230121-575da2c2",
-      "timestamp": "2026-07-19T23:01:21.984Z",
+      "validationRunId": "zatca-sdk-local-20260720001433-323b2cab",
+      "timestamp": "2026-07-20T00:14:33.455Z",
       "environment": "LOCAL_SDK_NO_NETWORK",
       "sdkPathFound": true,
       "javaVersion": "11.0.26",
@@ -66,8 +66,8 @@
       }
     },
     {
-      "validationRunId": "zatca-sdk-local-20260719230121-575da2c2",
-      "timestamp": "2026-07-19T23:01:21.984Z",
+      "validationRunId": "zatca-sdk-local-20260720001433-323b2cab",
+      "timestamp": "2026-07-20T00:14:33.455Z",
       "environment": "LOCAL_SDK_NO_NETWORK",
       "sdkPathFound": true,
       "javaVersion": "11.0.26",
@@ -111,8 +111,8 @@
       }
     },
     {
-      "validationRunId": "zatca-sdk-local-20260719230121-575da2c2",
-      "timestamp": "2026-07-19T23:01:21.984Z",
+      "validationRunId": "zatca-sdk-local-20260720001433-323b2cab",
+      "timestamp": "2026-07-20T00:14:33.455Z",
       "environment": "LOCAL_SDK_NO_NETWORK",
       "sdkPathFound": true,
       "javaVersion": "11.0.26",
@@ -154,8 +154,8 @@
       }
     },
     {
-      "validationRunId": "zatca-sdk-local-20260719230121-575da2c2",
-      "timestamp": "2026-07-19T23:01:21.984Z",
+      "validationRunId": "zatca-sdk-local-20260720001433-323b2cab",
+      "timestamp": "2026-07-20T00:14:33.455Z",
       "environment": "LOCAL_SDK_NO_NETWORK",
       "sdkPathFound": true,
       "javaVersion": "11.0.26",
@@ -197,8 +197,8 @@
       }
     },
     {
-      "validationRunId": "zatca-sdk-local-20260719230121-575da2c2",
-      "timestamp": "2026-07-19T23:01:21.984Z",
+      "validationRunId": "zatca-sdk-local-20260720001433-323b2cab",
+      "timestamp": "2026-07-20T00:14:33.455Z",
       "environment": "LOCAL_SDK_NO_NETWORK",
       "sdkPathFound": true,
       "javaVersion": "11.0.26",
@@ -237,6 +237,137 @@
       "command": {
         "usedOfficialValidateCommand": true,
         "displayCommand": "fatoora -validate -invoice ledgerbyte-generated-credit-note.expected.xml"
+      }
+    },
+    {
+      "validationRunId": "zatca-sdk-local-20260720001433-323b2cab",
+      "timestamp": "2026-07-20T00:14:33.455Z",
+      "environment": "LOCAL_SDK_NO_NETWORK",
+      "sdkPathFound": true,
+      "javaVersion": "11.0.26",
+      "sdkVersion": "238-R3.4.8",
+      "fixtureId": "ledgerbyte-debit-note",
+      "fixturePath": "packages/zatca-core/fixtures/ledgerbyte-generated-debit-note.expected.xml",
+      "fixtureType": "ledgerbyte-generated",
+      "invoiceKind": "debit-note",
+      "validationMode": "OFFICIAL_SDK_VALIDATE_NO_NETWORK",
+      "hashGenerated": false,
+      "xmlBodyPrinted": false,
+      "qrPayloadPrinted": false,
+      "privateKeyPrinted": false,
+      "tokenPrinted": false,
+      "headerPrinted": false,
+      "networkCallsMade": false,
+      "productionComplianceEnabled": false,
+      "realNetworkCallsEnabled": false,
+      "signingEnabled": false,
+      "clearanceReportingEnabled": false,
+      "pdfA3Enabled": false,
+      "status": "PASSED",
+      "passed": true,
+      "validationAttempted": true,
+      "sdkExitCode": 0,
+      "warningsCount": 3,
+      "errorsCount": 0,
+      "safeErrorCodes": [],
+      "safeWarningCodes": [],
+      "blockers": [],
+      "warnings": [
+        "SDK validation is local/no-network only; no CSID, signing, clearance, reporting, or PDF/A-3 command is used.",
+        "Uses cmd.exe argument-array execution only to run the official Windows fatoora.bat launcher.",
+        "Uses an isolated temporary no-space SDK launcher workspace with a generated local config."
+      ],
+      "command": {
+        "usedOfficialValidateCommand": true,
+        "displayCommand": "fatoora -validate -invoice ledgerbyte-generated-debit-note.expected.xml"
+      }
+    },
+    {
+      "validationRunId": "zatca-sdk-local-20260720001433-323b2cab",
+      "timestamp": "2026-07-20T00:14:33.455Z",
+      "environment": "LOCAL_SDK_NO_NETWORK",
+      "sdkPathFound": true,
+      "javaVersion": "11.0.26",
+      "sdkVersion": "238-R3.4.8",
+      "fixtureId": "ledgerbyte-allowance-invoice",
+      "fixturePath": "packages/zatca-core/fixtures/ledgerbyte-generated-allowance-invoice.expected.xml",
+      "fixtureType": "ledgerbyte-generated",
+      "invoiceKind": "standard-invoice",
+      "validationMode": "OFFICIAL_SDK_VALIDATE_NO_NETWORK",
+      "hashGenerated": false,
+      "xmlBodyPrinted": false,
+      "qrPayloadPrinted": false,
+      "privateKeyPrinted": false,
+      "tokenPrinted": false,
+      "headerPrinted": false,
+      "networkCallsMade": false,
+      "productionComplianceEnabled": false,
+      "realNetworkCallsEnabled": false,
+      "signingEnabled": false,
+      "clearanceReportingEnabled": false,
+      "pdfA3Enabled": false,
+      "status": "PASSED",
+      "passed": true,
+      "validationAttempted": true,
+      "sdkExitCode": 0,
+      "warningsCount": 4,
+      "errorsCount": 0,
+      "safeErrorCodes": [],
+      "safeWarningCodes": [
+        "ksa"
+      ],
+      "blockers": [],
+      "warnings": [
+        "SDK validation is local/no-network only; no CSID, signing, clearance, reporting, or PDF/A-3 command is used.",
+        "Uses cmd.exe argument-array execution only to run the official Windows fatoora.bat launcher.",
+        "Uses an isolated temporary no-space SDK launcher workspace with a generated local config."
+      ],
+      "command": {
+        "usedOfficialValidateCommand": true,
+        "displayCommand": "fatoora -validate -invoice ledgerbyte-generated-allowance-invoice.expected.xml"
+      }
+    },
+    {
+      "validationRunId": "zatca-sdk-local-20260720001433-323b2cab",
+      "timestamp": "2026-07-20T00:14:33.455Z",
+      "environment": "LOCAL_SDK_NO_NETWORK",
+      "sdkPathFound": true,
+      "javaVersion": "11.0.26",
+      "sdkVersion": "238-R3.4.8",
+      "fixtureId": "ledgerbyte-multiline-invoice",
+      "fixturePath": "packages/zatca-core/fixtures/ledgerbyte-generated-multiline-invoice.expected.xml",
+      "fixtureType": "ledgerbyte-generated",
+      "invoiceKind": "standard-invoice",
+      "validationMode": "OFFICIAL_SDK_VALIDATE_NO_NETWORK",
+      "hashGenerated": false,
+      "xmlBodyPrinted": false,
+      "qrPayloadPrinted": false,
+      "privateKeyPrinted": false,
+      "tokenPrinted": false,
+      "headerPrinted": false,
+      "networkCallsMade": false,
+      "productionComplianceEnabled": false,
+      "realNetworkCallsEnabled": false,
+      "signingEnabled": false,
+      "clearanceReportingEnabled": false,
+      "pdfA3Enabled": false,
+      "status": "PASSED",
+      "passed": true,
+      "validationAttempted": true,
+      "sdkExitCode": 0,
+      "warningsCount": 3,
+      "errorsCount": 0,
+      "safeErrorCodes": [],
+      "safeWarningCodes": [],
+      "blockers": [],
+      "warnings": [
+        "SDK validation is local/no-network only; no CSID, signing, clearance, reporting, or PDF/A-3 command is used.",
+        "Uses cmd.exe argument-array execution only to run the official Windows fatoora.bat launcher.",
+        "Uses an isolated temporary no-space SDK launcher workspace with a generated local config."
+      ],
+      "command": {
+        "usedOfficialValidateCommand": true,
+        "displayCommand": "fatoora -validate -invoice ledgerbyte-generated-multiline-invoice.expected.xml"
       }
     }
   ],
