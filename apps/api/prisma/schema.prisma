@@ -1269,6 +1269,35 @@ enum ZatcaCredentialCustodyProviderType {
   DUMMY_LOCAL
 }
 
+enum ZatcaSandboxProofRunStatus {
+  ACTIVE
+  COMPLETED
+  CLEANED_UP
+  FAILED
+}
+
+enum ZatcaSandboxSubmissionOperation {
+  COMPLIANCE_DOCUMENT
+  CLEARANCE
+  REPORTING
+}
+
+enum ZatcaSandboxSubmissionStateStatus {
+  RESERVED
+  UNCERTAIN
+  ACCEPTED
+  REJECTED
+  FAILED
+  CLEANED_UP
+}
+
+enum ZatcaSandboxRetryClassification {
+  NOT_RETRYABLE
+  RETRYABLE
+  REPLAY
+  CONFLICT
+}
+
 enum FiscalPeriodStatus {
   OPEN
   CLOSED
@@ -1668,6 +1697,9 @@ model Organization {
   zatcaEgsUnits                             ZatcaEgsUnit[]
   zatcaInvoiceMetadata                      ZatcaInvoiceMetadata[]
   zatcaSubmissionLogs                       ZatcaSubmissionLog[]
+  zatcaSandboxProofRuns                     ZatcaSandboxProofRun[]
+  zatcaSandboxSubmissionStates              ZatcaSandboxSubmissionState[]
+  zatcaSandboxSubmissionAttempts            ZatcaSandboxSubmissionAttempt[]
   zatcaCsrConfigReviews                     ZatcaCsrConfigReview[]
   zatcaSignedArtifactDrafts                 ZatcaSignedArtifactDraft[]
   zatcaSignedArtifactStoragePolicyApprovals ZatcaSignedArtifactStoragePolicyApproval[]
@@ -2289,6 +2321,8 @@ model ZatcaEgsUnit {
   hashModeEnabledBy            User?                              @relation("ZatcaHashModeEnabledBy", fields: [hashModeEnabledById], references: [id], onDelete: SetNull)
   invoiceMetadata              ZatcaInvoiceMetadata[]
   submissionLogs               ZatcaSubmissionLog[]
+  sandboxProofRuns             ZatcaSandboxProofRun[]
+  sandboxSubmissionStates      ZatcaSandboxSubmissionState[]
   csrConfigReviews             ZatcaCsrConfigReview[]
   complianceCsidCustodyRecords ZatcaComplianceCsidCustodyRecord[]
   credentialLifecycles         ZatcaCredentialLifecycle[]
@@ -2362,6 +2396,7 @@ model ZatcaInvoiceMetadata {
   invoice              SalesInvoice               @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   egsUnit              ZatcaEgsUnit?              @relation(fields: [egsUnitId], references: [id], onDelete: SetNull)
   submissionLogs       ZatcaSubmissionLog[]
+  sandboxSubmissionStates ZatcaSandboxSubmissionState[]
   signedArtifactDrafts ZatcaSignedArtifactDraft[]
 
   @@index([organizationId])
@@ -2576,6 +2611,99 @@ model ZatcaCredentialLifecycle {
   @@index([updatedById])
   @@index([disabledById])
   @@index([revokedById])
+}
+
+model ZatcaSandboxProofRun {
+  id                     String                     @id @default(uuid()) @db.Uuid
+  organizationId         String                     @db.Uuid
+  egsUnitId              String                     @db.Uuid
+  environment            ZatcaEnvironment
+  proofRunId             String
+  status                 ZatcaSandboxProofRunStatus @default(ACTIVE)
+  syntheticDataVerified  Boolean                    @default(true)
+  cleanupCompletedAt     DateTime?
+  cleanupReason          String?
+  createdAt              DateTime                   @default(now())
+  updatedAt              DateTime                   @updatedAt
+
+  organization Organization                   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  egsUnit      ZatcaEgsUnit                  @relation(fields: [egsUnitId], references: [id], onDelete: Cascade)
+  submissions  ZatcaSandboxSubmissionState[]
+
+  @@unique([organizationId, proofRunId])
+  @@index([organizationId, status])
+  @@index([egsUnitId])
+}
+
+model ZatcaSandboxSubmissionState {
+  id                      String                            @id @default(uuid()) @db.Uuid
+  organizationId          String                            @db.Uuid
+  egsUnitId               String                            @db.Uuid
+  proofRunId              String                            @db.Uuid
+  invoiceMetadataId       String?                           @db.Uuid
+  sourceIdentityHash      String
+  payloadHash             String
+  invoiceUuid             String
+  invoiceType             ZatcaInvoiceType
+  icv                     Int
+  previousInvoiceHash     String
+  canonicalInvoiceHash    String
+  signedArtifactHash      String?
+  signingKeyReferenceId   String?
+  credentialReferenceId   String?
+  certificateFingerprint  String?
+  certificateSerialNumber String?
+  certificateExpiresAt    DateTime?
+  operation               ZatcaSandboxSubmissionOperation
+  status                  ZatcaSandboxSubmissionStateStatus @default(RESERVED)
+  reservationToken        String
+  acceptedAt              DateTime?
+  rejectedAt              DateTime?
+  completedAt             DateTime?
+  cleanupCompletedAt      DateTime?
+  createdAt               DateTime                          @default(now())
+  updatedAt               DateTime                          @updatedAt
+
+  organization    Organization                        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  egsUnit         ZatcaEgsUnit                       @relation(fields: [egsUnitId], references: [id], onDelete: Cascade)
+  proofRun        ZatcaSandboxProofRun               @relation(fields: [proofRunId], references: [id], onDelete: Cascade)
+  invoiceMetadata ZatcaInvoiceMetadata?              @relation(fields: [invoiceMetadataId], references: [id], onDelete: SetNull)
+  attempts        ZatcaSandboxSubmissionAttempt[]
+
+  @@unique([organizationId, sourceIdentityHash])
+  @@unique([organizationId, egsUnitId, icv])
+  @@index([proofRunId, status])
+  @@index([invoiceMetadataId])
+  @@index([organizationId, egsUnitId, status])
+}
+
+model ZatcaSandboxSubmissionAttempt {
+  id                  String                          @id @default(uuid()) @db.Uuid
+  organizationId      String                          @db.Uuid
+  submissionStateId   String                          @db.Uuid
+  attemptNumber       Int
+  status              ZatcaSandboxSubmissionStateStatus
+  requestHash         String
+  responseHash        String?
+  responseCode        String?
+  warningCodes        Json?
+  errorCodes          Json?
+  correlationId       String
+  retryClassification ZatcaSandboxRetryClassification @default(NOT_RETRYABLE)
+  startedAt           DateTime                        @default(now())
+  completedAt         DateTime?
+  acceptedAt          DateTime?
+  rejectedAt          DateTime?
+  createdAt           DateTime                        @default(now())
+  updatedAt           DateTime                        @updatedAt
+
+  organization    Organization                 @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  submissionState ZatcaSandboxSubmissionState @relation(fields: [submissionStateId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionStateId, attemptNumber])
+  @@unique([organizationId, correlationId])
+  @@index([organizationId, status])
+  @@index([submissionStateId, status])
 }
 
 model ZatcaSubmissionLog {

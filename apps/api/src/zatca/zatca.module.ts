@@ -8,6 +8,7 @@ import { SandboxDisabledZatcaOnboardingAdapter } from "./adapters/sandbox-disabl
 import { ZATCA_ONBOARDING_ADAPTER } from "./adapters/zatca-onboarding.adapter";
 import { readZatcaAdapterConfig, type ZatcaAdapterConfig, ZATCA_ADAPTER_CONFIG } from "./zatca.config";
 import { ZatcaController } from "./zatca.controller";
+import { ZatcaSandboxSubmissionStateService } from "./zatca-sandbox-submission-state.service";
 import { ZatcaService } from "./zatca.service";
 
 @Module({
@@ -15,6 +16,7 @@ import { ZatcaService } from "./zatca.service";
   controllers: [ZatcaController],
   providers: [
     ZatcaService,
+    ZatcaSandboxSubmissionStateService,
     { provide: ZATCA_ADAPTER_CONFIG, useFactory: () => readZatcaAdapterConfig() },
     {
       provide: ZATCA_ONBOARDING_ADAPTER,
@@ -30,6 +32,6 @@ import { ZatcaService } from "./zatca.service";
       },
     },
   ],
-  exports: [ZatcaService],
+  exports: [ZatcaService, ZatcaSandboxSubmissionStateService],
 })
 export class ZatcaModule {}

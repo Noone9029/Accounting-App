@@ -1,0 +1,37 @@
+{
+  "arc": "ARC-07B-04",
+  "scope": "local-disposable-postgresql",
+  "metadataOnly": true,
+  "network": "no-external-network",
+  "modelsAdded": [
+    "ZatcaSandboxProofRun",
+    "ZatcaSandboxSubmissionState",
+    "ZatcaSandboxSubmissionAttempt"
+  ],
+  "productionEgsChainMutated": false,
+  "proofs": {
+    "migrationApplied": true,
+    "prismaValidationPassed": true,
+    "concurrentIcvReservations": "passed",
+    "tenantIsolation": "passed",
+    "replayAndChangedPayloadConflict": "passed",
+    "pihLinkage": "passed",
+    "acceptedChainAdvancesOnce": "passed",
+    "syntheticProofRunCleanup": "passed",
+    "secretAndBodyRejection": "passed"
+  },
+  "artifactsPersisted": {
+    "rawXml": false,
+    "signedXml": false,
+    "qrPayload": false,
+    "certificateBody": false,
+    "privateKey": false,
+    "otp": false,
+    "credentialSecret": false,
+    "rawRequest": false,
+    "rawResponse": false
+  },
+  "officialContract": "unconfirmed",
+  "zatcaCalls": 0,
+  "hostedMutations": 0
+}
