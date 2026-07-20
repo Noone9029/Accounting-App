@@ -201,7 +201,7 @@ export const ZATCA_XML_FIELD_MAPPING = [
     xmlTarget: "/Invoice/ext:UBLExtensions",
     status: "NOT_STARTED",
     requiredForProduction: true,
-    notes: "Cryptographic stamp/signature and canonicalization are intentionally pending.",
+    notes: "LedgerByte constructs local XAdES and uses a local C14N 1.1 provider; production custody and independent serialized-XML tamper verification remain pending.",
     officialVerificationRequired: true,
   },
   {
