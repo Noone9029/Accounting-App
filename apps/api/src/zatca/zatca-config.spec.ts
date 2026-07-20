@@ -1,15 +1,17 @@
 import { HttpZatcaSandboxAdapter } from "./adapters/http-zatca-sandbox.adapter";
+import { FutureOfficialZatcaSandboxAdapter } from "./adapters/future-official-zatca-sandbox.adapter";
+import { FakeLoopbackZatcaSandboxAdapter } from "./adapters/fake-loopback-zatca-sandbox.adapter";
 import { SandboxDisabledZatcaOnboardingAdapter } from "./adapters/sandbox-disabled-zatca-onboarding.adapter";
 import { readZatcaAdapterConfig, summarizeZatcaAdapterConfig } from "./zatca.config";
 
 describe("ZATCA adapter config", () => {
-  it("defaults to mock mode with real network disabled", () => {
+  it("defaults to disabled mode with real network disabled", () => {
     const config = readZatcaAdapterConfig({});
 
-    expect(config.mode).toBe("mock");
+    expect(config.mode).toBe("sandbox-disabled");
     expect(config.enableRealNetwork).toBe(false);
     expect(summarizeZatcaAdapterConfig(config)).toMatchObject({
-      mode: "mock",
+      mode: "sandbox-disabled",
       realNetworkEnabled: false,
       effectiveRealNetworkEnabled: false,
     });
@@ -18,7 +20,7 @@ describe("ZATCA adapter config", () => {
   it("falls back safely when adapter mode is invalid", () => {
     const config = readZatcaAdapterConfig({ ZATCA_ADAPTER_MODE: "definitely-real" });
 
-    expect(config.mode).toBe("mock");
+    expect(config.mode).toBe("sandbox-disabled");
     expect(config.invalidMode).toBe("definitely-real");
     expect(summarizeZatcaAdapterConfig(config).effectiveRealNetworkEnabled).toBe(false);
   });
@@ -55,6 +57,35 @@ describe("ZATCA adapter config", () => {
 });
 
 describe("ZATCA sandbox adapter safety", () => {
+  it("defaults to the disabled adapter mode", () => {
+    expect(readZatcaAdapterConfig({}).mode).toBe("sandbox-disabled");
+  });
+
+  it("does not read credentials or call fetch before rejecting an unverified official contract", async () => {
+    const fetchSpy = jest.spyOn(global, "fetch");
+    const credentialReader = jest.fn();
+    const adapter = new FutureOfficialZatcaSandboxAdapter({
+      mode: "sandbox",
+      enableRealNetwork: true,
+      sandboxBaseUrl: "https://sandbox.example.invalid",
+    }, credentialReader);
+
+    await expect(
+      adapter.submitComplianceCheck({
+        organizationId: "org-1",
+        invoiceId: "invoice-1",
+        invoiceMetadataId: "metadata-1",
+        egsUnitId: "egs-1",
+        invoiceXml: "<Invoice />",
+        request: { endpointPath: "/ignored" },
+      }),
+    ).rejects.toMatchObject({ responseCode: "OFFICIAL_CONTRACT_UNCONFIRMED" });
+
+    expect(credentialReader).not.toHaveBeenCalled();
+    expect(fetchSpy).not.toHaveBeenCalled();
+    fetchSpy.mockRestore();
+  });
+
   it("sandbox-disabled adapter returns a clear disabled error", async () => {
     const adapter = new SandboxDisabledZatcaOnboardingAdapter();
 
@@ -68,6 +99,23 @@ describe("ZATCA sandbox adapter safety", () => {
         request: {},
       }),
     ).rejects.toMatchObject({ responseCode: "REAL_NETWORK_DISABLED", message: expect.stringContaining("Real ZATCA network calls are disabled") });
+  });
+
+  it("routes loopback tests only through the supplied in-process handler", async () => {
+    const loopback = new FakeLoopbackZatcaSandboxAdapter(new SandboxDisabledZatcaOnboardingAdapter());
+
+    await expect(
+      loopback.submitComplianceCheck({
+        organizationId: "org-1",
+        invoiceId: "invoice-1",
+        invoiceMetadataId: "metadata-1",
+        egsUnitId: "egs-1",
+        invoiceXml: "<Invoice />",
+        request: {},
+      }),
+    ).rejects.toMatchObject({ responseCode: "REAL_NETWORK_DISABLED" });
+
+    expect(loopback.calls).toEqual(["submitComplianceCheck"]);
   });
 
   it("sandbox adapter fails safely when real network is not explicitly enabled", async () => {
@@ -112,6 +160,6 @@ describe("ZATCA sandbox adapter safety", () => {
         invoiceXml: "<Invoice />",
         request: {},
       }),
-    ).rejects.toMatchObject({ responseCode: "OFFICIAL_ENDPOINT_NOT_CONFIGURED" });
+    ).rejects.toMatchObject({ responseCode: "OFFICIAL_CONTRACT_UNCONFIRMED" });
   });
 });

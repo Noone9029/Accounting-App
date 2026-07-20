@@ -2,7 +2,7 @@ import { Module } from "@nestjs/common";
 import { AuditLogModule } from "../audit-log/audit-log.module";
 import { PrismaModule } from "../prisma/prisma.module";
 import { ZatcaSdkModule } from "../zatca-sdk/zatca-sdk.module";
-import { HttpZatcaSandboxAdapter } from "./adapters/http-zatca-sandbox.adapter";
+import { FutureOfficialZatcaSandboxAdapter } from "./adapters/future-official-zatca-sandbox.adapter";
 import { MockZatcaOnboardingAdapter } from "./adapters/mock-zatca-onboarding.adapter";
 import { SandboxDisabledZatcaOnboardingAdapter } from "./adapters/sandbox-disabled-zatca-onboarding.adapter";
 import { ZATCA_ONBOARDING_ADAPTER } from "./adapters/zatca-onboarding.adapter";
@@ -21,7 +21,7 @@ import { ZatcaService } from "./zatca.service";
       inject: [ZATCA_ADAPTER_CONFIG],
       useFactory: (config: ZatcaAdapterConfig) => {
         if (config.mode === "sandbox") {
-          return new HttpZatcaSandboxAdapter(config);
+          return new FutureOfficialZatcaSandboxAdapter(config);
         }
         if (config.mode === "sandbox-disabled") {
           return new SandboxDisabledZatcaOnboardingAdapter();

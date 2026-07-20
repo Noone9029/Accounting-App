@@ -28,14 +28,14 @@ const allowedModes: ZatcaAdapterMode[] = ["mock", "sandbox-disabled", "sandbox"]
 export function parseZatcaAdapterMode(value: string | undefined): { mode: ZatcaAdapterMode; invalidMode?: string } {
   const normalized = value?.trim();
   if (!normalized) {
-    return { mode: "mock" };
+    return { mode: "sandbox-disabled" };
   }
 
   if (allowedModes.includes(normalized as ZatcaAdapterMode)) {
     return { mode: normalized as ZatcaAdapterMode };
   }
 
-  return { mode: "mock", invalidMode: normalized };
+  return { mode: "sandbox-disabled", invalidMode: normalized };
 }
 
 export function readZatcaAdapterConfig(env: EnvSource = process.env): ZatcaAdapterConfig {
