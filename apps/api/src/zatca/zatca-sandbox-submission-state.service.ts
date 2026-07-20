@@ -17,6 +17,7 @@ export type ZatcaSandboxSubmissionStateSafeCode =
   | "ZATCA_SANDBOX_PROOF_RUN_NOT_FOUND"
   | "ZATCA_SANDBOX_IDEMPOTENCY_CONFLICT"
   | "ZATCA_SANDBOX_PIH_MISMATCH"
+  | "ZATCA_SANDBOX_RETRY_IDENTITY_MISMATCH"
   | "ZATCA_SANDBOX_STATE_NOT_ACCEPTABLE";
 
 export class ZatcaSandboxSubmissionStateError extends Error {
@@ -56,6 +57,22 @@ export interface RecordZatcaSandboxAttemptInput {
   warningCodes?: string[];
   errorCodes?: string[];
   retryClassification?: ZatcaSandboxRetryClassification;
+}
+
+export interface RetryZatcaSandboxSubmissionInput {
+  organizationId: string;
+  submissionStateId: string;
+  sourceIdentityHash: string;
+  payloadHash: string;
+  signedArtifactHash?: string;
+  canonicalInvoiceHash: string;
+  invoiceUuid: string;
+  invoiceType: ZatcaInvoiceType;
+  previousInvoiceHash: string;
+  operation: ZatcaSandboxSubmissionOperation;
+  credentialReferenceId?: string;
+  signingKeyReferenceId?: string;
+  certificateFingerprint?: string;
 }
 
 function assertMetadataOnly(value: object): void {
@@ -115,11 +132,34 @@ export class ZatcaSandboxSubmissionStateService {
     assertMetadataOnly(input);
     return this.prisma.$transaction(async (tx) => {
       const state = await tx.zatcaSandboxSubmissionState.findFirst({ where: { id: input.submissionStateId, organizationId: input.organizationId } });
-      if (!state || state.status !== ZatcaSandboxSubmissionStateStatus.RESERVED) {
+      if (!state || !([ZatcaSandboxSubmissionStateStatus.RESERVED, ZatcaSandboxSubmissionStateStatus.UNCERTAIN] as ZatcaSandboxSubmissionStateStatus[]).includes(state.status)) {
         throw new ZatcaSandboxSubmissionStateError("ZATCA_SANDBOX_STATE_NOT_ACCEPTABLE");
       }
       await this.createAttempt(tx, input, ZatcaSandboxSubmissionStateStatus.UNCERTAIN);
       return tx.zatcaSandboxSubmissionState.update({ where: { id: state.id }, data: { status: ZatcaSandboxSubmissionStateStatus.UNCERTAIN, completedAt: new Date() } });
+    }, { isolationLevel: "Serializable" });
+  }
+
+  async reject(input: RecordZatcaSandboxAttemptInput) {
+    assertMetadataOnly(input);
+    return this.prisma.$transaction(async (tx) => {
+      const state = await tx.zatcaSandboxSubmissionState.findFirst({ where: { id: input.submissionStateId, organizationId: input.organizationId } });
+      if (!state || !([ZatcaSandboxSubmissionStateStatus.RESERVED, ZatcaSandboxSubmissionStateStatus.UNCERTAIN] as ZatcaSandboxSubmissionStateStatus[]).includes(state.status)) {
+        throw new ZatcaSandboxSubmissionStateError("ZATCA_SANDBOX_STATE_NOT_ACCEPTABLE");
+      }
+      await this.createAttempt(tx, input, ZatcaSandboxSubmissionStateStatus.REJECTED);
+      return tx.zatcaSandboxSubmissionState.update({ where: { id: state.id }, data: { status: ZatcaSandboxSubmissionStateStatus.REJECTED, rejectedAt: new Date(), completedAt: new Date() } });
+    }, { isolationLevel: "Serializable" });
+  }
+
+  async loadExactUncertainRetry(input: RetryZatcaSandboxSubmissionInput) {
+    assertMetadataOnly(input);
+    return this.prisma.$transaction(async (tx) => {
+      const state = await tx.zatcaSandboxSubmissionState.findFirst({ where: { id: input.submissionStateId, organizationId: input.organizationId } });
+      if (!state || state.status !== ZatcaSandboxSubmissionStateStatus.UNCERTAIN) throw new ZatcaSandboxSubmissionStateError("ZATCA_SANDBOX_STATE_NOT_ACCEPTABLE");
+      const fields: (keyof RetryZatcaSandboxSubmissionInput)[] = ["sourceIdentityHash", "payloadHash", "signedArtifactHash", "canonicalInvoiceHash", "invoiceUuid", "invoiceType", "previousInvoiceHash", "operation", "credentialReferenceId", "signingKeyReferenceId", "certificateFingerprint"];
+      if (fields.some((field) => (input[field] ?? null) !== (state[field as keyof typeof state] ?? null))) throw new ZatcaSandboxSubmissionStateError("ZATCA_SANDBOX_RETRY_IDENTITY_MISMATCH");
+      return state;
     }, { isolationLevel: "Serializable" });
   }
 
@@ -154,7 +194,7 @@ export class ZatcaSandboxSubmissionStateService {
       where: { organizationId: input.organizationId, sourceIdentityHash: input.sourceIdentityHash },
     });
     if (existing) {
-      if (existing.payloadHash === input.payloadHash) return { disposition: "REPLAY" as const, state: existing };
+      if (hasExactSubmissionIdentity(existing, input)) return { disposition: "REPLAY" as const, state: existing };
       throw new ZatcaSandboxSubmissionStateError("ZATCA_SANDBOX_IDEMPOTENCY_CONFLICT");
     }
 
@@ -206,4 +246,21 @@ export class ZatcaSandboxSubmissionStateService {
 
 function isRetryableReservationConflict(error: unknown): boolean {
   return typeof error === "object" && error !== null && "code" in error && ["P2002", "P2034"].includes(String(error.code));
+}
+
+function hasExactSubmissionIdentity(existing: Record<string, unknown>, input: ReserveZatcaSandboxSubmissionInput): boolean {
+  const fields: (keyof ReserveZatcaSandboxSubmissionInput)[] = [
+    "payloadHash",
+    "signedArtifactHash",
+    "canonicalInvoiceHash",
+    "invoiceUuid",
+    "invoiceType",
+    "previousInvoiceHash",
+    "operation",
+    "credentialReferenceId",
+    "signingKeyReferenceId",
+    "certificateFingerprint",
+    "certificateSerialNumber",
+  ];
+  return fields.every((field) => (input[field] ?? null) === (existing[field] ?? null));
 }

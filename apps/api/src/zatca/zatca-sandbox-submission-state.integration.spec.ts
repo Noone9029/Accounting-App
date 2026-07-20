@@ -7,6 +7,9 @@ import {
   ZatcaSandboxSubmissionOperation,
 } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
+import { FakeLoopbackZatcaSandboxAdapter } from "./adapters/fake-loopback-zatca-sandbox.adapter";
+import { LoopbackZatcaSandboxHttpClient, LoopbackZatcaSandboxServer } from "./adapters/loopback-zatca-sandbox-http";
+import { ZatcaFakeSandboxLifecycleService } from "./zatca-fake-sandbox-lifecycle.service";
 import {
   ZatcaSandboxSubmissionStateError,
   ZatcaSandboxSubmissionStateService,
@@ -54,9 +57,10 @@ describeDatabase("ZATCA sandbox submission state: disposable PostgreSQL proof", 
   });
 
   it("enforces tenant-scoped replay, PIH linkage, acceptance once, and proof-run cleanup", async () => {
-    const first = await service.reserve(reservationInput(fixture, "source", "payload-one"));
-    await expect(service.reserve(reservationInput(fixture, "source", "payload-one"))).resolves.toMatchObject({ disposition: "REPLAY", state: { id: first.state.id } });
-    await expect(service.reserve(reservationInput(fixture, "source", "payload-two"))).rejects.toMatchObject({ code: "ZATCA_SANDBOX_IDEMPOTENCY_CONFLICT" });
+    const firstInput = reservationInput(fixture, "source", "payload-one");
+    const first = await service.reserve(firstInput);
+    await expect(service.reserve(firstInput)).resolves.toMatchObject({ disposition: "REPLAY", state: { id: first.state.id } });
+    await expect(service.reserve({ ...firstInput, payloadHash: "payload-two" })).rejects.toMatchObject({ code: "ZATCA_SANDBOX_IDEMPOTENCY_CONFLICT" });
     await expect(service.accept({ organizationId: fixture.otherOrganizationId, submissionStateId: first.state.id, requestHash: "request-hash", responseHash: "response-hash", responseCode: "SIMULATED_ACCEPTED", correlationId: randomUUID() })).rejects.toBeInstanceOf(ZatcaSandboxSubmissionStateError);
 
     await service.accept({ organizationId: fixture.organizationId, submissionStateId: first.state.id, requestHash: "request-hash", responseHash: "response-hash", responseCode: "SIMULATED_ACCEPTED", correlationId: randomUUID() });
@@ -69,6 +73,49 @@ describeDatabase("ZATCA sandbox submission state: disposable PostgreSQL proof", 
     await expect(service.cleanupSyntheticProofRun(fixture.organizationId, fixture.proofRunId)).resolves.toEqual({ proofRunId: fixture.proofRunId, cleanedUp: true });
     expect(await prisma.zatcaSandboxSubmissionState.count({ where: { organizationId: fixture.organizationId } })).toBe(0);
     expect(await prisma.organization.count({ where: { id: fixture.otherOrganizationId } })).toBe(1);
+  });
+
+  it("reuses the same uncertain submission for an exact retry and advances only the accepted proof-local chain", async () => {
+    const first = await service.reserve(reservationInput(fixture, "retry-source", "retry-payload"));
+    const retryIdentity = { organizationId: fixture.organizationId, submissionStateId: first.state.id, sourceIdentityHash: first.state.sourceIdentityHash, payloadHash: first.state.payloadHash, signedArtifactHash: first.state.signedArtifactHash ?? undefined, canonicalInvoiceHash: first.state.canonicalInvoiceHash, invoiceUuid: first.state.invoiceUuid, invoiceType: first.state.invoiceType, previousInvoiceHash: first.state.previousInvoiceHash, operation: first.state.operation, credentialReferenceId: first.state.credentialReferenceId ?? undefined, signingKeyReferenceId: first.state.signingKeyReferenceId ?? undefined, certificateFingerprint: first.state.certificateFingerprint ?? undefined };
+    await service.recordUncertain({ organizationId: fixture.organizationId, submissionStateId: first.state.id, requestHash: "request-one", responseCode: "SIMULATED_TIMEOUT", correlationId: randomUUID(), retryClassification: "RETRYABLE" });
+    await expect(service.loadExactUncertainRetry(retryIdentity)).resolves.toMatchObject({ id: first.state.id, icv: first.state.icv });
+    await expect(service.loadExactUncertainRetry({ ...retryIdentity, canonicalInvoiceHash: "changed" })).rejects.toMatchObject({ code: "ZATCA_SANDBOX_RETRY_IDENTITY_MISMATCH" });
+    await service.accept({ organizationId: fixture.organizationId, submissionStateId: first.state.id, requestHash: "request-two", responseHash: "response-two", responseCode: "SIMULATED_ACCEPTED", correlationId: randomUUID() });
+    expect(await prisma.zatcaSandboxSubmissionState.count({ where: { organizationId: fixture.organizationId } })).toBe(1);
+    expect(await prisma.zatcaSandboxSubmissionAttempt.count({ where: { submissionStateId: first.state.id } })).toBe(2);
+    const next = await service.reserve({ ...reservationInput(fixture, "after-retry", "next-payload"), previousInvoiceHash: first.state.canonicalInvoiceHash });
+    expect(next.state.icv).toBe(2);
+    expect(await prisma.zatcaEgsUnit.findUniqueOrThrow({ where: { id: fixture.egsUnitId }, select: { lastIcv: true, lastInvoiceHash: true } })).toEqual({ lastIcv: 0, lastInvoiceHash: null });
+  });
+
+  it("returns one logical state for concurrent exact source/payload requests", async () => {
+    const input = reservationInput(fixture, "concurrent-source", "same-payload");
+    const results = await Promise.all([service.reserve(input), service.reserve(input)]);
+    expect(results.map((result) => result.disposition).sort()).toEqual(["REPLAY", "RESERVED"]);
+    expect(await prisma.zatcaSandboxSubmissionState.count({ where: { organizationId: fixture.organizationId } })).toBe(1);
+  });
+
+  it("allows one concurrent exact retry to own one provider call and one ordered second attempt", async () => {
+    const reservation = await service.reserve(reservationInput(fixture, "concurrent-retry", "retry-payload"));
+    await service.recordUncertain({ organizationId: fixture.organizationId, submissionStateId: reservation.state.id, requestHash: "request-one", responseCode: "SIMULATED_TIMEOUT", correlationId: randomUUID(), retryClassification: "RETRYABLE" });
+    const retry = { organizationId: fixture.organizationId, submissionStateId: reservation.state.id, sourceIdentityHash: reservation.state.sourceIdentityHash, payloadHash: reservation.state.payloadHash, signedArtifactHash: reservation.state.signedArtifactHash ?? undefined, canonicalInvoiceHash: reservation.state.canonicalInvoiceHash, invoiceUuid: reservation.state.invoiceUuid, invoiceType: reservation.state.invoiceType, previousInvoiceHash: reservation.state.previousInvoiceHash, operation: reservation.state.operation, credentialReferenceId: reservation.state.credentialReferenceId ?? undefined, signingKeyReferenceId: reservation.state.signingKeyReferenceId ?? undefined, certificateFingerprint: reservation.state.certificateFingerprint ?? undefined };
+    const server = new LoopbackZatcaSandboxServer("ACCEPTED");
+    const baseUrl = await server.start(true);
+    const adapter = new FakeLoopbackZatcaSandboxAdapter({ requestComplianceCsid: jest.fn(), requestProductionCsid: jest.fn(), submitComplianceCheck: jest.fn(), submitClearance: jest.fn(), submitReporting: jest.fn() } as never);
+    const lifecycle = new ZatcaFakeSandboxLifecycleService(service, adapter);
+    try {
+      const results = await Promise.all([
+        lifecycle.retryExactUncertainOverLoopbackHttp({ ...retry, correlationId: randomUUID() }, new LoopbackZatcaSandboxHttpClient(baseUrl)),
+        lifecycle.retryExactUncertainOverLoopbackHttp({ ...retry, correlationId: randomUUID() }, new LoopbackZatcaSandboxHttpClient(baseUrl)),
+      ]);
+      expect(results.map((result) => result.disposition).sort()).toEqual(["ACCEPTED", "RETRY_IN_PROGRESS"]);
+      expect(server.getEvidence().requestCount).toBe(1);
+      expect(await prisma.zatcaSandboxSubmissionAttempt.findMany({ where: { submissionStateId: reservation.state.id }, orderBy: { attemptNumber: "asc" }, select: { attemptNumber: true, status: true } })).toEqual([{ attemptNumber: 1, status: "UNCERTAIN" }, { attemptNumber: 2, status: "ACCEPTED" }]);
+      expect(await prisma.zatcaEgsUnit.findUniqueOrThrow({ where: { id: fixture.egsUnitId }, select: { lastIcv: true, lastInvoiceHash: true } })).toEqual({ lastIcv: 0, lastInvoiceHash: null });
+    } finally {
+      await server.stop();
+    }
   });
 });
 
