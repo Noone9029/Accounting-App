@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, verify } from "node:crypto";
 import type { ZatcaSigningProvider } from "./signing-provider.js";
 
 export interface ZatcaXmlCanonicalizationProvider {
@@ -27,6 +27,16 @@ export class ZatcaXadesSigningError extends Error {
   constructor(readonly code: "ZATCA_XADES_INVALID_INPUT" | "ZATCA_XADES_CERTIFICATE_METADATA" | "ZATCA_XADES_SIGNATURE_FAILED") {
     super(messageForXadesError(code));
     this.name = "ZatcaXadesSigningError";
+  }
+}
+
+/** Verifies LedgerByte's in-memory secp256k1 XAdES signature without exposing key material. */
+export function verifyZatcaXadesSignature(input: { signedInfoCanonicalBytes: Buffer; signatureP1363: Buffer; publicKeyDer: Buffer }): boolean {
+  if (input.signatureP1363.length !== 64 || input.signedInfoCanonicalBytes.length === 0 || input.publicKeyDer.length === 0) return false;
+  try {
+    return verify("sha256", input.signedInfoCanonicalBytes, { key: input.publicKeyDer, format: "der", type: "spki", dsaEncoding: "ieee-p1363" }, input.signatureP1363);
+  } catch {
+    return false;
   }
 }
 

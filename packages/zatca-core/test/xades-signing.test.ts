@@ -14,6 +14,7 @@ import {
   LocalExternalPathZatcaSigningProvider,
   type ZatcaSigningProvider,
   verifyZatcaPhase2QrSignature,
+  verifyZatcaXadesSignature,
 } from "../src/index.ts";
 
 describe("LedgerByte XAdES invoice construction", () => {
@@ -55,6 +56,9 @@ describe("LedgerByte XAdES invoice construction", () => {
     const expectedCertificateDigest = createHash("sha256").update("synthetic-public-certificate", "utf8").digest("base64");
     assert.match(result.xml, new RegExp(`<ds:DigestValue>${expectedCertificateDigest}<\\/ds:DigestValue>`));
     assert.equal(verify("sha256", result.signedInfoCanonicalBytes, { key: publicKey, dsaEncoding: "ieee-p1363" }, result.signatureP1363), true);
+    const publicKeyDer = Buffer.from(publicKey.export({ type: "spki", format: "der" }));
+    assert.equal(verifyZatcaXadesSignature({ signedInfoCanonicalBytes: result.signedInfoCanonicalBytes, signatureP1363: result.signatureP1363, publicKeyDer }), true);
+    assert.equal(verifyZatcaXadesSignature({ signedInfoCanonicalBytes: Buffer.from("tampered"), signatureP1363: result.signatureP1363, publicKeyDer }), false);
     assert.equal(result.xml.includes("PRIVATE KEY"), false);
   });
 
