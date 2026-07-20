@@ -32,16 +32,16 @@ export const ZATCA_PHASE_2_CHECKLIST = [
   {
     id: "csr-local-generation",
     category: "CSR_CSID",
-    title: "Local CSR generation",
-    description: "Generate a development CSR and store the private key only as a temporary local placeholder.",
-    status: "DONE_LOCAL",
+    title: "Legacy local CSR generation",
+    description: "Disabled fail-closed: LedgerByte does not generate or persist placeholder private keys or CSRs because the official profile requires a future approved secp256k1 custody provider.",
+    status: "NEEDS_OFFICIAL_VERIFICATION",
     codeReferences: ["packages/zatca-core/src/index.ts", "apps/api/src/zatca/zatca.service.ts"],
     sourceReferences: [
       "reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Readme/readme.md#Generating-a-Certificate-Signing-Request-CSR",
       "reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Input/csr-config-template.properties",
       "reference/zatca-docs/compliance_csid.pdf - needs manual page confirmation",
     ],
-    manualDependency: "Verify official CSR subject, extension, and certificate profile requirements before real onboarding.",
+    manualDependency: "Implement a separately approved non-exportable secp256k1 custody provider and verify the official CSR profile before any sandbox onboarding.",
     riskLevel: "HIGH",
   },
   {

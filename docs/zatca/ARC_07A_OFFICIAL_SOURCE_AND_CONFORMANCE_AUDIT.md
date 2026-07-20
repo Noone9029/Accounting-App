@@ -46,6 +46,14 @@ The local Java C14N 1.1 provider removes the required nodes through namespace-aw
 
 `docs/zatca/ARC_07A_LOCAL_PIH_ICV_STATE_CONTRACT.md` defines the local-only PIH/ICV proof state machine. It verifies ordered A/B/C progression, rejects duplicate/skipped/concurrent ICV claims and wrong/reused PIHs, and rolls back failed signing, validation, or local conformance attempts without changing durable production state. It is not wired to Prisma or any ZATCA endpoint.
 
+## Final local fixture and invalid-rule evidence
+
+The configured Tier-2 test now constructs LedgerByte-owned XAdES signatures and Phase 2 QR values for six unique synthetic fixtures: standard, Arabic simplified, credit note, debit note, document allowance, and multi-line VAT. Each artifact passes LedgerByte's independent verifier before the official SDK `-validate` structural oracle is run. The SDK neither signs nor constructs QR values for these claims.
+
+Twenty deterministic invalid business-rule cases now fail before signing or SDK invocation with stable metadata-only local codes. They cover seller name/VAT/identification, supported transaction flags, credit/debit reference and reason, line/tax/allowance/payable totals, currency, PIH, ICV, duplicate local ICV reservation, and the missing Phase 2 QR prerequisite for a simplified signed artifact. This is distinct from the thirty-case cryptographic tamper matrix; invalid inputs are truthfully reported as `NOT_SENT_LOCAL_REJECTED` rather than as SDK results.
+
+Durable issuance is Result B. The PIH/ICV proof remains intentionally in-memory, contains no Prisma adapter, and cannot advance durable source state. Production key custody, source-of-truth issuance transactions, and submission-state policy remain future ARC-07B/production-readiness work; no speculative migration is introduced here.
+
 ## Required remaining conformance work
 
 The current implementation map still identifies unimplemented or unverified areas: independently verified XAdES tamper detection (the current SDK `-validate` command does not provide it), officially evidenced zero-rated/exempt categories and rounding cases, the full invalid-rule fixture matrix, a database-backed issuance proof, and a production-safe signing implementation. C14N11/hash parity is proven for the current six LedgerByte-generated fixtures and must expand with any new fixture. The local signing provider remains intentionally disabled except for explicit `LOCAL_TEST` external paths; it is not a production key-custody implementation. No live credential, network request, OTP, CSID, clearance, reporting, customer data, or persisted signed artifact was used in this audit.

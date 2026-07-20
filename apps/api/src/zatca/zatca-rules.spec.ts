@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { BadRequestException, NotFoundException } from "@nestjs/common";
+import { BadRequestException, NotFoundException, NotImplementedException } from "@nestjs/common";
 import { plainToInstance } from "class-transformer";
 import { validate } from "class-validator";
 import {
@@ -49,7 +49,7 @@ describe("ZATCA service rules", () => {
     await expect(service.updateProfile("org-1", "user-1", { countryCode: "" })).rejects.toThrow(BadRequestException);
   });
 
-  it("creates and activates development EGS units", async () => {
+  it("creates development EGS units but rejects legacy activation without mutating key or registration state", async () => {
     const egsUnit = makeEgsUnit({ id: "egs-1", name: "Dev EGS", isActive: false });
     const prisma = {
       organization: { findFirst: jest.fn().mockResolvedValue({ id: "org-1", name: "Org", legalName: null, taxNumber: null, countryCode: "SA" }) },
@@ -73,8 +73,9 @@ describe("ZATCA service rules", () => {
     await expect(service.createEgsUnit("org-1", "user-1", { name: "Dev EGS", deviceSerialNumber: "DEV-001" })).resolves.toMatchObject({
       id: "egs-1",
     });
-    await expect(service.activateDevEgsUnit("org-1", "user-1", "egs-1")).resolves.toMatchObject({ isActive: true, status: ZatcaRegistrationStatus.ACTIVE });
-    expect(audit.log).toHaveBeenCalledTimes(2);
+    await expect(service.activateDevEgsUnit("org-1", "user-1", "egs-1")).rejects.toThrow(NotImplementedException);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(audit.log).toHaveBeenCalledTimes(1);
   });
 
   it("captures non-secret CSR onboarding fields for non-production EGS units only", async () => {
@@ -718,6 +719,7 @@ describe("ZATCA service rules", () => {
   it("returns local-only XML validation after generation without claiming official validation", async () => {
     const metadata = makeGeneratedMetadata({
       invoiceUuid: "00000000-0000-0000-0000-000000000001",
+      previousInvoiceHash: initialPreviousInvoiceHash,
       xmlBase64: Buffer.from("<Invoice>00000000-0000-0000-0000-000000000001</Invoice>", "utf8").toString("base64"),
     });
     const prisma = {
@@ -4224,8 +4226,8 @@ function makeValidationProfile() {
   return {
     sellerName: "Org Legal",
     vatNumber: "300000000000003",
-    companyIdType: null,
-    companyIdNumber: null,
+    companyIdType: "CRN",
+    companyIdNumber: "1010010000",
     buildingNumber: "1234",
     streetName: "King Fahd Road",
     district: "Olaya",

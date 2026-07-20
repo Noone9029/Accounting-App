@@ -994,27 +994,12 @@ export class ZatcaService {
   }
 
   async activateDevEgsUnit(organizationId: string, actorUserId: string, id: string) {
-    const existing = await this.getEgsUnitInternal(organizationId, id);
-    const updated = await this.prisma.$transaction(async (tx) => {
-      await tx.zatcaEgsUnit.updateMany({ where: { organizationId, isActive: true }, data: { isActive: false } });
-      return tx.zatcaEgsUnit.update({
-        where: { id },
-        data: {
-          isActive: true,
-          status: ZatcaRegistrationStatus.ACTIVE,
-          csrPem: existing.csrPem ?? "-----BEGIN CSR-----\nLOCAL-DEV-PLACEHOLDER\n-----END CSR-----",
-          // Development placeholder only. Production must use KMS/secrets-manager-backed private key storage.
-          privateKeyPem: existing.privateKeyPem ?? "-----BEGIN PRIVATE KEY-----\nLOCAL-DEV-PLACEHOLDER\n-----END PRIVATE KEY-----",
-          complianceCsidPem: existing.complianceCsidPem ?? "-----BEGIN CERTIFICATE-----\nLOCAL-DEV-COMPLIANCE-CSID\n-----END CERTIFICATE-----",
-        },
-        select: safeEgsUnitSelect,
-      });
-    });
-
-    const publicBefore = this.toPublicEgsUnit(existing);
-    const publicUpdated = this.toPublicEgsUnit(updated);
-    await this.auditLogService.log({ organizationId, actorUserId, action: "ACTIVATE_DEV", entityType: "ZatcaEgsUnit", entityId: id, before: publicBefore, after: publicUpdated });
-    return publicUpdated;
+    void organizationId;
+    void actorUserId;
+    void id;
+    throw new NotImplementedException(
+      "Legacy development EGS activation is disabled: it must not create placeholder credentials, change registration state, or emit a misleading activation audit record.",
+    );
   }
 
   async generateEgsCsr(organizationId: string, actorUserId: string, id: string) {

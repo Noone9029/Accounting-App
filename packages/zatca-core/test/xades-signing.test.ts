@@ -151,6 +151,10 @@ describe("LedgerByte XAdES invoice construction", () => {
     const fixtures = [
       { id: "standard", input: "ledgerbyte-generated-standard-invoice.input.json", invoiceType: "STANDARD_TAX_INVOICE", artifactStatus: "CLEARED" },
       { id: "arabic-simplified", input: "ledgerbyte-generated-arabic-simplified-invoice.input.json", invoiceType: "SIMPLIFIED_TAX_INVOICE", artifactStatus: "REPORTED" },
+      { id: "credit-note", input: "ledgerbyte-generated-credit-note.input.json", invoiceType: "STANDARD_TAX_INVOICE", artifactStatus: "CLEARED" },
+      { id: "debit-note", input: "ledgerbyte-generated-debit-note.input.json", invoiceType: "STANDARD_TAX_INVOICE", artifactStatus: "CLEARED" },
+      { id: "allowance", input: "ledgerbyte-generated-allowance-invoice.input.json", invoiceType: "STANDARD_TAX_INVOICE", artifactStatus: "CLEARED" },
+      { id: "multiline-vat", input: "ledgerbyte-generated-multiline-invoice.input.json", invoiceType: "STANDARD_TAX_INVOICE", artifactStatus: "CLEARED" },
     ] as const;
 
     for (const fixture of fixtures) {

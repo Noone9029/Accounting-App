@@ -62,13 +62,16 @@ export interface ZatcaInvoiceInput {
   buyer: ZatcaBuyerInput;
   subtotal: string;
   discountTotal: string;
+  documentAllowanceTotal?: string | null;
   discountReason?: string | null;
   taxableTotal: string;
   taxTotal: string;
   total: string;
+  payableTotal?: string | null;
   previousInvoiceHash?: string | null;
   icv?: number | null;
   qrCodeBase64?: string | null;
+  requirePhase2Qr?: boolean;
   lines: ZatcaInvoiceLineInput[];
 }
 
@@ -334,7 +337,7 @@ export function buildLegalMonetaryTotalXml(input: ZatcaInvoiceInput): string {
     `    <cbc:TaxInclusiveAmount currencyID="${escapeXml(input.currency)}">${formatMoney(input.total)}</cbc:TaxInclusiveAmount>`,
     `    <cbc:AllowanceTotalAmount currencyID="${escapeXml(input.currency)}">${formatMoney(input.discountTotal)}</cbc:AllowanceTotalAmount>`,
     `    <cbc:PrepaidAmount currencyID="${escapeXml(input.currency)}">0.00</cbc:PrepaidAmount>`,
-    `    <cbc:PayableAmount currencyID="${escapeXml(input.currency)}">${formatMoney(input.total)}</cbc:PayableAmount>`,
+    `    <cbc:PayableAmount currencyID="${escapeXml(input.currency)}">${formatMoney(input.payableTotal ?? input.total)}</cbc:PayableAmount>`,
     "  </cac:LegalMonetaryTotal>",
   ].join("\n");
 }
@@ -361,8 +364,9 @@ export function generateZatcaBasicQr(input: {
   return { status: "PHASE_1_BASIC_ONLY", base64: Buffer.concat(fields.map(([tag, value]) => tlv(tag, value))).toString("base64") };
 }
 
-export function buildDocumentAllowanceChargeXml(input: Pick<ZatcaInvoiceInput, "currency" | "subtotal" | "discountTotal" | "discountReason" | "taxTotal" | "taxableTotal">): string {
-  const discount = Number(input.discountTotal);
+export function buildDocumentAllowanceChargeXml(input: Pick<ZatcaInvoiceInput, "currency" | "subtotal" | "discountTotal" | "documentAllowanceTotal" | "discountReason" | "taxTotal" | "taxableTotal">): string {
+  const allowanceTotal = input.documentAllowanceTotal ?? input.discountTotal;
+  const discount = Number(allowanceTotal);
   if (!Number.isFinite(discount) || discount <= 0) {
     return "";
   }
@@ -371,7 +375,7 @@ export function buildDocumentAllowanceChargeXml(input: Pick<ZatcaInvoiceInput, "
     "  <cac:AllowanceCharge>",
     "    <cbc:ChargeIndicator>false</cbc:ChargeIndicator>",
     `    <cbc:AllowanceChargeReason>${escapeXml(input.discountReason?.trim() || "Discount")}</cbc:AllowanceChargeReason>`,
-    `    <cbc:Amount currencyID="${escapeXml(input.currency)}">${formatMoney(input.discountTotal)}</cbc:Amount>`,
+    `    <cbc:Amount currencyID="${escapeXml(input.currency)}">${formatMoney(allowanceTotal)}</cbc:Amount>`,
     `    <cbc:BaseAmount currencyID="${escapeXml(input.currency)}">${formatMoney(input.subtotal)}</cbc:BaseAmount>`,
     "    <cac:TaxCategory>",
     '      <cbc:ID schemeID="UN/ECE 5305" schemeAgencyID="6">S</cbc:ID>',
