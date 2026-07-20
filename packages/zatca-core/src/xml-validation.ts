@@ -18,6 +18,9 @@ export function validateLocalZatcaXml(input: ZatcaInvoiceInput): ZatcaLocalXmlVa
   requireText(input.invoiceUuid, "Invoice UUID is required.", errors);
   requireText(input.seller?.name, "Seller name is required.", errors);
   requireText(input.seller?.vatNumber, "Seller VAT number is required.", errors);
+  if (String(input.seller?.vatNumber ?? "").trim() && !isValidSaudiVatNumber(input.seller.vatNumber)) {
+    errors.push("Seller VAT number must be a 15-digit Saudi VAT number that starts and ends with 3.");
+  }
   requireText(input.issueDate instanceof Date ? input.issueDate.toISOString() : input.issueDate, "Issue date is required.", errors);
 
   if (!Array.isArray(input.lines) || input.lines.length === 0) {
@@ -52,6 +55,8 @@ export function validateLocalZatcaXml(input: ZatcaInvoiceInput): ZatcaLocalXmlVa
     checkNonNegative(line.lineTotal, `${label} total`, errors);
   });
 
+  validateMonetaryTotals(input, errors);
+
   addBuyerAddressReadinessWarnings(input, warnings);
 
   return {
@@ -61,6 +66,38 @@ export function validateLocalZatcaXml(input: ZatcaInvoiceInput): ZatcaLocalXmlVa
     errors,
     warnings,
   };
+}
+
+function validateMonetaryTotals(input: ZatcaInvoiceInput, errors: string[]): void {
+  const subtotal = Number(input.subtotal);
+  const discount = Number(input.discountTotal);
+  const taxable = Number(input.taxableTotal);
+  const tax = Number(input.taxTotal);
+  const total = Number(input.total);
+  if ([subtotal, discount, taxable, tax, total].every(Number.isFinite)) {
+    if (!sameMoney(taxable, subtotal - discount)) {
+      errors.push("Taxable total must equal subtotal less document discount.");
+    }
+    if (!sameMoney(total, taxable + tax)) {
+      errors.push("Invoice total must equal taxable total plus VAT total.");
+    }
+
+    const lineVatAmounts = input.lines?.map((line) => Number(line.taxAmount)) ?? [];
+    if (sameMoney(discount, 0) && lineVatAmounts.length > 0 && lineVatAmounts.every(Number.isFinite)) {
+      const lineVatTotal = lineVatAmounts.reduce((sum, value) => sum + value, 0);
+      if (!sameMoney(tax, lineVatTotal)) {
+        errors.push("VAT total must equal the sum of invoice-line VAT amounts when no document allowance applies.");
+      }
+    }
+  }
+}
+
+function sameMoney(left: number, right: number): boolean {
+  return Math.abs(left - right) < 0.00001;
+}
+
+function isValidSaudiVatNumber(value: string | null | undefined): boolean {
+  return /^3\d{13}3$/.test(String(value ?? "").trim());
 }
 
 function addBuyerAddressReadinessWarnings(input: ZatcaInvoiceInput, warnings: string[]): void {

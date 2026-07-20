@@ -303,12 +303,37 @@ describe("ZATCA XML mapping scaffold", () => {
     assert.deepEqual(result.errors, ["Seller VAT number is required."]);
   });
 
+  it("local validation reports a defined failure for an invalid Saudi seller VAT number", () => {
+    const input = readFixtureInput("local-standard-tax-invoice");
+    const result = validateLocalZatcaXml({ ...input, seller: { ...input.seller, vatNumber: "123456789012345" } });
+
+    assert.equal(result.valid, false);
+    assert.ok(result.errors.includes("Seller VAT number must be a 15-digit Saudi VAT number that starts and ends with 3."));
+  });
+
   it("local validation rejects missing invoice lines", () => {
     const input = readFixtureInput("local-standard-tax-invoice");
     const result = validateLocalZatcaXml({ ...input, lines: [] });
 
     assert.equal(result.valid, false);
     assert.ok(result.errors.includes("At least one invoice line is required."));
+  });
+
+  it("local validation reports defined failures for incorrect monetary totals", () => {
+    const input = readFixtureInput("ledgerbyte-generated-standard-invoice");
+    const result = validateLocalZatcaXml({ ...input, taxableTotal: "99.00", total: "113.00" });
+
+    assert.equal(result.valid, false);
+    assert.ok(result.errors.includes("Taxable total must equal subtotal less document discount."));
+    assert.ok(result.errors.includes("Invoice total must equal taxable total plus VAT total."));
+  });
+
+  it("local validation reports a defined failure for an incorrect VAT subtotal", () => {
+    const input = readFixtureInput("ledgerbyte-generated-standard-invoice");
+    const result = validateLocalZatcaXml({ ...input, taxTotal: "14.00", total: "114.00" });
+
+    assert.equal(result.valid, false);
+    assert.ok(result.errors.includes("VAT total must equal the sum of invoice-line VAT amounts when no document allowance applies."));
   });
 
   it("local validation rejects credit notes without original invoice reference and reason", () => {
