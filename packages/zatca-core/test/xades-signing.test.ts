@@ -56,6 +56,38 @@ describe("LedgerByte XAdES invoice construction", () => {
     assert.equal(result.xml.includes("PRIVATE KEY"), false);
   });
 
+  it("fails closed for malformed hash input, certificate metadata, and malformed signer output", async () => {
+    const baseProvider: ZatcaSigningProvider = {
+      async getCertificateMetadata() {
+        return {
+          provider: "LOCAL_EXTERNAL_PATH", algorithm: "EC_SECP256K1", keyId: "test-key", rotationStatus: "ACTIVE", certificateStatus: "ACTIVE",
+          certificateFingerprint: null, certificateSerialNumber: "42", certificateIssuer: "CN=LedgerByte Test", certificateExpiresAt: null, certificateRevokedAt: null,
+          signingEnabled: true, privateKeyReturned: false, certificateBodyReturned: false,
+        };
+      },
+      async getPublicKey() { return Buffer.alloc(0); },
+      async getCertificateDerForSigning() { return Buffer.from("synthetic-certificate", "utf8"); },
+      async signCanonicalizedData() { return Buffer.alloc(63); },
+    };
+    const input = {
+      unsignedXml: '<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2" xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"><cac:AccountingSupplierParty/></Invoice>',
+      invoiceHashBase64: Buffer.alloc(32, 1).toString("base64"),
+      signingTime: "2026-07-20T12:00:00Z",
+      canonicalize: async (xml: string) => Buffer.from(xml, "utf8"),
+      signingProvider: baseProvider,
+    };
+
+    await assert.rejects(() => createZatcaXadesSignedInvoice({ ...input, invoiceHashBase64: "raw-diagnostic-hash" }), { code: "ZATCA_XADES_INVALID_INPUT" });
+    await assert.rejects(() => createZatcaXadesSignedInvoice(input), { code: "ZATCA_XADES_SIGNATURE_FAILED" });
+    await assert.rejects(
+      () => createZatcaXadesSignedInvoice({
+        ...input,
+        signingProvider: { ...baseProvider, async getCertificateMetadata() { return { ...(await baseProvider.getCertificateMetadata()), certificateSerialNumber: null }; } },
+      }),
+      { code: "ZATCA_XADES_CERTIFICATE_METADATA" },
+    );
+  });
+
   it("signs a LedgerByte fixture with external local-only material and C14N11 bytes", async (t) => {
     const sdkRoot = process.env.ZATCA_SDK_ROOT;
     const javaBin = process.env.ZATCA_SDK_JAVA_BIN;
