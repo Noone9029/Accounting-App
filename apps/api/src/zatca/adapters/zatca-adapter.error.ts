@@ -53,6 +53,17 @@ export function createOfficialEndpointNotConfiguredError(operation: string): Zat
   });
 }
 
+export function createOfficialContractUnconfirmedError(operation: string): ZatcaAdapterError {
+  const message = `Official sandbox execution for ${operation} is blocked because the current source-backed host, path, method, authentication, and API-version contract is unconfirmed.`;
+
+  return new ZatcaAdapterError(message, {
+    responseCode: "OFFICIAL_CONTRACT_UNCONFIRMED",
+    errorCode: "OFFICIAL_CONTRACT_UNCONFIRMED",
+    responsePayload: { message, operation },
+    httpStatus: 501,
+  });
+}
+
 export function createMockNotImplementedError(operation: string): ZatcaAdapterError {
   const message = `${operation} is not implemented in mock mode. No ZATCA network call was made.`;
 
