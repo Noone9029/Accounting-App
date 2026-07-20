@@ -94,7 +94,7 @@ describe("LedgerByte XAdES invoice construction", () => {
     assert.doesNotMatch(result.xml, /PRIVATE KEY/);
   });
 
-  it("validates a LedgerByte-created signed XML with a generated Phase 2 QR using the offline official SDK", async (t) => {
+  it("validates an Arabic LedgerByte-created signed XML with a generated Phase 2 QR using the offline official SDK", async (t) => {
     const sdkRoot = process.env.ZATCA_SDK_ROOT;
     const javaBin = process.env.ZATCA_SDK_JAVA_BIN;
     if (!sdkRoot || !javaBin) {
@@ -107,7 +107,7 @@ describe("LedgerByte XAdES invoice construction", () => {
     const c14n = require(join(root, "scripts", "zatca-c14n11-hash.cjs")) as typeof import("../../../scripts/zatca-c14n11-hash.cjs");
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const sdk = require(join(root, "scripts", "zatca-sdk-validate-local-lib.cjs")) as typeof import("../../../scripts/zatca-sdk-validate-local-lib.cjs");
-    const invoice = JSON.parse(readFileSync(join(root, "packages", "zatca-core", "fixtures", "ledgerbyte-generated-standard-invoice.input.json"), "utf8"));
+    const invoice = JSON.parse(readFileSync(join(root, "packages", "zatca-core", "fixtures", "ledgerbyte-generated-arabic-simplified-invoice.input.json"), "utf8"));
     const unsignedXml = buildZatcaInvoiceXml(invoice);
     const hash = c14n.computeZatcaC14n11Hash({ xml: unsignedXml, cwd: root, env: process.env });
     assert.equal(hash.status, "PASSED");
@@ -131,11 +131,11 @@ describe("LedgerByte XAdES invoice construction", () => {
     });
 
     const qr = encodeZatcaPhase2Qr({
-      invoiceType: "STANDARD_TAX_INVOICE",
-      artifactStatus: "CLEARED",
+      invoiceType: "SIMPLIFIED_TAX_INVOICE",
+      artifactStatus: "REPORTED",
       sellerName: invoice.seller.name,
       vatNumber: invoice.seller.vatNumber,
-      timestamp: "2026-06-06T09:00:00Z",
+      timestamp: "2026-06-06T13:00:00Z",
       invoiceTotal: invoice.total,
       vatTotal: invoice.taxTotal,
       invoiceHashBase64: result.invoiceHashBase64,
