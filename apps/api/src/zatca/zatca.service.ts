@@ -85,12 +85,13 @@ import {
 } from "../zatca-sdk/zatca-sdk-paths";
 import { isZatcaAdapterError, ZatcaAdapterError } from "./adapters/zatca-adapter.error";
 import { MockZatcaOnboardingAdapter } from "./adapters/mock-zatca-onboarding.adapter";
+import { SandboxDisabledZatcaOnboardingAdapter } from "./adapters/sandbox-disabled-zatca-onboarding.adapter";
 import {
   buildComplianceCsidHttpRequestContractSummary,
   buildComplianceCsidHttpRequestPlan,
   mapComplianceCsidHttpResponse,
 } from "./adapters/compliance-csid-http.mapper";
-import { ZATCA_ONBOARDING_ADAPTER, type ComplianceCsidResult, type ZatcaAdapterResult, type ZatcaOnboardingAdapter } from "./adapters/zatca-onboarding.adapter";
+import { ZATCA_ONBOARDING_ADAPTER, type ZatcaAdapterResult, type ZatcaOnboardingAdapter } from "./adapters/zatca-onboarding.adapter";
 import {
   DisabledComplianceCsidSecretCustodyProvider,
   readComplianceCsidCustodyProviderConfig,
@@ -513,7 +514,7 @@ export class ZatcaService {
     private readonly zatcaSdkService?: ZatcaSdkService,
   ) {
     this.adapterConfig = adapterConfig ?? readZatcaAdapterConfig();
-    this.onboardingAdapter = onboardingAdapter ?? new MockZatcaOnboardingAdapter();
+    this.onboardingAdapter = onboardingAdapter ?? (this.adapterConfig.mode === "mock" ? new MockZatcaOnboardingAdapter() : new SandboxDisabledZatcaOnboardingAdapter());
   }
 
   getAdapterConfig() {
@@ -2093,14 +2094,16 @@ export class ZatcaService {
       // TODO: Verify the official compliance CSID payload shape before enabling real sandbox calls.
     };
 
-    let adapterResult: ComplianceCsidResult;
     try {
-      adapterResult = await this.onboardingAdapter.requestComplianceCsid({
+      await this.onboardingAdapter.requestComplianceCsid({
         organizationId,
         egsUnitId: id,
         environment: existing.environment,
         request: requestPayload,
       });
+      throw new NotImplementedException(
+        "Compliance CSID material was received by a local test adapter, but the custody provider remains disabled. No certificate, token, secret, or CSID material may be persisted.",
+      );
     } catch (error) {
       await this.createEgsSubmissionFailureLog({
         organizationId,
@@ -2113,51 +2116,6 @@ export class ZatcaService {
       this.throwAdapterError(error);
     }
 
-    const updated = await this.prisma.$transaction(async (tx) => {
-      const activeCount = await tx.zatcaEgsUnit.count({ where: { organizationId, isActive: true } });
-      const unit = await tx.zatcaEgsUnit.update({
-        where: { id },
-        data: {
-          complianceCsidPem: adapterResult.complianceCsidPem,
-          certificateRequestId: adapterResult.certificateRequestId,
-          status: ZatcaRegistrationStatus.ACTIVE,
-          isActive: activeCount === 0 ? true : undefined,
-        },
-        select: safeEgsUnitSelect,
-      });
-      await tx.zatcaOrganizationProfile.update({
-        where: { organizationId },
-        data: { registrationStatus: ZatcaRegistrationStatus.ACTIVE },
-      });
-      await tx.zatcaSubmissionLog.create({
-        data: {
-          organizationId,
-          invoiceMetadataId: null,
-          egsUnitId: id,
-          submissionType: ZatcaSubmissionType.COMPLIANCE_CHECK,
-          status: ZatcaSubmissionStatus.SUCCESS,
-          requestUrl: adapterResult.requestUrl ?? `local-${dto.mode ?? this.adapterConfig.mode}-compliance-csid`,
-          requestPayloadBase64: this.encodePayload(this.sanitizeComplianceCsidRequestForLog(requestPayload)),
-          responsePayloadBase64: Buffer.from(JSON.stringify(adapterResult.responsePayload), "utf8").toString("base64"),
-          responseCode: adapterResult.responseCode,
-          completedAt: new Date(),
-        },
-      });
-      return unit;
-    });
-
-    const publicBefore = this.toPublicEgsUnit(existing);
-    const publicUpdated = this.toPublicEgsUnit(updated);
-    await this.auditLogService.log({
-      organizationId,
-      actorUserId,
-      action: "REQUEST_COMPLIANCE_CSID",
-      entityType: "ZatcaEgsUnit",
-      entityId: id,
-      before: publicBefore,
-      after: publicUpdated,
-    });
-    return publicUpdated;
   }
 
   async requestProductionCsid(organizationId: string, _actorUserId: string, id: string) {
@@ -2170,48 +2128,15 @@ export class ZatcaService {
     };
 
     try {
-      const adapterResult = await this.onboardingAdapter.requestProductionCsid({
+      await this.onboardingAdapter.requestProductionCsid({
         organizationId,
         egsUnitId: id,
         complianceCsidPem: existing.complianceCsidPem ?? "",
         request: requestPayload,
       });
-
-      if (!adapterResult.productionCsidPem) {
-        throw new ZatcaAdapterError("Production CSID response mapping is incomplete. Verify official response fields before enabling this flow.", {
-          responseCode: "OFFICIAL_RESPONSE_UNMAPPED",
-          errorCode: "OFFICIAL_RESPONSE_UNMAPPED",
-          responsePayload: adapterResult.responsePayload,
-          requestUrl: adapterResult.requestUrl,
-          httpStatus: 501,
-        });
-      }
-
-      const updated = await this.prisma.zatcaEgsUnit.update({
-        where: { id },
-        data: {
-          productionCsidPem: adapterResult.productionCsidPem,
-          certificateRequestId: adapterResult.certificateRequestId ?? existing.certificateRequestId,
-        },
-        select: safeEgsUnitSelect,
-      });
-
-      await this.prisma.zatcaSubmissionLog.create({
-        data: {
-          organizationId,
-          invoiceMetadataId: null,
-          egsUnitId: id,
-          submissionType: ZatcaSubmissionType.COMPLIANCE_CHECK,
-          status: ZatcaSubmissionStatus.SUCCESS,
-          requestUrl: adapterResult.requestUrl ?? `${this.adapterConfig.mode}-production-csid`,
-          requestPayloadBase64: this.encodePayload(this.sanitizeProductionCsidRequestForLog(requestPayload)),
-          responsePayloadBase64: this.encodePayload(adapterResult.responsePayload),
-          responseCode: adapterResult.responseCode,
-          completedAt: new Date(),
-        },
-      });
-
-      return this.toPublicEgsUnit(updated);
+      throw new NotImplementedException(
+        "Production CSID material was received by a local test adapter, but the custody provider remains disabled. No certificate, token, secret, or CSID material may be persisted.",
+      );
     } catch (error) {
       await this.createEgsSubmissionFailureLog({
         organizationId,

@@ -17,6 +17,7 @@ import {
 import { initialPreviousInvoiceHash } from "@ledgerbyte/zatca-core";
 import * as ZatcaSdkPaths from "../zatca-sdk/zatca-sdk-paths";
 import { SandboxDisabledZatcaOnboardingAdapter } from "./adapters/sandbox-disabled-zatca-onboarding.adapter";
+import { MockZatcaOnboardingAdapter } from "./adapters/mock-zatca-onboarding.adapter";
 import { ComplianceCsidRequestDryRunDto } from "./dto/compliance-csid-request-dry-run.dto";
 import type { ZatcaAdapterConfig } from "./zatca.config";
 import { ZatcaService } from "./zatca.service";
@@ -233,7 +234,7 @@ describe("ZATCA service rules", () => {
     await expect(service.getEgsCsr("other-org", "egs-1")).rejects.toThrow(NotFoundException);
   });
 
-  it("requests mock compliance CSID only after CSR and OTP are present", async () => {
+  it("does not persist mock compliance CSID material without an approved custody provider", async () => {
     const egsUnit = makeEgsUnit({ csrPem: "-----BEGIN CERTIFICATE REQUEST-----\nCSR\n-----END CERTIFICATE REQUEST-----" });
     const tx = {
       zatcaEgsUnit: {
@@ -251,20 +252,24 @@ describe("ZATCA service rules", () => {
     };
     const prisma = {
       zatcaEgsUnit: { findFirst: jest.fn().mockResolvedValue({ ...egsUnit, privateKeyPem: "secret" }) },
+      zatcaSubmissionLog: { create: jest.fn().mockResolvedValue({ id: "failure-log-1" }) },
       $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
     };
-    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never, new MockZatcaOnboardingAdapter(), makeAdapterConfig({ mode: "mock" }));
 
-    const result = await service.requestComplianceCsid("org-1", "user-1", "egs-1", { otp: "000000", mode: "mock" });
+    await expect(service.requestComplianceCsid("org-1", "user-1", "egs-1", { otp: "000000", mode: "mock" })).rejects.toThrow(
+      "custody provider remains disabled",
+    );
 
-    expect(result).toMatchObject({ hasComplianceCsid: true, certificateRequestId: "LOCAL-MOCK-1", isActive: true });
-    expect(result).not.toHaveProperty("privateKeyPem");
-    expect(tx.zatcaSubmissionLog.create).toHaveBeenCalledWith(
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(tx.zatcaEgsUnit.update).not.toHaveBeenCalled();
+    expect(tx.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+    expect(prisma.zatcaSubmissionLog.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ invoiceMetadataId: null, responseCode: "LOCAL_MOCK", requestPayloadBase64: expect.any(String) }),
+        data: expect.objectContaining({ invoiceMetadataId: null, requestPayloadBase64: expect.any(String) }),
       }),
     );
-    const loggedRequest = Buffer.from(tx.zatcaSubmissionLog.create.mock.calls[0][0].data.requestPayloadBase64, "base64").toString();
+    const loggedRequest = Buffer.from(prisma.zatcaSubmissionLog.create.mock.calls[0][0].data.requestPayloadBase64, "base64").toString();
     expect(loggedRequest).not.toContain("000000");
     expect(loggedRequest).not.toContain("BEGIN CERTIFICATE REQUEST");
     expect(loggedRequest).not.toContain("PRIVATE KEY");
@@ -288,6 +293,8 @@ describe("ZATCA service rules", () => {
         },
       } as never,
       { log: jest.fn() } as never,
+      new MockZatcaOnboardingAdapter(),
+      makeAdapterConfig({ mode: "mock" }),
     );
     await expect(withCsr.requestComplianceCsid("org-1", "user-1", "egs-1", { otp: "" })).rejects.toThrow("OTP is required");
   });
@@ -327,6 +334,8 @@ describe("ZATCA service rules", () => {
     const service = new ZatcaService(
       { zatcaEgsUnit: { findFirst: jest.fn().mockResolvedValue({ ...makeEgsUnit(), privateKeyPem: null }) }, zatcaSubmissionLog: { create: logCreate } } as never,
       { log: jest.fn() } as never,
+      new MockZatcaOnboardingAdapter(),
+      makeAdapterConfig({ mode: "mock" }),
     );
 
     await expect(service.requestProductionCsid("org-1", "user-1", "egs-1")).rejects.toThrow("Production CSID request is not implemented");
@@ -620,7 +629,7 @@ describe("ZATCA service rules", () => {
       $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
     };
     const audit = { log: jest.fn() };
-    const service = new ZatcaService(prisma as never, audit as never);
+    const service = new ZatcaService(prisma as never, audit as never, new MockZatcaOnboardingAdapter(), makeAdapterConfig({ mode: "mock" }));
 
     const result = await service.submitInvoiceComplianceCheck("org-1", "user-1", "invoice-1");
 
@@ -650,7 +659,7 @@ describe("ZATCA service rules", () => {
       zatcaEgsUnit: { findFirst: jest.fn().mockResolvedValue({ id: "egs-1" }) },
       $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)),
     };
-    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never, new MockZatcaOnboardingAdapter(), makeAdapterConfig({ mode: "mock" }));
 
     await expect(service.requestInvoiceClearance("org-1", "user-1", "invoice-1")).rejects.toThrow("Clearance submission is not implemented in mock mode");
     await expect(service.requestInvoiceReporting("org-1", "user-1", "invoice-1")).rejects.toThrow("Reporting submission is not implemented in mock mode");
