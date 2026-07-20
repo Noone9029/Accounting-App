@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { generateKeyPairSync, sign, verify } from "node:crypto";
+import { createHash, generateKeyPairSync, sign, verify } from "node:crypto";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -52,6 +52,8 @@ describe("LedgerByte XAdES invoice construction", () => {
     assert.match(result.xml, /URI="#xadesSignedProperties"/);
     assert.match(result.xml, /<xades:SigningTime>2026-07-20T12:00:00Z<\/xades:SigningTime>/);
     assert.match(result.xml, /<cac:Signature>/);
+    const expectedCertificateDigest = createHash("sha256").update("synthetic-public-certificate", "utf8").digest("base64");
+    assert.match(result.xml, new RegExp(`<ds:DigestValue>${expectedCertificateDigest}<\\/ds:DigestValue>`));
     assert.equal(verify("sha256", result.signedInfoCanonicalBytes, { key: publicKey, dsaEncoding: "ieee-p1363" }, result.signatureP1363), true);
     assert.equal(result.xml.includes("PRIVATE KEY"), false);
   });
@@ -126,7 +128,7 @@ describe("LedgerByte XAdES invoice construction", () => {
     assert.doesNotMatch(result.xml, /PRIVATE KEY/);
   });
 
-  it("validates an Arabic LedgerByte-created signed XML with a generated Phase 2 QR using the offline official SDK", async (t) => {
+  it("validates standard and Arabic LedgerByte-created signed XML with generated Phase 2 QR values using the offline official SDK", async (t) => {
     const sdkRoot = process.env.ZATCA_SDK_ROOT;
     const javaBin = process.env.ZATCA_SDK_JAVA_BIN;
     if (!sdkRoot || !javaBin) {
@@ -139,7 +141,13 @@ describe("LedgerByte XAdES invoice construction", () => {
     const c14n = require(join(root, "scripts", "zatca-c14n11-hash.cjs")) as typeof import("../../../scripts/zatca-c14n11-hash.cjs");
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const sdk = require(join(root, "scripts", "zatca-sdk-validate-local-lib.cjs")) as typeof import("../../../scripts/zatca-sdk-validate-local-lib.cjs");
-    const invoice = JSON.parse(readFileSync(join(root, "packages", "zatca-core", "fixtures", "ledgerbyte-generated-arabic-simplified-invoice.input.json"), "utf8"));
+    const fixtures = [
+      { id: "standard", input: "ledgerbyte-generated-standard-invoice.input.json", invoiceType: "STANDARD_TAX_INVOICE", artifactStatus: "CLEARED" },
+      { id: "arabic-simplified", input: "ledgerbyte-generated-arabic-simplified-invoice.input.json", invoiceType: "SIMPLIFIED_TAX_INVOICE", artifactStatus: "REPORTED" },
+    ] as const;
+
+    for (const fixture of fixtures) {
+    const invoice = JSON.parse(readFileSync(join(root, "packages", "zatca-core", "fixtures", fixture.input), "utf8"));
     const unsignedXml = buildZatcaInvoiceXml(invoice);
     const hash = c14n.computeZatcaC14n11Hash({ xml: unsignedXml, cwd: root, env: process.env });
     assert.equal(hash.status, "PASSED");
@@ -163,8 +171,8 @@ describe("LedgerByte XAdES invoice construction", () => {
     });
 
     const qr = encodeZatcaPhase2Qr({
-      invoiceType: "SIMPLIFIED_TAX_INVOICE",
-      artifactStatus: "REPORTED",
+      invoiceType: fixture.invoiceType,
+      artifactStatus: fixture.artifactStatus,
       sellerName: invoice.seller.name,
       vatNumber: invoice.seller.vatNumber,
       timestamp: "2026-06-06T13:00:00Z",
@@ -192,13 +200,14 @@ describe("LedgerByte XAdES invoice construction", () => {
         maxBuffer: 1024 * 1024,
       });
       const safe = sdk.summarizeSdkOutput([validation.stdout, validation.stderr, validation.error?.message].filter(Boolean).join("\n"));
-      assert.equal(validation.status, 0, `offline SDK rejected LedgerByte signed XML: ${safe.errorCodes.join(",") || "SDK_EXIT_NONZERO"}`);
-      assert.match(safe.textForInference, /PASS/i, "offline SDK did not report a passing signed-XML validation result");
+      assert.equal(validation.status, 0, `${fixture.id}: offline SDK rejected LedgerByte signed XML: ${safe.errorCodes.join(",") || "SDK_EXIT_NONZERO"}`);
+      assert.match(safe.textForInference, /PASS/i, `${fixture.id}: offline SDK did not report a passing signed-XML validation result`);
     } finally {
       rmSync(temp, { recursive: true, force: true });
       for (const cleanupPath of commandPlan.cleanupPaths ?? []) {
         rmSync(cleanupPath, { recursive: true, force: true });
       }
+    }
     }
   });
 });

@@ -41,9 +41,9 @@ export async function createZatcaXadesSignedInvoice(input: ZatcaXadesSigningInpu
     throw new ZatcaXadesSigningError("ZATCA_XADES_INVALID_INPUT");
   }
 
-  const certificateDigest = base64OfSha256Hex(certificateDer);
+  const certificateDigest = base64OfSha256(certificateDer);
   const signedProperties = signedPropertiesXml({ signingTime: input.signingTime, certificateDigest, issuer: metadata.certificateIssuer, serialNumber: metadata.certificateSerialNumber });
-  const signedPropertiesDigest = base64OfSha256Hex(await canonicalizeSafely(input.canonicalize, signedProperties));
+  const signedPropertiesDigest = base64OfSha256(await canonicalizeSafely(input.canonicalize, signedProperties));
   const signedInfo = signedInfoXml({ invoiceHashBase64: input.invoiceHashBase64, signedPropertiesDigest });
   const signedInfoCanonicalBytes = await canonicalizeSafely(input.canonicalize, signedInfo);
   const signatureP1363 = await input.signingProvider.signCanonicalizedData(signedInfoCanonicalBytes);
@@ -92,7 +92,7 @@ async function canonicalizeSafely(canonicalize: ZatcaXadesSigningInput["canonica
   }
 }
 
-function base64OfSha256Hex(bytes: Buffer): string { return Buffer.from(createHash("sha256").update(bytes).digest("hex"), "utf8").toString("base64"); }
+function base64OfSha256(bytes: Buffer): string { return createHash("sha256").update(bytes).digest("base64"); }
 function isSha256Base64(value: string): boolean { return /^[A-Za-z0-9+/]{43}=$/.test(value); }
 function isIsoDateTime(value: string): boolean { return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value); }
 function escapeXml(value: string): string { return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;"); }
