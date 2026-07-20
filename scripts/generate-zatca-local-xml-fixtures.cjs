@@ -28,6 +28,12 @@ const FIXTURES = [
     input: "ledgerbyte-generated-allowance-invoice.input.json",
     output: "ledgerbyte-generated-allowance-invoice.expected.xml",
   },
+  {
+    id: "ledgerbyte-generated-arabic-simplified-invoice",
+    type: "simplified-invoice-with-arabic-content",
+    input: "ledgerbyte-generated-arabic-simplified-invoice.input.json",
+    output: "ledgerbyte-generated-arabic-simplified-invoice.expected.xml",
+  },
 ];
 
 main();

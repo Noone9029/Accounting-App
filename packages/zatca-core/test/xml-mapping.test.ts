@@ -226,7 +226,7 @@ describe("ZATCA XML mapping scaffold", () => {
   });
 
   it("matches generated debit-note and document-allowance fixtures", () => {
-    for (const fixture of ["ledgerbyte-generated-debit-note", "ledgerbyte-generated-allowance-invoice"]) {
+    for (const fixture of ["ledgerbyte-generated-debit-note", "ledgerbyte-generated-allowance-invoice", "ledgerbyte-generated-arabic-simplified-invoice"]) {
       assert.equal(normalizeFixtureXml(buildZatcaInvoiceXml(readFixtureInput(fixture))), readFixtureXml(fixture));
     }
   });

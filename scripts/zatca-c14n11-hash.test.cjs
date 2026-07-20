@@ -34,7 +34,14 @@ test("matches the official SDK hash oracle for every current LedgerByte-generate
     t.skip("external SDK/JDK are not configured");
     return;
   }
-  const fixtures = ["local-standard-tax-invoice.expected.xml", "ledgerbyte-generated-standard-invoice.expected.xml", "ledgerbyte-generated-credit-note.expected.xml"];
+  const fixtures = [
+    "local-standard-tax-invoice.expected.xml",
+    "ledgerbyte-generated-standard-invoice.expected.xml",
+    "ledgerbyte-generated-credit-note.expected.xml",
+    "ledgerbyte-generated-debit-note.expected.xml",
+    "ledgerbyte-generated-allowance-invoice.expected.xml",
+    "ledgerbyte-generated-arabic-simplified-invoice.expected.xml",
+  ];
   for (const fixture of fixtures) {
     const result = compareWithOfficialSdkHash({ xml: fs.readFileSync(path.join(root, "packages", "zatca-core", "fixtures", fixture), "utf8"), cwd: root, env: process.env });
     assert.equal(result.status, "PASSED", fixture);
