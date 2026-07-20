@@ -225,6 +225,12 @@ describe("ZATCA XML mapping scaffold", () => {
     assert.ok(result.warnings.some((warning) => warning.includes("No XML was transformed")));
   });
 
+  it("matches generated debit-note and document-allowance fixtures", () => {
+    for (const fixture of ["ledgerbyte-generated-debit-note", "ledgerbyte-generated-allowance-invoice"]) {
+      assert.equal(normalizeFixtureXml(buildZatcaInvoiceXml(readFixtureInput(fixture))), readFixtureXml(fixture));
+    }
+  });
+
   it("emits a document-level allowance with its amount, base, and VAT category", () => {
     const input = readFixtureInput("ledgerbyte-generated-standard-invoice");
     const xml = buildZatcaInvoiceXml({

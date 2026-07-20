@@ -66,7 +66,7 @@ test("reports unique artifact counts and treats the historical credit-note id as
   });
 
   assert.equal(evidence.runs[0].fixtureId, "ledgerbyte-credit-note");
-  assert.equal(evidence.summary.registeredFixtureCount, 5);
+  assert.equal(evidence.summary.registeredFixtureCount, 7);
   assert.equal(evidence.summary.uniqueXmlArtifactCount, 1);
   assert.equal(evidence.summary.officialSampleCount, 0);
   assert.equal(evidence.summary.ledgerbyteGeneratedUniqueFixtureCount, 1);

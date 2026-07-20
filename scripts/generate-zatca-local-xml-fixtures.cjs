@@ -16,6 +16,18 @@ const FIXTURES = [
     input: "ledgerbyte-generated-credit-note.input.json",
     output: "ledgerbyte-generated-credit-note.expected.xml",
   },
+  {
+    id: "ledgerbyte-generated-debit-note",
+    type: "debit-note",
+    input: "ledgerbyte-generated-debit-note.input.json",
+    output: "ledgerbyte-generated-debit-note.expected.xml",
+  },
+  {
+    id: "ledgerbyte-generated-allowance-invoice",
+    type: "standard-invoice-with-document-allowance",
+    input: "ledgerbyte-generated-allowance-invoice.input.json",
+    output: "ledgerbyte-generated-allowance-invoice.expected.xml",
+  },
 ];
 
 main();

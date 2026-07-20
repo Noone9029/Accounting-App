@@ -68,6 +68,28 @@ const FIXTURES = [
     expectedResult: "PASS_OR_SAFE_SDK_WARNING",
     bodyOutputForbidden: true,
   },
+  {
+    id: "ledgerbyte-debit-note",
+    label: "LedgerByte Local Debit Note Fixture",
+    source: "ledgerbyte-local",
+    fixtureType: "ledgerbyte-generated",
+    invoiceKind: "debit-note",
+    standardOrSimplified: "standard",
+    relativePath: "packages/zatca-core/fixtures/ledgerbyte-generated-debit-note.expected.xml",
+    expectedResult: "PASS_OR_SAFE_SDK_WARNING",
+    bodyOutputForbidden: true,
+  },
+  {
+    id: "ledgerbyte-allowance-invoice",
+    label: "LedgerByte Local Document Allowance Invoice Fixture",
+    source: "ledgerbyte-local",
+    fixtureType: "ledgerbyte-generated",
+    invoiceKind: "standard-invoice",
+    standardOrSimplified: "standard",
+    relativePath: "packages/zatca-core/fixtures/ledgerbyte-generated-allowance-invoice.expected.xml",
+    expectedResult: "PASS_OR_SAFE_SDK_WARNING",
+    bodyOutputForbidden: true,
+  },
 ];
 
 function parseArgs(argv) {
