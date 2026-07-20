@@ -13,7 +13,7 @@ module.exports = {
     "^@ledgerbyte/uae-peppol-pint-ae$": "<rootDir>/../../packages/uae-peppol-pint-ae/src/index.ts",
     "^@ledgerbyte/zatca-core$": "<rootDir>/../../packages/zatca-core/src/index.ts",
     "^\\./(currencies|permissions|zatca-readiness)\\.js$": "<rootDir>/../../packages/shared/src/$1.ts",
-    "^\\./(compliance-checklist|xml-mapping|xml-validation)\\.js$": "<rootDir>/../../packages/zatca-core/src/$1.ts",
+    "^\\./(compliance-checklist|xml-mapping|xml-validation|signing-provider|local-pih-icv-chain|xades-signing|phase2-qr|signed-artifact-verification)\\.js$": "<rootDir>/../../packages/zatca-core/src/$1.ts",
   },
   testEnvironment: "node",
 };

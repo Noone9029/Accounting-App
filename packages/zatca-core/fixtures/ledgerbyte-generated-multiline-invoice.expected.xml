@@ -3,16 +3,16 @@
   xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
   xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
   <cbc:ProfileID>reporting:1.0</cbc:ProfileID>
-  <cbc:ID>LB-GEN-STD-0001</cbc:ID>
-  <cbc:UUID>22222222-2222-4222-8222-222222222222</cbc:UUID>
+  <cbc:ID>LB-GEN-MULTI-0001</cbc:ID>
+  <cbc:UUID>66666666-6666-4666-8666-666666666666</cbc:UUID>
   <cbc:IssueDate>2026-06-06</cbc:IssueDate>
-  <cbc:IssueTime>09:00:00Z</cbc:IssueTime>
+  <cbc:IssueTime>14:00:00Z</cbc:IssueTime>
   <cbc:InvoiceTypeCode name="0100000">388</cbc:InvoiceTypeCode>
   <cbc:DocumentCurrencyCode>SAR</cbc:DocumentCurrencyCode>
   <cbc:TaxCurrencyCode>SAR</cbc:TaxCurrencyCode>
   <cac:AdditionalDocumentReference>
     <cbc:ID>ICV</cbc:ID>
-    <cbc:UUID>1001</cbc:UUID>
+    <cbc:UUID>1006</cbc:UUID>
   </cac:AdditionalDocumentReference>
   <cac:AdditionalDocumentReference>
     <cbc:ID>PIH</cbc:ID>
@@ -82,14 +82,14 @@
   <cac:InvoiceLine>
     <cbc:ID>1</cbc:ID>
     <cbc:InvoicedQuantity unitCode="PCE">1.00</cbc:InvoicedQuantity>
-    <cbc:LineExtensionAmount currencyID="SAR">100.00</cbc:LineExtensionAmount>
+    <cbc:LineExtensionAmount currencyID="SAR">60.00</cbc:LineExtensionAmount>
     <cac:TaxTotal>
-      <cbc:TaxAmount currencyID="SAR">15.00</cbc:TaxAmount>
-      <cbc:RoundingAmount currencyID="SAR">115.00</cbc:RoundingAmount>
+      <cbc:TaxAmount currencyID="SAR">9.00</cbc:TaxAmount>
+      <cbc:RoundingAmount currencyID="SAR">69.00</cbc:RoundingAmount>
     </cac:TaxTotal>
     <cac:Item>
       <cbc:Description>VAT 15%</cbc:Description>
-      <cbc:Name>Local demo service</cbc:Name>
+      <cbc:Name>Synthetic implementation service</cbc:Name>
       <cac:ClassifiedTaxCategory>
         <cbc:ID>S</cbc:ID>
         <cbc:Percent>15.00</cbc:Percent>
@@ -99,7 +99,30 @@
       </cac:ClassifiedTaxCategory>
     </cac:Item>
     <cac:Price>
-      <cbc:PriceAmount currencyID="SAR">100.00</cbc:PriceAmount>
+      <cbc:PriceAmount currencyID="SAR">60.00</cbc:PriceAmount>
+    </cac:Price>
+  </cac:InvoiceLine>
+  <cac:InvoiceLine>
+    <cbc:ID>2</cbc:ID>
+    <cbc:InvoicedQuantity unitCode="PCE">1.00</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="SAR">40.00</cbc:LineExtensionAmount>
+    <cac:TaxTotal>
+      <cbc:TaxAmount currencyID="SAR">6.00</cbc:TaxAmount>
+      <cbc:RoundingAmount currencyID="SAR">46.00</cbc:RoundingAmount>
+    </cac:TaxTotal>
+    <cac:Item>
+      <cbc:Description>VAT 15%</cbc:Description>
+      <cbc:Name>Synthetic support service</cbc:Name>
+      <cac:ClassifiedTaxCategory>
+        <cbc:ID>S</cbc:ID>
+        <cbc:Percent>15.00</cbc:Percent>
+        <cac:TaxScheme>
+          <cbc:ID>VAT</cbc:ID>
+        </cac:TaxScheme>
+      </cac:ClassifiedTaxCategory>
+    </cac:Item>
+    <cac:Price>
+      <cbc:PriceAmount currencyID="SAR">40.00</cbc:PriceAmount>
     </cac:Price>
   </cac:InvoiceLine>
 </Invoice>

@@ -3,16 +3,16 @@
   xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2"
   xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
   <cbc:ProfileID>reporting:1.0</cbc:ProfileID>
-  <cbc:ID>SIM-000001</cbc:ID>
-  <cbc:UUID>22222222-2222-4222-8222-222222222222</cbc:UUID>
-  <cbc:IssueDate>2026-05-12</cbc:IssueDate>
-  <cbc:IssueTime>11:45:00Z</cbc:IssueTime>
+  <cbc:ID>LB-GEN-AR-0001</cbc:ID>
+  <cbc:UUID>66666666-6666-4666-8666-666666666666</cbc:UUID>
+  <cbc:IssueDate>2026-06-06</cbc:IssueDate>
+  <cbc:IssueTime>13:00:00Z</cbc:IssueTime>
   <cbc:InvoiceTypeCode name="0200000">388</cbc:InvoiceTypeCode>
   <cbc:DocumentCurrencyCode>SAR</cbc:DocumentCurrencyCode>
   <cbc:TaxCurrencyCode>SAR</cbc:TaxCurrencyCode>
   <cac:AdditionalDocumentReference>
     <cbc:ID>ICV</cbc:ID>
-    <cbc:UUID>43</cbc:UUID>
+    <cbc:UUID>1005</cbc:UUID>
   </cac:AdditionalDocumentReference>
   <cac:AdditionalDocumentReference>
     <cbc:ID>PIH</cbc:ID>
@@ -26,16 +26,15 @@
         <cbc:ID schemeID="CRN">1010010000</cbc:ID>
       </cac:PartyIdentification>
       <cac:PostalAddress>
-        <cbc:StreetName>Tahlia Street</cbc:StreetName>
-        <cbc:AdditionalStreetName>B-2</cbc:AdditionalStreetName>
-        <cbc:BuildingNumber>5678</cbc:BuildingNumber>
-        <cbc:CitySubdivisionName>Andalus</cbc:CitySubdivisionName>
-        <cbc:CityName>Jeddah</cbc:CityName>
-        <cbc:PostalZone>21442</cbc:PostalZone>
+        <cbc:StreetName>طريق الملك فهد</cbc:StreetName>
+        <cbc:BuildingNumber>2322</cbc:BuildingNumber>
+        <cbc:CitySubdivisionName>العليا</cbc:CitySubdivisionName>
+        <cbc:CityName>الرياض</cbc:CityName>
+        <cbc:PostalZone>23333</cbc:PostalZone>
         <cac:Country><cbc:IdentificationCode>SA</cbc:IdentificationCode></cac:Country>
       </cac:PostalAddress>
-      <cac:PartyTaxScheme><cbc:CompanyID>300000000000003</cbc:CompanyID><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:PartyTaxScheme>
-      <cac:PartyLegalEntity><cbc:RegistrationName>LedgerByte Seller</cbc:RegistrationName></cac:PartyLegalEntity>
+      <cac:PartyTaxScheme><cbc:CompanyID>399999999900003</cbc:CompanyID><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:PartyTaxScheme>
+      <cac:PartyLegalEntity><cbc:RegistrationName>شركة ليدجربايت التجريبية</cbc:RegistrationName></cac:PartyLegalEntity>
     </cac:Party>
   </cac:AccountingSupplierParty>
   <cac:AccountingCustomerParty>
@@ -43,17 +42,17 @@
       <cac:PostalAddress>
         <cac:Country><cbc:IdentificationCode>SA</cbc:IdentificationCode></cac:Country>
       </cac:PostalAddress>
-      <cac:PartyLegalEntity><cbc:RegistrationName>عميل نقدي</cbc:RegistrationName></cac:PartyLegalEntity>
+      <cac:PartyLegalEntity><cbc:RegistrationName>عميل تجريبي عربي</cbc:RegistrationName></cac:PartyLegalEntity>
     </cac:Party>
   </cac:AccountingCustomerParty>
   <cac:TaxTotal>
-    <cbc:TaxAmount currencyID="SAR">30.00</cbc:TaxAmount>
+    <cbc:TaxAmount currencyID="SAR">15.00</cbc:TaxAmount>
   </cac:TaxTotal>
   <cac:TaxTotal>
-    <cbc:TaxAmount currencyID="SAR">30.00</cbc:TaxAmount>
+    <cbc:TaxAmount currencyID="SAR">15.00</cbc:TaxAmount>
     <cac:TaxSubtotal>
-      <cbc:TaxableAmount currencyID="SAR">200.00</cbc:TaxableAmount>
-      <cbc:TaxAmount currencyID="SAR">30.00</cbc:TaxAmount>
+      <cbc:TaxableAmount currencyID="SAR">100.00</cbc:TaxableAmount>
+      <cbc:TaxAmount currencyID="SAR">15.00</cbc:TaxAmount>
       <cac:TaxCategory>
         <cbc:ID schemeID="UN/ECE 5305" schemeAgencyID="6">S</cbc:ID>
         <cbc:Percent>15.00</cbc:Percent>
@@ -64,24 +63,24 @@
     </cac:TaxSubtotal>
   </cac:TaxTotal>
   <cac:LegalMonetaryTotal>
-    <cbc:LineExtensionAmount currencyID="SAR">200.00</cbc:LineExtensionAmount>
-    <cbc:TaxExclusiveAmount currencyID="SAR">200.00</cbc:TaxExclusiveAmount>
-    <cbc:TaxInclusiveAmount currencyID="SAR">230.00</cbc:TaxInclusiveAmount>
+    <cbc:LineExtensionAmount currencyID="SAR">100.00</cbc:LineExtensionAmount>
+    <cbc:TaxExclusiveAmount currencyID="SAR">100.00</cbc:TaxExclusiveAmount>
+    <cbc:TaxInclusiveAmount currencyID="SAR">115.00</cbc:TaxInclusiveAmount>
     <cbc:AllowanceTotalAmount currencyID="SAR">0.00</cbc:AllowanceTotalAmount>
     <cbc:PrepaidAmount currencyID="SAR">0.00</cbc:PrepaidAmount>
-    <cbc:PayableAmount currencyID="SAR">230.00</cbc:PayableAmount>
+    <cbc:PayableAmount currencyID="SAR">115.00</cbc:PayableAmount>
   </cac:LegalMonetaryTotal>
   <cac:InvoiceLine>
     <cbc:ID>1</cbc:ID>
-    <cbc:InvoicedQuantity unitCode="PCE">2.00</cbc:InvoicedQuantity>
-    <cbc:LineExtensionAmount currencyID="SAR">200.00</cbc:LineExtensionAmount>
+    <cbc:InvoicedQuantity unitCode="PCE">1.00</cbc:InvoicedQuantity>
+    <cbc:LineExtensionAmount currencyID="SAR">100.00</cbc:LineExtensionAmount>
     <cac:TaxTotal>
-      <cbc:TaxAmount currencyID="SAR">30.00</cbc:TaxAmount>
-      <cbc:RoundingAmount currencyID="SAR">230.00</cbc:RoundingAmount>
+      <cbc:TaxAmount currencyID="SAR">15.00</cbc:TaxAmount>
+      <cbc:RoundingAmount currencyID="SAR">115.00</cbc:RoundingAmount>
     </cac:TaxTotal>
     <cac:Item>
-      <cbc:Description>VAT on Sales 15%</cbc:Description>
-      <cbc:Name>Retail sale &amp; support</cbc:Name>
+      <cbc:Description>ضريبة القيمة المضافة 15%</cbc:Description>
+      <cbc:Name>خدمة محاسبية تجريبية</cbc:Name>
       <cac:ClassifiedTaxCategory>
         <cbc:ID>S</cbc:ID>
         <cbc:Percent>15.00</cbc:Percent>

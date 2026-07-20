@@ -17,7 +17,7 @@ const FIXTURES = [
     fixtureType: "official",
     invoiceKind: "standard-invoice",
     standardOrSimplified: "standard",
-    relativePath: "reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Standard/Invoice/Standard_Invoice.xml",
+    sdkRelativePath: "Data/Samples/Standard/Invoice/Standard_Invoice.xml",
     expectedResult: "PASS_OR_SAFE_SDK_WARNING",
     bodyOutputForbidden: true,
   },
@@ -28,7 +28,7 @@ const FIXTURES = [
     fixtureType: "official",
     invoiceKind: "simplified-invoice",
     standardOrSimplified: "simplified",
-    relativePath: "reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Samples/Simplified/Invoice/Simplified_Invoice.xml",
+    sdkRelativePath: "Data/Samples/Simplified/Invoice/Simplified_Invoice.xml",
     expectedResult: "PASS_OR_SAFE_SDK_WARNING",
     bodyOutputForbidden: true,
   },
@@ -58,7 +58,7 @@ const FIXTURES = [
   },
   {
     id: "ledgerbyte-credit-note",
-    aliases: ["ledgerbyte-local-credit-note"],
+    aliases: ["ledgerbyte-local-credit-note", "ledgerbyte-generated-credit-note", "ledgerbyte-local-generated-credit-note"],
     label: "LedgerByte Local Credit Note Fixture",
     source: "ledgerbyte-local",
     fixtureType: "ledgerbyte-generated",
@@ -69,14 +69,35 @@ const FIXTURES = [
     bodyOutputForbidden: true,
   },
   {
-    id: "ledgerbyte-generated-credit-note",
-    aliases: ["ledgerbyte-local-generated-credit-note"],
-    label: "LedgerByte Generated Credit Note Fixture",
-    source: "ledgerbyte-local-generated",
+    id: "ledgerbyte-debit-note",
+    label: "LedgerByte Local Debit Note Fixture",
+    source: "ledgerbyte-local",
     fixtureType: "ledgerbyte-generated",
-    invoiceKind: "credit-note",
+    invoiceKind: "debit-note",
     standardOrSimplified: "standard",
-    relativePath: "packages/zatca-core/fixtures/ledgerbyte-generated-credit-note.expected.xml",
+    relativePath: "packages/zatca-core/fixtures/ledgerbyte-generated-debit-note.expected.xml",
+    expectedResult: "PASS_OR_SAFE_SDK_WARNING",
+    bodyOutputForbidden: true,
+  },
+  {
+    id: "ledgerbyte-allowance-invoice",
+    label: "LedgerByte Local Document Allowance Invoice Fixture",
+    source: "ledgerbyte-local",
+    fixtureType: "ledgerbyte-generated",
+    invoiceKind: "standard-invoice",
+    standardOrSimplified: "standard",
+    relativePath: "packages/zatca-core/fixtures/ledgerbyte-generated-allowance-invoice.expected.xml",
+    expectedResult: "PASS_OR_SAFE_SDK_WARNING",
+    bodyOutputForbidden: true,
+  },
+  {
+    id: "ledgerbyte-multiline-invoice",
+    label: "LedgerByte Local Multiple-Line VAT Invoice Fixture",
+    source: "ledgerbyte-local",
+    fixtureType: "ledgerbyte-generated",
+    invoiceKind: "standard-invoice",
+    standardOrSimplified: "standard",
+    relativePath: "packages/zatca-core/fixtures/ledgerbyte-generated-multiline-invoice.expected.xml",
     expectedResult: "PASS_OR_SAFE_SDK_WARNING",
     bodyOutputForbidden: true,
   },
@@ -270,6 +291,12 @@ function runValidationSet(options) {
   );
   const summary = {
     fixtureCount: runs.length,
+    registeredFixtureCount: FIXTURES.length,
+    uniqueXmlArtifactCount: new Set(runs.map((run) => run.fixturePath).filter(Boolean)).size,
+    officialSampleCount: runs.filter((run) => run.fixtureType === "official").length,
+    ledgerbyteGeneratedUniqueFixtureCount: new Set(runs.filter((run) => run.fixtureType === "ledgerbyte-generated").map((run) => run.fixturePath).filter(Boolean)).size,
+    validFixtureCount: runs.length,
+    invalidFixtureCount: 0,
     passedCount: runs.filter((run) => run.passed).length,
     failedCount: runs.filter((run) => run.status === "FAILED").length,
     blockedCount: runs.filter((run) => run.status === "BLOCKED").length,
@@ -313,7 +340,7 @@ function runFixtureValidation({ repoRoot, fixtureId, sdk, java, javaBin, spawnSy
     });
   }
 
-  const fixturePath = path.resolve(repoRoot, fixture.relativePath);
+  const fixturePath = resolveFixturePath({ repoRoot, fixture, sdk });
   const blockers = [];
   const safeErrorCodes = [];
   if (!fs.existsSync(fixturePath)) {
@@ -371,6 +398,7 @@ function runFixtureValidation({ repoRoot, fixtureId, sdk, java, javaBin, spawnSy
 
   return {
     ...baseEvidence({ validationRunId, timestamp, fixtureId: fixture.id, fixture, sdk, java }),
+    fixturePath: path.relative(repoRoot, fixturePath).replace(/\\/g, "/"),
     status: passed ? "PASSED" : "FAILED",
     passed,
     validationAttempted: true,
@@ -386,6 +414,13 @@ function runFixtureValidation({ repoRoot, fixtureId, sdk, java, javaBin, spawnSy
       displayCommand: commandPlan.displayCommand,
     },
   };
+}
+
+function resolveFixturePath({ repoRoot, fixture, sdk }) {
+  if (fixture.fixtureType === "official" && fixture.sdkRelativePath) {
+    return path.resolve(sdk.sdkRoot, fixture.sdkRelativePath);
+  }
+  return path.resolve(repoRoot, fixture.relativePath);
 }
 
 function buildValidationCommand({ sdk, fixturePath, javaBin }) {
@@ -544,6 +579,7 @@ function baseEvidence({ validationRunId, timestamp, fixtureId, fixture, sdk, jav
     javaVersion: java.javaVersion,
     sdkVersion: sdk.sdkVersion,
     fixtureId,
+    fixturePath: null,
     fixtureType: fixture?.fixtureType ?? "unknown",
     invoiceKind: fixture?.invoiceKind ?? "unknown",
     validationMode: VALIDATION_MODE,
@@ -643,6 +679,7 @@ module.exports = {
   parseArgs,
   parseJavaMajorVersion,
   parseJavaVersion,
+  resolveFixturePath,
   resolveFixture,
   runValidationSet,
   sanitizeText,

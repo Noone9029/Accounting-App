@@ -91,6 +91,11 @@ const REVIEWED_SCRIPT_FINDINGS = {
     ["localReadiness", "noNetwork", "noMutation"],
     "SECURITY-HARDENING-02: readiness script checks local Java/SDK paths and emits metadata only.",
   ),
+  "file:scripts/zatca-c14n11-hash.cjs": reviewedScript(
+    "guarded-or-dry-run",
+    ["localOnly", "noNetwork", "temporaryFilesOnly", "metadataOnly"],
+    "ARC-07A: local C14N11 helper uses an explicitly configured external SDK/JDK, emits hash metadata only, and removes temporary artifacts.",
+  ),
   "package-script:pre-asp:diagnostics": reviewedScript(
     "guarded-or-dry-run",
     ["readOnlyDiagnostic", "noDatabaseConnection", "noNetwork", "noMutation"],
@@ -108,6 +113,7 @@ const REVIEWED_SCRIPT_FINDINGS = {
   "package-script:test:zatca-sandbox-csid-preflight": reviewedScript("guarded-or-dry-run", ["testOnly", "guardContract"], "SECURITY-HARDENING-02: node --test wrapper for sandbox CSID preflight guard."),
   "package-script:test:zatca-sdk-ci-readiness": reviewedScript("guarded-or-dry-run", ["testOnly", "noNetwork", "localReadiness"], "SECURITY-HARDENING-02: node --test wrapper for SDK CI readiness metadata."),
   "package-script:test:zatca-sdk-validate-local": reviewedScript("guarded-or-dry-run", ["testOnly", "localValidation"], "SECURITY-HARDENING-02: node --test wrapper for local SDK validation harness."),
+  "package-script:test:zatca-c14n11-hash": reviewedScript("guarded-or-dry-run", ["testOnly", "noNetwork", "externalOracleOptional"], "ARC-07A: C14N11 provider tests skip truthfully without the licensed local SDK/JDK and never emit XML bodies."),
   "package-script:zatca:csid-response-custody-guard": reviewedScript("guarded-or-dry-run", ["guardContract", "noCredentialCustody"], "SECURITY-HARDENING-02: custody guard command reports blockers and does not create CSID custody."),
   "package-script:zatca:csr-local-generate": reviewedScript("guarded-or-dry-run", ["executionDisabledByDefault", "approvalGate", "noCsidRequest"], "SECURITY-HARDENING-02: API CSR local generation wrapper is disabled by default and requires explicit local execution gates."),
   "package-script:zatca:generate-local-xml-fixtures": reviewedScript("guarded-or-dry-run", ["localFixtureGeneration", "noNetwork", "noDatabaseConnection"], "SECURITY-HARDENING-02: generates local deterministic XML fixtures only; no provider, DB, or hosted mutation."),

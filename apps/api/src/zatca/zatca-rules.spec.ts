@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { BadRequestException, NotFoundException } from "@nestjs/common";
+import { BadRequestException, NotFoundException, NotImplementedException } from "@nestjs/common";
 import { plainToInstance } from "class-transformer";
 import { validate } from "class-validator";
 import {
@@ -49,7 +49,7 @@ describe("ZATCA service rules", () => {
     await expect(service.updateProfile("org-1", "user-1", { countryCode: "" })).rejects.toThrow(BadRequestException);
   });
 
-  it("creates and activates development EGS units", async () => {
+  it("creates development EGS units but rejects legacy activation without mutating key or registration state", async () => {
     const egsUnit = makeEgsUnit({ id: "egs-1", name: "Dev EGS", isActive: false });
     const prisma = {
       organization: { findFirst: jest.fn().mockResolvedValue({ id: "org-1", name: "Org", legalName: null, taxNumber: null, countryCode: "SA" }) },
@@ -73,8 +73,9 @@ describe("ZATCA service rules", () => {
     await expect(service.createEgsUnit("org-1", "user-1", { name: "Dev EGS", deviceSerialNumber: "DEV-001" })).resolves.toMatchObject({
       id: "egs-1",
     });
-    await expect(service.activateDevEgsUnit("org-1", "user-1", "egs-1")).resolves.toMatchObject({ isActive: true, status: ZatcaRegistrationStatus.ACTIVE });
-    expect(audit.log).toHaveBeenCalledTimes(2);
+    await expect(service.activateDevEgsUnit("org-1", "user-1", "egs-1")).rejects.toThrow(NotImplementedException);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(audit.log).toHaveBeenCalledTimes(1);
   });
 
   it("captures non-secret CSR onboarding fields for non-production EGS units only", async () => {
@@ -176,39 +177,21 @@ describe("ZATCA service rules", () => {
     expect(prisma.zatcaEgsUnit.update).not.toHaveBeenCalled();
   });
 
-  it("generates CSR only when profile fields are ready and never returns the private key", async () => {
-    const egsUnit = makeEgsUnit({ id: "egs-1", csrPem: null });
-    const updatedUnit = makeEgsUnit({ id: "egs-1", csrPem: "-----BEGIN CERTIFICATE REQUEST-----\nCSR\n-----END CERTIFICATE REQUEST-----", status: ZatcaRegistrationStatus.OTP_REQUIRED });
+  it("blocks the legacy in-process CSR route before it can persist an incompatible key", async () => {
     const prisma = {
       zatcaEgsUnit: {
-        findFirst: jest.fn().mockResolvedValue({ ...egsUnit, privateKeyPem: null }),
+        findFirst: jest.fn(),
       },
-      $transaction: jest.fn((callback: (tx: unknown) => Promise<unknown>) =>
-        callback({
-          zatcaEgsUnit: { update: jest.fn().mockResolvedValue(updatedUnit) },
-          zatcaOrganizationProfile: { update: jest.fn().mockResolvedValue({}) },
-        }),
-      ),
+      $transaction: jest.fn(),
     };
     const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
-    jest.spyOn(service, "getProfile").mockResolvedValue({
-      id: "profile-1",
-      sellerName: "Seller",
-      vatNumber: "300000000000003",
-      city: "Riyadh",
-      countryCode: "SA",
-      businessCategory: "Services",
-      readiness: { ready: true, missingFields: [] },
-    } as never);
 
-    const result = await service.generateEgsCsr("org-1", "user-1", "egs-1");
-
-    expect(result).toMatchObject({ hasCsr: true, status: ZatcaRegistrationStatus.OTP_REQUIRED });
-    expect(result).not.toHaveProperty("privateKeyPem");
-    expect(JSON.stringify(result)).not.toContain("PRIVATE KEY");
+    await expect(service.generateEgsCsr("org-1", "user-1", "egs-1")).rejects.toThrow("EC secp256k1");
+    expect(prisma.zatcaEgsUnit.findFirst).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it("rejects CSR generation when required profile fields are missing", async () => {
+  it("keeps the legacy CSR route disabled even when profile fields are missing", async () => {
     const service = new ZatcaService(
       { zatcaEgsUnit: { findFirst: jest.fn().mockResolvedValue({ ...makeEgsUnit(), privateKeyPem: null }) } } as never,
       { log: jest.fn() } as never,
@@ -221,7 +204,7 @@ describe("ZATCA service rules", () => {
       readiness: { ready: false, missingFields: ["sellerName", "city"] },
     } as never);
 
-    await expect(service.generateEgsCsr("org-1", "user-1", "egs-1")).rejects.toThrow("sellerName, city");
+    await expect(service.generateEgsCsr("org-1", "user-1", "egs-1")).rejects.toThrow("EC secp256k1");
   });
 
   it("returns CSR PEM without exposing private keys", async () => {
@@ -374,8 +357,9 @@ describe("ZATCA service rules", () => {
     );
   });
 
-  it("generates metadata, increments ICV, and updates the previous hash chain", async () => {
+  it("generates metadata, increments ICV, and updates the previous hash chain from an official SDK hash", async () => {
     const tx = makeGenerationTransactionMock({
+      activeEgsHashMode: "SDK_GENERATED",
       activeEgsLastIcv: 4,
       activeEgsLastInvoiceHash: "previous-hash",
       customerAddressLine1: "King Abdullah Road",
@@ -385,7 +369,8 @@ describe("ZATCA service rules", () => {
     });
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
     const audit = { log: jest.fn() };
-    const service = new ZatcaService(prisma as never, audit as never);
+    const sdk = makeSdkServiceMock({ sdkHash: "official-sdk-hash" });
+    const service = new (ZatcaService as never as new (...args: unknown[]) => ZatcaService)(prisma, audit, undefined, undefined, sdk);
 
     const result = await service.generateInvoiceCompliance("org-1", "user-1", "invoice-1");
 
@@ -395,9 +380,9 @@ describe("ZATCA service rules", () => {
         data: expect.objectContaining({
           icv: 5,
           previousInvoiceHash: "previous-hash",
-          invoiceHash: expect.any(String),
+          invoiceHash: "official-sdk-hash",
           xmlBase64: expect.any(String),
-          qrCodeBase64: expect.any(String),
+          qrCodeBase64: null,
         }),
       }),
     );
@@ -409,13 +394,26 @@ describe("ZATCA service rules", () => {
     expect(generatedXml).toContain("<cbc:CitySubdivisionName>Al Murooj</cbc:CitySubdivisionName>");
     expect(generatedXml.indexOf("<cbc:AdditionalStreetName>Unit 12</cbc:AdditionalStreetName>")).toBeLessThan(generatedXml.indexOf("<cbc:BuildingNumber>1111</cbc:BuildingNumber>"));
     expect(generatedXml.indexOf("<cbc:BuildingNumber>1111</cbc:BuildingNumber>")).toBeLessThan(generatedXml.indexOf("<cbc:CitySubdivisionName>Al Murooj</cbc:CitySubdivisionName>"));
-    expect(tx.zatcaEgsUnit.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ lastIcv: 5, lastInvoiceHash: expect.any(String) }) }));
+    expect(tx.zatcaEgsUnit.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ lastIcv: 5, lastInvoiceHash: "official-sdk-hash" }) }));
     expect(tx.zatcaSubmissionLog.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ requestUrl: "local-generation-only" }) }));
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "GENERATE", entityType: "ZatcaInvoiceMetadata" }));
   });
 
+  it("fails closed instead of persisting a raw XML digest as invoiceHash", async () => {
+    const tx = makeGenerationTransactionMock({ activeEgsHashMode: "LOCAL_DETERMINISTIC" });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+
+    await expect(service.generateInvoiceCompliance("org-1", "user-1", "invoice-1")).rejects.toThrow("diagnostic-only");
+
+    expect(tx.zatcaInvoiceMetadata.update).not.toHaveBeenCalled();
+    expect(tx.zatcaEgsUnit.update).not.toHaveBeenCalled();
+    expect(tx.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+  });
+
   it("uses the stored simplified invoice type and emits ICV when generating XML", async () => {
     const tx = makeGenerationTransactionMock({
+      activeEgsHashMode: "SDK_GENERATED",
       activeEgsLastIcv: 1,
       zatcaInvoiceType: ZatcaInvoiceType.SIMPLIFIED_TAX_INVOICE,
       customerAddressLine1: "Olaya Street",
@@ -424,7 +422,8 @@ describe("ZATCA service rules", () => {
       customerDistrict: "Al Olaya",
     });
     const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
-    const service = new ZatcaService(prisma as never, { log: jest.fn() } as never);
+    const sdk = makeSdkServiceMock({ sdkHash: "official-sdk-hash" });
+    const service = new (ZatcaService as never as new (...args: unknown[]) => ZatcaService)(prisma, { log: jest.fn() }, undefined, undefined, sdk);
 
     await service.generateInvoiceCompliance("org-1", "user-1", "invoice-1");
 
@@ -720,6 +719,7 @@ describe("ZATCA service rules", () => {
   it("returns local-only XML validation after generation without claiming official validation", async () => {
     const metadata = makeGeneratedMetadata({
       invoiceUuid: "00000000-0000-0000-0000-000000000001",
+      previousInvoiceHash: initialPreviousInvoiceHash,
       xmlBase64: Buffer.from("<Invoice>00000000-0000-0000-0000-000000000001</Invoice>", "utf8").toString("base64"),
     });
     const prisma = {
@@ -4226,8 +4226,8 @@ function makeValidationProfile() {
   return {
     sellerName: "Org Legal",
     vatNumber: "300000000000003",
-    companyIdType: null,
-    companyIdNumber: null,
+    companyIdType: "CRN",
+    companyIdNumber: "1010010000",
     buildingNumber: "1234",
     streetName: "King Fahd Road",
     district: "Olaya",

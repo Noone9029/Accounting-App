@@ -1,10 +1,10 @@
 import {
   buildZatcaInvoicePayload,
   buildZatcaInvoiceXml,
-  calculateInvoiceHash,
+  calculateRawXmlSha256Base64,
   generateEgsPrivateKeyPem,
   generateZatcaCsrPem,
-  generateZatcaQrBase64,
+  generateZatcaBasicQr,
   initialPreviousInvoiceHash,
   validateZatcaCsrInput,
   type ZatcaCsrInput,
@@ -82,7 +82,7 @@ describe("zatca-core local payload helpers", () => {
   });
 
   it("generates basic TLV QR base64 payload", () => {
-    const qr = generateZatcaQrBase64({
+    const qr = generateZatcaBasicQr({
       sellerName: input.seller.name,
       vatNumber: input.seller.vatNumber,
       timestamp: input.issueDate,
@@ -90,21 +90,21 @@ describe("zatca-core local payload helpers", () => {
       vatTotal: input.taxTotal,
     });
 
-    expect(qr).toEqual(expect.any(String));
-    expect(qr.length).toBeGreaterThan(20);
-    expect(Buffer.from(qr, "base64").byteLength).toBeGreaterThan(20);
+    expect(qr.status).toBe("PHASE_1_BASIC_ONLY");
+    expect(qr.base64.length).toBeGreaterThan(20);
+    expect(Buffer.from(qr.base64, "base64").byteLength).toBeGreaterThan(20);
   });
 
   it("uses UTF-8 byte lengths for Unicode TLV QR seller names", () => {
     const sellerName = "شركة ليدجر بايت";
-    const qr = generateZatcaQrBase64({
+    const qr = generateZatcaBasicQr({
       sellerName,
       vatNumber: input.seller.vatNumber,
       timestamp: input.issueDate,
       invoiceTotal: input.total,
       vatTotal: input.taxTotal,
     });
-    const decoded = Buffer.from(qr, "base64");
+    const decoded = Buffer.from(qr.base64, "base64");
     const expectedSellerBytes = Buffer.from(sellerName, "utf8");
     const sellerLength = decoded[1] ?? -1;
 
@@ -118,17 +118,18 @@ describe("zatca-core local payload helpers", () => {
     const xml = buildZatcaInvoiceXml(input);
     const changedXml = buildZatcaInvoiceXml({ ...input, total: "116.0000" });
 
-    expect(calculateInvoiceHash(xml)).toBe(calculateInvoiceHash(xml));
-    expect(calculateInvoiceHash(changedXml)).not.toBe(calculateInvoiceHash(xml));
+    expect(calculateRawXmlSha256Base64(xml)).toBe(calculateRawXmlSha256Base64(xml));
+    expect(calculateRawXmlSha256Base64(changedXml)).not.toBe(calculateRawXmlSha256Base64(xml));
   });
 
-  it("builds XML, QR, and hash payload together", () => {
+  it("keeps raw diagnostics and basic QR distinct from a ZATCA invoice hash or Phase 2 QR", () => {
     const payload = buildZatcaInvoicePayload(input);
 
     expect(payload.xml).toContain("INV-000001");
     expect(payload.xmlBase64).toBe(Buffer.from(payload.xml, "utf8").toString("base64"));
-    expect(payload.invoiceHash).toBe(calculateInvoiceHash(payload.xml));
-    expect(payload.qrCodeBase64).toEqual(expect.any(String));
+    expect(payload.rawXmlSha256Base64).toBe(calculateRawXmlSha256Base64(payload.xml));
+    expect(payload.basicQr.status).toBe("PHASE_1_BASIC_ONLY");
+    expect(payload.xml).not.toContain("<cbc:ID>QR</cbc:ID>");
   });
 });
 
@@ -146,14 +147,9 @@ describe("zatca-core CSR helpers", () => {
     businessCategory: "Accounting software",
   };
 
-  it("generates PEM private keys and CSR PEM values", () => {
-    const privateKeyPem = generateEgsPrivateKeyPem();
-    const result = generateZatcaCsrPem(csrInput);
-
-    expect(privateKeyPem).toContain("BEGIN RSA PRIVATE KEY");
-    expect(result.privateKeyPem).toContain("BEGIN RSA PRIVATE KEY");
-    expect(result.csrPem).toContain("BEGIN CERTIFICATE REQUEST");
-    expect(result.csrPem).not.toContain("BEGIN RSA PRIVATE KEY");
+  it("disables legacy RSA key and CSR generation", () => {
+    expect(() => generateEgsPrivateKeyPem()).toThrow("EC secp256k1");
+    expect(() => generateZatcaCsrPem(csrInput)).toThrow("EC secp256k1");
   });
 
   it("validates required CSR fields", () => {

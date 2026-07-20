@@ -1,9 +1,14 @@
 import { createHash } from "node:crypto";
-import forge from "node-forge";
+import { initialPreviousInvoiceHash } from "./local-pih-icv-chain.js";
 
 export * from "./compliance-checklist.js";
 export * from "./xml-mapping.js";
 export * from "./xml-validation.js";
+export * from "./signing-provider.js";
+export * from "./local-pih-icv-chain.js";
+export * from "./xades-signing.js";
+export * from "./phase2-qr.js";
+export * from "./signed-artifact-verification.js";
 
 export type ZatcaEnvironment = "SANDBOX" | "SIMULATION" | "PRODUCTION";
 export type ZatcaInvoiceType = "STANDARD_TAX_INVOICE" | "SIMPLIFIED_TAX_INVOICE" | "CREDIT_NOTE" | "DEBIT_NOTE";
@@ -57,27 +62,36 @@ export interface ZatcaInvoiceInput {
   buyer: ZatcaBuyerInput;
   subtotal: string;
   discountTotal: string;
+  documentAllowanceTotal?: string | null;
+  discountReason?: string | null;
   taxableTotal: string;
   taxTotal: string;
   total: string;
+  payableTotal?: string | null;
   previousInvoiceHash?: string | null;
   icv?: number | null;
   qrCodeBase64?: string | null;
+  requirePhase2Qr?: boolean;
   lines: ZatcaInvoiceLineInput[];
 }
 
 export interface ZatcaBuildResult {
   xml: string;
   xmlBase64: string;
-  invoiceHash: string;
-  qrCodeBase64: string;
+  rawXmlSha256Base64: string;
+  basicQr: ZatcaBasicQrResult;
+}
+
+export interface ZatcaBasicQrResult {
+  status: "PHASE_1_BASIC_ONLY";
+  base64: string;
 }
 
 const officialSellerIdentificationSchemeIds = new Set(["CRN", "MOM", "MLS", "SAG", "OTH", "700"]);
 const officialBuyerIdentificationSchemeIds = new Set(["CRN", "MOM", "MLS", "SAG", "NAT", "IQA", "PAS", "GCC", "OTH", "700"]);
 
 export interface ZatcaCanonicalHashInputResult {
-  xmlForHash: string;
+  xmlForHash: null;
   transformsApplied: string[];
   officialC14n11Applied: false;
   blockingReasons: string[];
@@ -145,26 +159,22 @@ const zatcaTransactionCodeFlags: Record<ZatcaInvoiceType, string> = {
   DEBIT_NOTE: "0100000",
 };
 
-export const initialPreviousInvoiceHash = "NWZlY2ViNjZmZmM4NmYzOGQ5NTI3ODZjNmQ2OTZjNzljMmRiYzIzOWRkNGU5MWI0NjcyOWQ3M2EyN2ZiNTdlOQ==";
 export const zatcaSdkGenerateHashCommand = "fatoora -generateHash -invoice <filename>" as const;
 
 export function buildZatcaInvoicePayload(input: ZatcaInvoiceInput): ZatcaBuildResult {
-  const qrCodeBase64 =
-    input.qrCodeBase64 ??
-    generateZatcaQrBase64({
-      sellerName: input.seller.name,
-      vatNumber: input.seller.vatNumber,
-      timestamp: formatXmlDateTime(input.issueDate),
-      invoiceTotal: input.total,
-      vatTotal: input.taxTotal,
-    });
-  const xml = buildZatcaInvoiceXml({ ...input, qrCodeBase64 });
-  const invoiceHash = calculateInvoiceHash(xml);
+  const basicQr = generateZatcaBasicQr({
+    sellerName: input.seller.name,
+    vatNumber: input.seller.vatNumber,
+    timestamp: formatXmlDateTime(input.issueDate),
+    invoiceTotal: input.total,
+    vatTotal: input.taxTotal,
+  });
+  const xml = buildZatcaInvoiceXml(input);
   return {
     xml,
     xmlBase64: Buffer.from(xml, "utf8").toString("base64"),
-    invoiceHash,
-    qrCodeBase64,
+    rawXmlSha256Base64: calculateRawXmlSha256Base64(xml),
+    basicQr,
   };
 }
 
@@ -180,6 +190,7 @@ export function buildZatcaInvoiceXml(input: ZatcaInvoiceInput): string {
     buildCustomerPartyXml(input.buyer),
     buildDeliveryXml(input),
     buildPaymentMeansXml(input),
+    buildDocumentAllowanceChargeXml(input),
     buildTaxTotalXml(input),
     buildLegalMonetaryTotalXml(input),
     buildInvoiceLinesXml(input.lines, input.currency),
@@ -190,11 +201,7 @@ export function buildZatcaInvoiceXml(input: ZatcaInvoiceInput): string {
 }
 
 export function buildZatcaExtensionPlaceholdersXml(): string {
-  return [
-    "  <!-- LedgerByte local ZATCA foundation skeleton. UBL child order now follows official SDK samples for unsigned XML fields. -->",
-    "  <!-- TODO: ZATCA extension fields need official implementation. -->",
-    "  <!-- TODO: signature block pending; canonicalization pending; invoice hash canonical source pending; PDF/A-3 embedding pending. -->",
-  ].join("\n");
+  return "";
 }
 
 export function buildInvoiceHeaderXml(input: ZatcaInvoiceInput): string {
@@ -235,15 +242,6 @@ export function buildBillingReferenceXml(input: Pick<ZatcaInvoiceInput, "invoice
 }
 
 export function buildAdditionalDocumentReferencesXml(input: ZatcaInvoiceInput): string {
-  const qrCodeBase64 =
-    input.qrCodeBase64 ??
-    generateZatcaQrBase64({
-      sellerName: input.seller.name,
-      vatNumber: input.seller.vatNumber,
-      timestamp: formatXmlDateTime(input.issueDate),
-      invoiceTotal: input.total,
-      vatTotal: input.taxTotal,
-    });
   const references = [
     input.icv === null || input.icv === undefined
       ? ""
@@ -254,7 +252,7 @@ export function buildAdditionalDocumentReferencesXml(input: ZatcaInvoiceInput): 
           `  </cac:AdditionalDocumentReference>`,
         ].join("\n"),
     buildBinaryAdditionalDocumentReferenceXml("PIH", resolvePreviousInvoiceHash(input.previousInvoiceHash)),
-    qrCodeBase64 ? buildBinaryAdditionalDocumentReferenceXml("QR", qrCodeBase64) : "",
+    input.qrCodeBase64 ? buildBinaryAdditionalDocumentReferenceXml("QR", input.qrCodeBase64) : "",
   ];
 
   return references.filter((line) => line !== "").join("\n");
@@ -339,7 +337,7 @@ export function buildLegalMonetaryTotalXml(input: ZatcaInvoiceInput): string {
     `    <cbc:TaxInclusiveAmount currencyID="${escapeXml(input.currency)}">${formatMoney(input.total)}</cbc:TaxInclusiveAmount>`,
     `    <cbc:AllowanceTotalAmount currencyID="${escapeXml(input.currency)}">${formatMoney(input.discountTotal)}</cbc:AllowanceTotalAmount>`,
     `    <cbc:PrepaidAmount currencyID="${escapeXml(input.currency)}">0.00</cbc:PrepaidAmount>`,
-    `    <cbc:PayableAmount currencyID="${escapeXml(input.currency)}">${formatMoney(input.total)}</cbc:PayableAmount>`,
+    `    <cbc:PayableAmount currencyID="${escapeXml(input.currency)}">${formatMoney(input.payableTotal ?? input.total)}</cbc:PayableAmount>`,
     "  </cac:LegalMonetaryTotal>",
   ].join("\n");
 }
@@ -348,14 +346,13 @@ export function buildInvoiceLinesXml(lines: ZatcaInvoiceLineInput[], currency: s
   return lines.map((line, index) => buildInvoiceLineXml(line, index + 1, currency)).join("\n");
 }
 
-export function generateZatcaQrBase64(input: {
+export function generateZatcaBasicQr(input: {
   sellerName: string;
   vatNumber: string;
   timestamp: string | Date;
   invoiceTotal: string;
   vatTotal: string;
-}): string {
-  // Basic Phase 1/early-groundwork TLV payload. TODO: add Phase 2 cryptographic tags after signing is implemented.
+}): ZatcaBasicQrResult {
   const fields = [
     [1, input.sellerName],
     [2, input.vatNumber],
@@ -364,28 +361,42 @@ export function generateZatcaQrBase64(input: {
     [5, formatMoney(input.vatTotal)],
   ] as const;
 
-  return Buffer.concat(fields.map(([tag, value]) => tlv(tag, value))).toString("base64");
+  return { status: "PHASE_1_BASIC_ONLY", base64: Buffer.concat(fields.map(([tag, value]) => tlv(tag, value))).toString("base64") };
 }
 
-export function calculateInvoiceHash(xml: string): string {
+export function buildDocumentAllowanceChargeXml(input: Pick<ZatcaInvoiceInput, "currency" | "subtotal" | "discountTotal" | "documentAllowanceTotal" | "discountReason" | "taxTotal" | "taxableTotal">): string {
+  const allowanceTotal = input.documentAllowanceTotal ?? input.discountTotal;
+  const discount = Number(allowanceTotal);
+  if (!Number.isFinite(discount) || discount <= 0) {
+    return "";
+  }
+  const taxPercent = formatPercent(input.taxTotal, input.taxableTotal);
+  return [
+    "  <cac:AllowanceCharge>",
+    "    <cbc:ChargeIndicator>false</cbc:ChargeIndicator>",
+    `    <cbc:AllowanceChargeReason>${escapeXml(input.discountReason?.trim() || "Discount")}</cbc:AllowanceChargeReason>`,
+    `    <cbc:Amount currencyID="${escapeXml(input.currency)}">${formatMoney(allowanceTotal)}</cbc:Amount>`,
+    `    <cbc:BaseAmount currencyID="${escapeXml(input.currency)}">${formatMoney(input.subtotal)}</cbc:BaseAmount>`,
+    "    <cac:TaxCategory>",
+    '      <cbc:ID schemeID="UN/ECE 5305" schemeAgencyID="6">S</cbc:ID>',
+    `      <cbc:Percent>${taxPercent}</cbc:Percent>`,
+    "      <cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme>",
+    "    </cac:TaxCategory>",
+    "  </cac:AllowanceCharge>",
+  ].join("\n");
+}
+
+export function calculateRawXmlSha256Base64(xml: string): string {
   return createHash("sha256").update(xml, "utf8").digest("base64");
 }
 
 export function canonicalizeZatcaInvoiceXmlForHash(xml: string): ZatcaCanonicalHashInputResult {
-  const withoutExtensions = removeXmlElementByPrefixAndName(xml, "ext", "UBLExtensions");
-  const withoutQr = removeAdditionalDocumentReferenceById(withoutExtensions, "QR");
-  const withoutSignature = removeXmlElementByPrefixAndName(withoutQr, "cac", "Signature");
-
   return {
-    xmlForHash: withoutSignature,
-    transformsApplied: [
-      "removed ext:UBLExtensions",
-      "removed cac:AdditionalDocumentReference where cbc:ID is QR",
-      "removed cac:Signature",
-    ],
+    xmlForHash: null,
+    transformsApplied: [],
     officialC14n11Applied: false,
-    blockingReasons: ["Official C14N11 canonicalization is not implemented in LedgerByte core; use the official SDK -generateHash command as the hash oracle."],
-    warnings: ["Local transform preparation only. This is not an official ZATCA invoice hash."],
+    blockingReasons: ["An XML-aware C14N11 provider is required. Regex or string XML transforms are prohibited for ZATCA invoice hashing."],
+    warnings: ["No XML was transformed or returned. This compatibility function cannot produce a ZATCA invoice hash."],
   };
 }
 
@@ -405,8 +416,7 @@ export function computeZatcaInvoiceHash(xml: string): ZatcaInvoiceHashGroundwork
 }
 
 export function generateEgsPrivateKeyPem(): string {
-  const keys = forge.pki.rsa.generateKeyPair({ bits: 2048, e: 0x10001 });
-  return forge.pki.privateKeyToPem(keys.privateKey);
+  throw new Error("Legacy ZATCA RSA key generation is disabled. The official SDK requires an EC secp256k1 key; use the approved SDK/KMS custody workflow instead.");
 }
 
 export function buildZatcaCsrSubject(input: ZatcaCsrInput): ZatcaCsrSubjectAttribute[] {
@@ -424,36 +434,8 @@ export function buildZatcaCsrSubject(input: ZatcaCsrInput): ZatcaCsrSubjectAttri
 }
 
 export function generateZatcaCsrPem(input: ZatcaCsrInput): ZatcaCsrResult {
-  validateZatcaCsrInput(input);
-  const keys = forge.pki.rsa.generateKeyPair({ bits: 2048, e: 0x10001 });
-  const csr = forge.pki.createCertificationRequest();
-  csr.publicKey = keys.publicKey;
-  csr.setSubject(buildZatcaCsrSubject(input));
-  csr.setAttributes([
-    {
-      name: "extensionRequest",
-      extensions: [
-        {
-          name: "subjectAltName",
-          altNames: [
-            { type: 6, value: `urn:ledgerbyte:zatca:device:${input.deviceSerialNumber.trim()}` },
-            { type: 6, value: `urn:ledgerbyte:zatca:vat:${input.vatNumber.trim()}` },
-          ],
-        },
-      ],
-    },
-  ]);
-  csr.sign(keys.privateKey, forge.md.sha256.create());
-
-  if (!csr.verify()) {
-    throw new Error("Generated ZATCA CSR failed local verification.");
-  }
-
-  return {
-    // Development helper output only. Production private keys must be generated and stored in KMS/secrets manager, never logged.
-    privateKeyPem: forge.pki.privateKeyToPem(keys.privateKey),
-    csrPem: forge.pki.certificationRequestToPem(csr),
-  };
+  void input;
+  throw new Error("Legacy ZATCA RSA CSR generation is disabled. The official SDK requires an EC secp256k1 key; use the approved SDK/KMS custody workflow instead.");
 }
 
 export function validateZatcaCsrInput(input: ZatcaCsrInput): void {
@@ -551,21 +533,6 @@ function resolvePreviousInvoiceHash(previousInvoiceHash: string | null | undefin
 
 export function isCreditOrDebitNote(invoiceType: ZatcaInvoiceType): boolean {
   return invoiceType === "CREDIT_NOTE" || invoiceType === "DEBIT_NOTE";
-}
-
-function removeXmlElementByPrefixAndName(xml: string, prefix: string, elementName: string): string {
-  const tag = `${prefix}:${elementName}`;
-  return xml.replace(new RegExp(`\\s*<${escapeRegExp(tag)}(?:\\s[^>]*)?>[\\s\\S]*?<\\/${escapeRegExp(tag)}>`, "g"), "");
-}
-
-function removeAdditionalDocumentReferenceById(xml: string, id: string): string {
-  return xml.replace(/\s*<cac:AdditionalDocumentReference(?:\s[^>]*)?>[\s\S]*?<\/cac:AdditionalDocumentReference>/g, (match) =>
-    new RegExp(`<cbc:ID>\\s*${escapeRegExp(id)}\\s*<\\/cbc:ID>`).test(match) ? "" : match,
-  );
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function optionalXml(tagName: string, value: string | null | undefined, indent: number): string {

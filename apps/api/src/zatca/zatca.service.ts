@@ -14,13 +14,11 @@ import {
 } from "@ledgerbyte/shared";
 import {
   buildZatcaInvoicePayload,
-  generateZatcaCsrPem,
   initialPreviousInvoiceHash,
   validateLocalZatcaXml,
   ZATCA_CHECKLIST_CATEGORIES,
   ZATCA_PHASE_2_CHECKLIST,
   ZATCA_XML_FIELD_MAPPING,
-  type ZatcaCsrInput,
   type ZatcaChecklistCategory,
   type ZatcaChecklistItem,
   type ZatcaInvoiceInput,
@@ -996,69 +994,21 @@ export class ZatcaService {
   }
 
   async activateDevEgsUnit(organizationId: string, actorUserId: string, id: string) {
-    const existing = await this.getEgsUnitInternal(organizationId, id);
-    const updated = await this.prisma.$transaction(async (tx) => {
-      await tx.zatcaEgsUnit.updateMany({ where: { organizationId, isActive: true }, data: { isActive: false } });
-      return tx.zatcaEgsUnit.update({
-        where: { id },
-        data: {
-          isActive: true,
-          status: ZatcaRegistrationStatus.ACTIVE,
-          csrPem: existing.csrPem ?? "-----BEGIN CSR-----\nLOCAL-DEV-PLACEHOLDER\n-----END CSR-----",
-          // Development placeholder only. Production must use KMS/secrets-manager-backed private key storage.
-          privateKeyPem: existing.privateKeyPem ?? "-----BEGIN PRIVATE KEY-----\nLOCAL-DEV-PLACEHOLDER\n-----END PRIVATE KEY-----",
-          complianceCsidPem: existing.complianceCsidPem ?? "-----BEGIN CERTIFICATE-----\nLOCAL-DEV-COMPLIANCE-CSID\n-----END CERTIFICATE-----",
-        },
-        select: safeEgsUnitSelect,
-      });
-    });
-
-    const publicBefore = this.toPublicEgsUnit(existing);
-    const publicUpdated = this.toPublicEgsUnit(updated);
-    await this.auditLogService.log({ organizationId, actorUserId, action: "ACTIVATE_DEV", entityType: "ZatcaEgsUnit", entityId: id, before: publicBefore, after: publicUpdated });
-    return publicUpdated;
+    void organizationId;
+    void actorUserId;
+    void id;
+    throw new NotImplementedException(
+      "Legacy development EGS activation is disabled: it must not create placeholder credentials, change registration state, or emit a misleading activation audit record.",
+    );
   }
 
   async generateEgsCsr(organizationId: string, actorUserId: string, id: string) {
-    const existing = await this.getEgsUnitInternal(organizationId, id);
-    const profile = await this.getProfile(organizationId);
-    const readiness = getZatcaProfileReadiness(profile);
-    if (!readiness.ready) {
-      throw new BadRequestException(`ZATCA profile is missing required CSR fields: ${readiness.missingFields.join(", ")}.`);
-    }
-
-    const csrInput = this.toCsrInput(profile, existing);
-    const { privateKeyPem, csrPem } = generateZatcaCsrPem(csrInput);
-    const updated = await this.prisma.$transaction(async (tx) => {
-      const unit = await tx.zatcaEgsUnit.update({
-        where: { id },
-        data: {
-          csrPem,
-          // Development-only storage. Production must use KMS/secrets manager. Never log or expose privateKeyPem.
-          privateKeyPem,
-          status: ZatcaRegistrationStatus.OTP_REQUIRED,
-        },
-        select: safeEgsUnitSelect,
-      });
-      await tx.zatcaOrganizationProfile.update({
-        where: { organizationId },
-        data: { registrationStatus: ZatcaRegistrationStatus.OTP_REQUIRED },
-      });
-      return unit;
-    });
-
-    const publicBefore = this.toPublicEgsUnit(existing);
-    const publicUpdated = this.toPublicEgsUnit(updated);
-    await this.auditLogService.log({
-      organizationId,
-      actorUserId,
-      action: "GENERATE_CSR",
-      entityType: "ZatcaEgsUnit",
-      entityId: id,
-      before: publicBefore,
-      after: publicUpdated,
-    });
-    return publicUpdated;
+    void organizationId;
+    void actorUserId;
+    void id;
+    throw new NotImplementedException(
+      "In-process ZATCA CSR generation is disabled because the official SDK requires EC secp256k1 keys. Use the approved local SDK CSR custody workflow instead.",
+    );
   }
 
   async getEgsCsr(organizationId: string, id: string): Promise<string> {
@@ -4818,7 +4768,7 @@ export class ZatcaService {
       const invoiceHash = await this.resolveInvoiceHashForMode({
         hashMode: hashModeSnapshot,
         xmlBase64: payload.xmlBase64,
-        appHash: payload.invoiceHash,
+        appHash: payload.rawXmlSha256Base64,
         invoiceId,
       });
 
@@ -4829,7 +4779,7 @@ export class ZatcaService {
           icv: nextIcv,
           previousInvoiceHash,
           invoiceHash,
-          qrCodeBase64: payload.qrCodeBase64,
+          qrCodeBase64: null,
           xmlBase64: payload.xmlBase64,
           xmlHash: invoiceHash,
           egsUnitId: activeEgs?.id ?? null,
@@ -5399,7 +5349,6 @@ export class ZatcaService {
       invoiceUuid,
       previousInvoiceHash,
       icv,
-      includeBasicQr: true,
     });
   }
 
@@ -5994,7 +5943,9 @@ export class ZatcaService {
 
   private async resolveInvoiceHashForMode(params: { hashMode: ZatcaHashMode; xmlBase64: string; appHash: string; invoiceId: string }): Promise<string> {
     if (params.hashMode === ZatcaHashMode.LOCAL_DETERMINISTIC) {
-      return params.appHash;
+      throw new BadRequestException(
+        "Local deterministic XML SHA-256 is diagnostic-only and cannot be stored as a ZATCA invoiceHash. Configure the local official C14N11 SDK hash mode before durable invoice generation.",
+      );
     }
     if (!this.zatcaSdkService) {
       throw new BadRequestException("SDK hash generation service is not available.");
@@ -8122,31 +8073,6 @@ export class ZatcaService {
 
   private withReadiness<T extends { sellerName?: string | null; vatNumber?: string | null; city?: string | null; countryCode?: string | null }>(profile: T) {
     return { ...profile, readiness: getZatcaProfileReadiness(profile) };
-  }
-
-  private toCsrInput(
-    profile: {
-      sellerName?: string | null;
-      vatNumber?: string | null;
-      companyIdNumber?: string | null;
-      city?: string | null;
-      countryCode?: string | null;
-      businessCategory?: string | null;
-    },
-    egsUnit: InternalEgsUnitRecord,
-  ): ZatcaCsrInput {
-    return {
-      sellerName: profile.sellerName ?? "",
-      vatNumber: profile.vatNumber ?? "",
-      organizationIdentifier: profile.companyIdNumber ?? profile.vatNumber ?? "",
-      organizationUnitName: egsUnit.name,
-      organizationName: profile.sellerName ?? "",
-      countryCode: profile.countryCode ?? "SA",
-      city: profile.city ?? "",
-      deviceSerialNumber: egsUnit.deviceSerialNumber,
-      solutionName: egsUnit.solutionName,
-      businessCategory: profile.businessCategory?.trim() || "General business",
-    };
   }
 
   private hashForLog(value: string): string {

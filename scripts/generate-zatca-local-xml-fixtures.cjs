@@ -16,6 +16,30 @@ const FIXTURES = [
     input: "ledgerbyte-generated-credit-note.input.json",
     output: "ledgerbyte-generated-credit-note.expected.xml",
   },
+  {
+    id: "ledgerbyte-generated-debit-note",
+    type: "debit-note",
+    input: "ledgerbyte-generated-debit-note.input.json",
+    output: "ledgerbyte-generated-debit-note.expected.xml",
+  },
+  {
+    id: "ledgerbyte-generated-allowance-invoice",
+    type: "standard-invoice-with-document-allowance",
+    input: "ledgerbyte-generated-allowance-invoice.input.json",
+    output: "ledgerbyte-generated-allowance-invoice.expected.xml",
+  },
+  {
+    id: "ledgerbyte-generated-arabic-simplified-invoice",
+    type: "simplified-invoice-with-arabic-content",
+    input: "ledgerbyte-generated-arabic-simplified-invoice.input.json",
+    output: "ledgerbyte-generated-arabic-simplified-invoice.expected.xml",
+  },
+  {
+    id: "ledgerbyte-generated-multiline-invoice",
+    type: "standard-invoice-with-multiple-vat-lines",
+    input: "ledgerbyte-generated-multiline-invoice.input.json",
+    output: "ledgerbyte-generated-multiline-invoice.expected.xml",
+  },
 ];
 
 main();

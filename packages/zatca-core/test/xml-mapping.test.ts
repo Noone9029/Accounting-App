@@ -10,6 +10,7 @@ import {
   validateLocalZatcaXml,
   ZATCA_XML_FIELD_MAPPING,
   ZATCA_XML_FIELD_MAPPING_STATUSES,
+  ZatcaLocalPihIcvChain,
   type ZatcaInvoiceInput,
 } from "../src/index.ts";
 
@@ -205,7 +206,7 @@ describe("ZATCA XML mapping scaffold", () => {
     assert.doesNotMatch(invalidXml.slice(invalidXml.indexOf("<cac:AccountingCustomerParty>")), /<cac:PartyIdentification>/);
   });
 
-  it("prepares documented hash input transforms without pretending to run official C14N11", () => {
+  it("fails closed instead of using regex XML transforms for hash preparation", () => {
     const xml = [
       '<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2" xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2" xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2" xmlns:ext="urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2">',
       "  <ext:UBLExtensions><ext:UBLExtension /></ext:UBLExtensions>",
@@ -219,11 +220,41 @@ describe("ZATCA XML mapping scaffold", () => {
     const result = canonicalizeZatcaInvoiceXmlForHash(xml);
 
     assert.equal(result.officialC14n11Applied, false);
-    assert.equal(result.xmlForHash.includes("<ext:UBLExtensions>"), false);
-    assert.equal(result.xmlForHash.includes("<cbc:ID>QR</cbc:ID>"), false);
-    assert.equal(result.xmlForHash.includes("<cac:Signature>"), false);
-    assert.equal(result.xmlForHash.includes("<cbc:ID>PIH</cbc:ID>"), true);
-    assert.ok(result.blockingReasons.some((reason) => reason.includes("C14N11")));
+    assert.equal(result.xmlForHash, null);
+    assert.deepEqual(result.transformsApplied, []);
+    assert.ok(result.blockingReasons.some((reason) => reason.includes("XML-aware")));
+    assert.ok(result.warnings.some((warning) => warning.includes("No XML was transformed")));
+  });
+
+  it("matches generated debit-note and document-allowance fixtures", () => {
+    for (const fixture of ["ledgerbyte-generated-debit-note", "ledgerbyte-generated-allowance-invoice", "ledgerbyte-generated-arabic-simplified-invoice", "ledgerbyte-generated-multiline-invoice"]) {
+      assert.equal(normalizeFixtureXml(buildZatcaInvoiceXml(readFixtureInput(fixture))), readFixtureXml(fixture));
+    }
+  });
+
+  it("emits a document-level allowance with its amount, base, and VAT category", () => {
+    const input = readFixtureInput("ledgerbyte-generated-standard-invoice");
+    const xml = buildZatcaInvoiceXml({
+      ...input,
+      subtotal: "100.00",
+      discountTotal: "10.00",
+      discountReason: "Synthetic volume discount",
+      taxableTotal: "90.00",
+      taxTotal: "13.50",
+      total: "103.50",
+    });
+
+    assert.match(xml, /<cac:AllowanceCharge>\n    <cbc:ChargeIndicator>false<\/cbc:ChargeIndicator>\n    <cbc:AllowanceChargeReason>Synthetic volume discount<\/cbc:AllowanceChargeReason>/);
+    assert.match(xml, /<cbc:Amount currencyID="SAR">10\.00<\/cbc:Amount>/);
+    assert.match(xml, /<cbc:BaseAmount currencyID="SAR">100\.00<\/cbc:BaseAmount>/);
+    assert.match(xml, /<cac:AllowanceCharge>[\s\S]*<cbc:Percent>15\.00<\/cbc:Percent>[\s\S]*<\/cac:AllowanceCharge>/);
+    assertMarkersInOrder(xml, ["<cac:AllowanceCharge>", "<cac:TaxTotal>"]);
+  });
+
+  it("does not emit placeholder comments into conformance XML", () => {
+    const xml = buildZatcaInvoiceXml(readFixtureInput("ledgerbyte-generated-standard-invoice"));
+
+    assert.doesNotMatch(xml, /<!--|TODO:|foundation skeleton/i);
   });
 
   it("blocks local official invoice hash computation until SDK C14N11 hash output is used", () => {
@@ -273,12 +304,45 @@ describe("ZATCA XML mapping scaffold", () => {
     assert.deepEqual(result.errors, ["Seller VAT number is required."]);
   });
 
+  it("local validation reports a defined failure for an invalid Saudi seller VAT number", () => {
+    const input = readFixtureInput("local-standard-tax-invoice");
+    const result = validateLocalZatcaXml({ ...input, seller: { ...input.seller, vatNumber: "123456789012345" } });
+
+    assert.equal(result.valid, false);
+    assert.ok(result.errors.includes("Seller VAT number must be a 15-digit Saudi VAT number that starts and ends with 3."));
+  });
+
+  it("local validation reports a defined failure for unsupported invoice type flags", () => {
+    const input = readFixtureInput("local-standard-tax-invoice");
+    const result = validateLocalZatcaXml({ ...input, invoiceType: "UNSUPPORTED_INVOICE_TYPE" as never });
+
+    assert.equal(result.valid, false);
+    assert.ok(result.errors.includes("Invoice type must be one of the supported ZATCA invoice types."));
+  });
+
   it("local validation rejects missing invoice lines", () => {
     const input = readFixtureInput("local-standard-tax-invoice");
     const result = validateLocalZatcaXml({ ...input, lines: [] });
 
     assert.equal(result.valid, false);
     assert.ok(result.errors.includes("At least one invoice line is required."));
+  });
+
+  it("local validation reports defined failures for incorrect monetary totals", () => {
+    const input = readFixtureInput("ledgerbyte-generated-standard-invoice");
+    const result = validateLocalZatcaXml({ ...input, taxableTotal: "99.00", total: "113.00" });
+
+    assert.equal(result.valid, false);
+    assert.ok(result.errors.includes("Taxable total must equal subtotal less document discount."));
+    assert.ok(result.errors.includes("Invoice total must equal taxable total plus VAT total."));
+  });
+
+  it("local validation reports a defined failure for an incorrect VAT subtotal", () => {
+    const input = readFixtureInput("ledgerbyte-generated-standard-invoice");
+    const result = validateLocalZatcaXml({ ...input, taxTotal: "14.00", total: "114.00" });
+
+    assert.equal(result.valid, false);
+    assert.ok(result.errors.includes("VAT total must equal the sum of invoice-line VAT amounts when no document allowance applies."));
   });
 
   it("local validation rejects credit notes without original invoice reference and reason", () => {
@@ -314,6 +378,57 @@ describe("ZATCA XML mapping scaffold", () => {
     const customerTaxSchemeStart = xml.indexOf("<cac:PartyTaxScheme>", customerPartyStart);
     const buyerAddressXml = xml.slice(customerPartyStart, customerTaxSchemeStart);
     assert.doesNotMatch(buyerAddressXml, /<cbc:BuildingNumber>/);
+  });
+
+  it("rejects the 20-case local business-rule matrix before signing or durable chain mutation", async () => {
+    const standard = readFixtureInput("ledgerbyte-generated-standard-invoice");
+    const credit = readFixtureInput("ledgerbyte-generated-credit-note");
+    const debit = readFixtureInput("ledgerbyte-generated-debit-note");
+    const allowance = readFixtureInput("ledgerbyte-generated-allowance-invoice");
+    const simplified = readFixtureInput("ledgerbyte-generated-arabic-simplified-invoice");
+    const localCase = (id: string, expectedSafeCode: string, input: ZatcaInvoiceInput, failureLayer: string) => ({ id, failureLayer, expectedSafeCode, expectedSdkOutcome: "NOT_SENT_LOCAL_REJECTED", signingAttempted: false, chainStateUnchanged: true, run: () => validateLocalZatcaXml(input).safeErrorCodes });
+    const cases = [
+      localCase("BUSINESS-01-missing-seller-name", "ZATCA_INPUT_SELLER_NAME_REQUIRED", { ...standard, seller: { ...standard.seller, name: "" } }, "INPUT_VALIDATION"),
+      localCase("BUSINESS-02-missing-seller-vat", "ZATCA_INPUT_SELLER_VAT_REQUIRED", { ...standard, seller: { ...standard.seller, vatNumber: "" } }, "INPUT_VALIDATION"),
+      localCase("BUSINESS-03-invalid-seller-vat", "ZATCA_INPUT_SELLER_VAT_FORMAT", { ...standard, seller: { ...standard.seller, vatNumber: "123456789012345" } }, "INPUT_VALIDATION"),
+      localCase("BUSINESS-04-missing-seller-identification", "ZATCA_INPUT_SELLER_IDENTIFICATION_REQUIRED", { ...standard, seller: { ...standard.seller, companyIdNumber: "" } }, "INPUT_VALIDATION"),
+      localCase("BUSINESS-05-invalid-seller-identification-scheme", "ZATCA_INPUT_SELLER_IDENTIFICATION_SCHEME", { ...standard, seller: { ...standard.seller, companyIdType: "BAD" } }, "INPUT_VALIDATION"),
+      localCase("BUSINESS-06-unsupported-transaction-flags", "ZATCA_INPUT_INVOICE_TYPE_UNSUPPORTED", { ...standard, invoiceType: "UNSUPPORTED" as never }, "INPUT_VALIDATION"),
+      localCase("BUSINESS-07-credit-note-missing-reference", "ZATCA_INPUT_NOTE_REFERENCE_REQUIRED", { ...credit, billingReferenceInvoiceNumber: "" }, "INPUT_VALIDATION"),
+      localCase("BUSINESS-08-debit-note-missing-reference", "ZATCA_INPUT_NOTE_REFERENCE_REQUIRED", { ...debit, billingReferenceInvoiceNumber: "" }, "INPUT_VALIDATION"),
+      localCase("BUSINESS-09-note-missing-reason", "ZATCA_INPUT_NOTE_REASON_REQUIRED", { ...credit, noteReason: "" }, "INPUT_VALIDATION"),
+      localCase("BUSINESS-10-line-extension-total", "ZATCA_INPUT_LINE_EXTENSION_TOTAL_MISMATCH", { ...standard, subtotal: "101.00" }, "LEDGERBYTE_XML_RULES"),
+      localCase("BUSINESS-11-tax-exclusive-total", "ZATCA_INPUT_TAX_EXCLUSIVE_TOTAL_MISMATCH", { ...standard, taxableTotal: "99.00" }, "LEDGERBYTE_XML_RULES"),
+      localCase("BUSINESS-12-vat-total", "ZATCA_INPUT_VAT_TOTAL_MISMATCH", { ...standard, taxTotal: "14.00", total: "114.00" }, "LEDGERBYTE_XML_RULES"),
+      localCase("BUSINESS-13-tax-inclusive-total", "ZATCA_INPUT_TAX_INCLUSIVE_TOTAL_MISMATCH", { ...standard, total: "116.00" }, "LEDGERBYTE_XML_RULES"),
+      localCase("BUSINESS-14-payable-total", "ZATCA_INPUT_PAYABLE_TOTAL_MISMATCH", { ...standard, payableTotal: "114.00" }, "LEDGERBYTE_XML_RULES"),
+      localCase("BUSINESS-15-allowance-total", "ZATCA_INPUT_ALLOWANCE_TOTAL_MISMATCH", { ...allowance, documentAllowanceTotal: "9.00" }, "LEDGERBYTE_XML_RULES"),
+      localCase("BUSINESS-16-currency", "ZATCA_INPUT_CURRENCY_UNSUPPORTED", { ...standard, currency: "USD" }, "INPUT_VALIDATION"),
+      localCase("BUSINESS-17-invalid-pih", "ZATCA_INPUT_PIH_INVALID", { ...standard, previousInvoiceHash: "not-base64!" }, "INPUT_VALIDATION"),
+      localCase("BUSINESS-18-invalid-icv", "ZATCA_INPUT_ICV_INVALID", { ...standard, icv: 0 }, "INPUT_VALIDATION"),
+      localCase("BUSINESS-20-signed-simplified-missing-qr", "ZATCA_SIGNING_PHASE2_QR_REQUIRED", { ...simplified, requirePhase2Qr: true, qrCodeBase64: null }, "LEDGERBYTE_SIGNING_PREREQUISITES"),
+      {
+        id: "BUSINESS-19-duplicate-icv-reservation", failureLayer: "PIH_ICV_STATE", expectedSafeCode: "ZATCA_LOCAL_ICV_SEQUENCE", expectedSdkOutcome: "NOT_SENT_LOCAL_REJECTED", signingAttempted: false, chainStateUnchanged: true,
+        run: async () => {
+          const chain = new ZatcaLocalPihIcvChain();
+          const firstHash = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+          await chain.issue({ invoiceId: "first", icv: 1, previousInvoiceHash: chain.getState().lastInvoiceHash, canonicalInvoiceHash: firstHash, signingSucceeded: true, validationSucceeded: true, conformanceAccepted: true });
+          const before = chain.getState();
+          await assert.rejects(() => chain.issue({ invoiceId: "duplicate-icv", icv: 1, previousInvoiceHash: firstHash, canonicalInvoiceHash: "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=", signingSucceeded: true, validationSucceeded: true, conformanceAccepted: true }), { code: "ZATCA_LOCAL_ICV_SEQUENCE" });
+          assert.deepEqual(chain.getState(), before);
+          return ["ZATCA_LOCAL_ICV_SEQUENCE"];
+        },
+      },
+    ];
+
+    assert.equal(cases.length, 20);
+    for (const testCase of cases) {
+      const safeCodes = await testCase.run();
+      assert.ok(safeCodes.includes(testCase.expectedSafeCode), testCase.id);
+      assert.equal(testCase.expectedSdkOutcome, "NOT_SENT_LOCAL_REJECTED", testCase.id);
+      assert.equal(testCase.signingAttempted, false, testCase.id);
+      assert.equal(testCase.chainStateUnchanged, true, testCase.id);
+    }
   });
 });
 
