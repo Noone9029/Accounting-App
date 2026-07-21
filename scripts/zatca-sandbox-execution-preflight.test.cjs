@@ -85,6 +85,55 @@ test("treats a contract without the required host and path fields as unconfirmed
   assert.equal(result.executionAllowed, false);
 });
 
+test("uses the recorded metadata packet hash when a caller does not supply one", () => {
+  const { buildSandboxExecutionPreflight } = loadWithNetworkTrap();
+  const repo = createRepo({ evidencePacketHash: "0".repeat(64) });
+  const result = buildSandboxExecutionPreflight({ cwd: repo });
+
+  assert.equal(result.packetHashMatches, false);
+  assert.ok(result.safeErrorCodes.includes("ZATCA_EXECUTION_PACKET_HASH_MISMATCH"));
+  assert.equal(result.executionAllowed, false);
+});
+
+test("derives all local readiness fields from metadata-only evidence and fails closed for unresolved execution gates", () => {
+  const { buildSandboxExecutionPreflight } = loadWithNetworkTrap();
+  const repo = createRepo({
+    custodyEvidence: {
+      status: "LOCAL_PROVEN_NOT_NETWORK_READY",
+      provider: "SANDBOX_LOCAL_DPAPI",
+      runtimeDefault: "DISABLED",
+      syntheticMaterialOnly: true,
+      sensitiveBodiesRetained: false,
+    },
+    csrEvidence: {
+      status: "LOCAL_CRYPTOGRAPHIC_PROOF_SDK_ORACLE_UNAVAILABLE",
+      csrSignatureVerified: true,
+      csrPublicKeyMatchesCustody: true,
+      officialSdkTier2Executed: false,
+    },
+    otpEvidence: {
+      status: "LOCAL_BOUNDARY_IMPLEMENTED_OFFICIAL_FORMAT_UNCONFIRMED",
+      secureOtpInputReady: false,
+      officialOtpFormatConfirmed: false,
+      otpAvailable: false,
+      otpPersisted: false,
+    },
+  });
+  const result = buildSandboxExecutionPreflight({ cwd: repo });
+
+  assert.equal(result.credentialProviderReady, true);
+  assert.equal(result.signingKeyReady, true);
+  assert.equal(result.certificateCustodyReady, false);
+  assert.equal(result.csrLocalProofReady, true);
+  assert.equal(result.csrReady, false);
+  assert.equal(result.secureOtpInputReady, false);
+  assert.equal(result.otpAvailable, false);
+  assert.ok(result.safeErrorCodes.includes("ZATCA_CERTIFICATE_CUSTODY_NOT_READY"));
+  assert.ok(result.safeErrorCodes.includes("ZATCA_CSR_NOT_READY"));
+  assert.ok(result.safeErrorCodes.includes("ZATCA_SECURE_OTP_INPUT_NOT_READY"));
+  assert.equal(result.executionAllowed, false);
+});
+
 test("any incomplete gate leaves execution disallowed", () => {
   const { buildSandboxExecutionPreflight } = loadWithNetworkTrap();
   const result = buildSandboxExecutionPreflight({ cwd: createRepo() });
@@ -134,7 +183,11 @@ function createRepo(options = {}) {
   ].join("\n");
   writeText(repo, "docs/zatca/ARC_07B_OFFICIAL_SANDBOX_CONTRACT_MATRIX.md", contract);
   writeText(repo, "docs/zatca/ARC_07B_SANDBOX_EXECUTION_PACKET.md", packet);
+  writeText(repo, "docs/zatca/evidence/arc-07b/sandbox-execution-preflight-local.json", JSON.stringify({ packetSha256: options.evidencePacketHash || crypto.createHash("sha256").update(packet, "utf8").digest("hex") }));
   writeText(repo, "docs/zatca/evidence/arc-07b/fake-sandbox-lifecycle-local-proof.json", "{\"networkCallsMade\":false}");
+  if (options.custodyEvidence) writeText(repo, "docs/zatca/evidence/arc-07b/sandbox-local-dpapi-custody.json", JSON.stringify(options.custodyEvidence));
+  if (options.csrEvidence) writeText(repo, "docs/zatca/evidence/arc-07b/sandbox-csr-readiness.json", JSON.stringify(options.csrEvidence));
+  if (options.otpEvidence) writeText(repo, "docs/zatca/evidence/arc-07b/secure-ephemeral-otp-input.json", JSON.stringify(options.otpEvidence));
   return repo;
 }
 
