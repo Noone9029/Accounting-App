@@ -56,3 +56,7 @@ Obtain from a current official ZATCA source or authenticated developer documenta
 4. Official error-code and certificate lifecycle rules.
 
 Until then, ARC-07B can implement and prove disabled/local-loopback boundaries only. The separate owner gate remains `APPROVE ZATCA SANDBOX NETWORK EXECUTION FOR SYNTHETIC DATA ONLY`; this document does not supply that approval.
+
+## 06E preflight observation
+
+The 06E strict no-network preflight consumes this metadata plus the local custody, CSR, and OTP-boundary evidence. It reports `officialContractComplete: false` and `sandboxTargetVerified: false` rather than deriving a host, path, header, authentication, or OTP-format value. This is a local evidence observation only; it performs no ZATCA DNS lookup, HTTP request, portal login, OTP action, CSID request, clearance, reporting, or hosted mutation.
