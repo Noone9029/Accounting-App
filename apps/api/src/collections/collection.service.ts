@@ -63,6 +63,34 @@ const OPEN_CASE_STATUSES: CollectionCaseStatus[] = [
   CollectionCaseStatus.DISPUTED,
 ];
 
+const reminderCandidateInvoiceSelect = {
+  id: true,
+  invoiceNumber: true,
+  issueDate: true,
+  dueDate: true,
+  currency: true,
+  total: true,
+  balanceDue: true,
+  customer: { select: { id: true, name: true, displayName: true, email: true, phone: true } },
+  collectionCases: {
+    where: { status: { in: OPEN_CASE_STATUSES } },
+    select: {
+      id: true,
+      caseNumber: true,
+      status: true,
+      priority: true,
+      nextActionAt: true,
+      followUpDate: true,
+      promisedPaymentDate: true,
+      promisedAmount: true,
+      updatedAt: true,
+    },
+    orderBy: [{ nextActionAt: "asc" as const }, { followUpDate: "asc" as const }, { updatedAt: "desc" as const }],
+  },
+} satisfies Prisma.SalesInvoiceSelect;
+
+type ReminderCandidateInvoice = Prisma.SalesInvoiceGetPayload<{ select: typeof reminderCandidateInvoiceSelect }>;
+
 const TERMINAL_CASE_STATUSES = new Set<CollectionCaseStatus>([CollectionCaseStatus.CLOSED, CollectionCaseStatus.CANCELLED]);
 const CREATE_BLOCKED_STATUSES = new Set<CollectionCaseStatus>([
   CollectionCaseStatus.CLOSED,
@@ -186,6 +214,36 @@ export class CollectionService {
       agingBuckets: [...agingBuckets.entries()].map(([bucket, amount]) => ({ bucket, amount })),
       safeWording:
         "Collections records track follow-up work only. They do not post journals, allocate payments, send emails, create payment links, file VAT, call ZATCA, or change invoice balances.",
+    };
+  }
+
+  async reminderCandidates(organizationId: string) {
+    const now = new Date();
+    const { todayStart } = dayBounds(now);
+    const invoices = await this.prisma.salesInvoice.findMany({
+      where: {
+        organizationId,
+        status: SalesInvoiceStatus.FINALIZED,
+        balanceDue: { gt: 0 },
+        OR: [{ dueDate: { lt: todayStart } }, { dueDate: null, issueDate: { lt: todayStart } }],
+      },
+      select: reminderCandidateInvoiceSelect,
+      orderBy: [{ dueDate: "asc" }, { issueDate: "asc" }, { invoiceNumber: "asc" }],
+    });
+    const candidates = invoices.map((invoice) => reminderCandidateResponse(invoice, todayStart));
+
+    return {
+      generatedAt: now.toISOString(),
+      asOfDate: todayStart.toISOString(),
+      totalCandidateCount: candidates.length,
+      reviewNotice:
+        "Reminder candidates are review-only Sales/AR signals. They do not send email or reminders, create payment links, collect payments, post journals, file VAT, call ZATCA, or change invoice balances.",
+      blockedActions: [
+        "No email, reminder, notification, or provider call is sent from this endpoint.",
+        "No payment link, customer payment, allocation, credit note, or journal entry is created.",
+        "No VAT, ZATCA, UAE, Peppol, storage, backup, or production-readiness action or claim is made.",
+      ],
+      candidates,
     };
   }
 
@@ -682,6 +740,47 @@ function dueDateFor(invoice: { dueDate: Date | null; issueDate: Date }): Date {
   return invoice.dueDate ?? invoice.issueDate;
 }
 
+function reminderCandidateResponse(invoice: ReminderCandidateInvoice, todayStart: Date) {
+  const due = dueDateFor(invoice);
+  const daysOverdue = Math.max(0, Math.floor((todayStart.getTime() - due.getTime()) / 86_400_000));
+  const openCollectionCase = invoice.collectionCases[0] ?? null;
+
+  return {
+    invoiceId: invoice.id,
+    invoiceNumber: invoice.invoiceNumber,
+    issueDate: invoice.issueDate,
+    dueDate: invoice.dueDate,
+    currency: invoice.currency,
+    total: formatMoney(invoice.total),
+    balanceDue: formatMoney(invoice.balanceDue),
+    daysOverdue,
+    agingBucket: agingBucket(daysOverdue),
+    customer: {
+      id: invoice.customer.id,
+      name: invoice.customer.displayName ?? invoice.customer.name,
+      legalName: invoice.customer.name,
+      email: invoice.customer.email,
+      phone: invoice.customer.phone,
+    },
+    actionStatus: openCollectionCase ? "REVIEW_EXISTING_CASE" : "READY_FOR_MANUAL_REVIEW",
+    recommendedNextAction: openCollectionCase
+      ? "Review the existing open collection case before planning any internal reminder."
+      : "Review the overdue invoice before creating a collection case or planning an internal reminder.",
+    openCollectionCase: openCollectionCase
+      ? {
+          id: openCollectionCase.id,
+          caseNumber: openCollectionCase.caseNumber,
+          status: openCollectionCase.status,
+          priority: openCollectionCase.priority,
+          nextActionAt: openCollectionCase.nextActionAt,
+          followUpDate: openCollectionCase.followUpDate,
+          promisedPaymentDate: openCollectionCase.promisedPaymentDate,
+          promisedAmount: openCollectionCase.promisedAmount ? formatMoney(openCollectionCase.promisedAmount) : null,
+        }
+      : null,
+  };
+}
+
 function dayBounds(date: Date): { todayStart: Date; todayEnd: Date } {
   const todayStart = new Date(date);
   todayStart.setHours(0, 0, 0, 0);
@@ -696,6 +795,10 @@ function isWithinDay(value: Date | null | undefined, todayStart: Date, todayEnd:
 
 function addMoney(left: unknown, right: unknown): string {
   return toMoney(moneyInput(left)).plus(toMoney(moneyInput(right))).toFixed(4);
+}
+
+function formatMoney(value: unknown): string {
+  return toMoney(moneyInput(value)).toFixed(4);
 }
 
 function moneyInput(value: unknown): string | number | null | undefined {

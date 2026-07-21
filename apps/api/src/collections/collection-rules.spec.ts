@@ -158,6 +158,87 @@ describe("collection workflow rules", () => {
     expect(prisma.journalEntry.create).not.toHaveBeenCalled();
     expect(prisma.customerPayment.create).not.toHaveBeenCalled();
   });
+
+  it("lists read-only reminder candidates from tenant-scoped overdue invoices without sending or posting anything", async () => {
+    const today = new Date();
+    const overdueDueDate = new Date(today);
+    overdueDueDate.setDate(overdueDueDate.getDate() - 45);
+    const issueDate = new Date(overdueDueDate);
+    issueDate.setDate(issueDate.getDate() - 7);
+    const prisma = {
+      salesInvoice: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            id: "invoice-1",
+            invoiceNumber: "INV-001",
+            issueDate,
+            dueDate: overdueDueDate,
+            currency: "SAR",
+            total: "125.0000",
+            balanceDue: "100.0000",
+            customer: { id: "customer-1", name: "Beta Customer", displayName: null, email: "ar@example.test", phone: "+966500000000" },
+            collectionCases: [
+              {
+                id: "case-1",
+                caseNumber: "COL-000001",
+                status: CollectionCaseStatus.IN_PROGRESS,
+                priority: CollectionPriority.HIGH,
+                nextActionAt: overdueDueDate,
+                followUpDate: overdueDueDate,
+                promisedPaymentDate: null,
+                promisedAmount: null,
+                updatedAt: today,
+              },
+            ],
+          },
+        ]),
+      },
+      collectionCase: { create: jest.fn() },
+      collectionActivity: { create: jest.fn() },
+      emailOutbox: { create: jest.fn() },
+      journalEntry: { create: jest.fn() },
+      customerPayment: { create: jest.fn() },
+      zatcaInvoiceMetadata: { upsert: jest.fn() },
+    };
+    const { service, audit } = makeService(prisma);
+
+    await expect(service.reminderCandidates("org-1")).resolves.toMatchObject({
+      totalCandidateCount: 1,
+      reviewNotice: expect.stringContaining("review-only"),
+      blockedActions: expect.arrayContaining([
+        expect.stringContaining("No email"),
+        expect.stringContaining("No payment"),
+        expect.stringContaining("No VAT"),
+      ]),
+      candidates: [
+        {
+          invoiceId: "invoice-1",
+          invoiceNumber: "INV-001",
+          balanceDue: "100.0000",
+          customer: { id: "customer-1", name: "Beta Customer", email: "ar@example.test" },
+          actionStatus: "REVIEW_EXISTING_CASE",
+          openCollectionCase: { id: "case-1", caseNumber: "COL-000001", status: CollectionCaseStatus.IN_PROGRESS },
+        },
+      ],
+    });
+    expect(prisma.salesInvoice.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          organizationId: "org-1",
+          status: SalesInvoiceStatus.FINALIZED,
+          balanceDue: { gt: 0 },
+          OR: expect.any(Array),
+        }),
+      }),
+    );
+    expect(prisma.collectionCase.create).not.toHaveBeenCalled();
+    expect(prisma.collectionActivity.create).not.toHaveBeenCalled();
+    expect(prisma.emailOutbox.create).not.toHaveBeenCalled();
+    expect(prisma.journalEntry.create).not.toHaveBeenCalled();
+    expect(prisma.customerPayment.create).not.toHaveBeenCalled();
+    expect(prisma.zatcaInvoiceMetadata.upsert).not.toHaveBeenCalled();
+    expect(audit.log).not.toHaveBeenCalled();
+  });
 });
 
 function makeService(prisma: any) {

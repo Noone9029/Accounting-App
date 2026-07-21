@@ -39,6 +39,12 @@ export class CollectionController {
     return this.collectionService.summary(organizationId);
   }
 
+  @Get("reminder-candidates")
+  @RequirePermissions(PERMISSIONS.salesInvoices.view)
+  reminderCandidates(@CurrentOrganizationId() organizationId: string) {
+    return this.collectionService.reminderCandidates(organizationId);
+  }
+
   @Get("next-number")
   @RequirePermissions(PERMISSIONS.salesInvoices.create)
   nextNumberPreview(@CurrentOrganizationId() organizationId: string) {
