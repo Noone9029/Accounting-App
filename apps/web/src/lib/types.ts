@@ -663,6 +663,37 @@ export interface OrganizationMember {
   role: { id: string; name: string; permissions: string[]; isSystem: boolean };
 }
 
+export interface TeamWorkspaceRoleSummary {
+  roleId: string;
+  roleName: string;
+  isSystem: boolean;
+  totalMemberCount: number;
+  activeMemberCount: number;
+  invitedMemberCount: number;
+  suspendedMemberCount: number;
+  permissionCount: number;
+  hasFullAccess: boolean;
+  canManageUsers: boolean;
+}
+
+export interface TeamWorkspaceSummary {
+  generatedAt: string;
+  totalMemberCount: number;
+  activeMemberCount: number;
+  invitedMemberCount: number;
+  suspendedMemberCount: number;
+  statusCounts: Record<MembershipStatus, number>;
+  roleDistribution: TeamWorkspaceRoleSummary[];
+  safeguards: {
+    hasActiveFullAccessMember: boolean;
+    hasActiveUserManager: boolean;
+    lastFullAccessRemovalBlocked: boolean;
+    lastUserManagerRemovalBlocked: boolean;
+  };
+  reviewNotice: string;
+  blockedActions: string[];
+}
+
 export interface InviteOrganizationMemberResponse {
   message: string;
   member: OrganizationMember;
