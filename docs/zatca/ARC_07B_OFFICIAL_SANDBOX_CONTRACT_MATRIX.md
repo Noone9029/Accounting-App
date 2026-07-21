@@ -12,6 +12,7 @@ Scope: public official-source refresh and local-only preparation. This is not a 
 | [Simplified technical guide](https://www.zatca.gov.sa/en/E-Invoicing/SystemsDevelopers/Pages/Simplified-technical-guide.aspx) | Page last updated 5 Mar 2026 | 2026-07-20; reviewed 2026-07-21 | `33B711CC93634AF867F3E486FA22DD022141C37634D6C46C2018C2EE92AB093F` | Simplified invoice preparation | `CONFIRMED_OFFICIAL`: simplified invoice rules require their own source-backed review. |
 | XML Implementation Standard (linked by the specifications page) | Linked official document; body not committed | 2026-07-20 | URL identity captured by the specifications page | XML/cryptographic local conformance | ARC-07A XML/XAdES work remains governed by the current official standard. |
 | E-Invoice Data Dictionary (linked by the specifications page) | Linked official spreadsheet; body not committed | 2026-07-20 | URL identity captured by the specifications page | Field-level local conformance | PIH, ICV, QR, and invoice-field decisions must remain source-backed. |
+| [Developer Portal User Manual](https://www.zatca.gov.sa/en/E-Invoicing/SystemsDevelopers/ComplianceEnablementToolbox/Documents/Developer%20Portal%20User%20Manual.pdf) | Public manual; says API Swagger documentation requires portal login | 2026-07-21 | `BLOCKED_OFFICIAL_CONTRACT_EVIDENCE`: public PDF checksum not independently captured | Sandbox onboarding | `CONFIRMED_OFFICIAL` only for the credential-stage sequence: compliance CSID, required compliance checks, production CSID, then reporting/clearance using the test production CSID. It does not publish an executable current endpoint contract. |
 
 Superseded or non-normative material: legacy repository endpoint scaffolding, examples, and historical runbooks. They may inform a local adapter shape but must not supply an official host, credential, method, path, or API-version claim.
 
@@ -31,6 +32,12 @@ Superseded or non-normative material: legacy repository endpoint scaffolding, ex
 | Simplified reporting routing | No current checksum-backed external contract is recorded. | `BLOCKED_OFFICIAL_CONTRACT_EVIDENCE` |
 | Certificate renewal/expiry behavior | No current checksum-backed external lifecycle contract is recorded. | `BLOCKED_OFFICIAL_CONTRACT_EVIDENCE` |
 | Official error-code catalogue | No current checksum-backed external error contract is recorded. | `BLOCKED_OFFICIAL_CONTRACT_EVIDENCE` |
+
+## Validator and exact missing authority
+
+`corepack pnpm zatca:official-sandbox-contracts` reads only the committed metadata file [official-sandbox-contracts.json](evidence/arc-07b/official-sandbox-contracts.json). It performs no DNS lookup, socket operation, document download, or application request. It rejects a non-`zatca.gov.sa` source URL, an absent/unverified checksum, and every unresolved executable field.
+
+The required missing authority is the current authenticated Developer Portal Swagger/OpenAPI contract, or a checksum-backed public official source that supplies the same current data: sandbox host/base URL; compliance-CSID/compliance-document/production-CSID/clearance/reporting paths; methods; API-version headers; authentication; content types and limits; error/warning structures; retry classification; and the complete compliance matrix. The public manual confirms that Swagger access is login-gated; its historical prose is therefore not used to fill these fields.
 
 ## Local-only implementation constraints
 

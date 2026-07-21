@@ -1,0 +1,40 @@
+{
+  "retrievalDate": "2026-07-21",
+  "sources": [
+    {
+      "title": "E-Invoice specifications",
+      "url": "https://www.zatca.gov.sa/en/E-Invoicing/SystemsDevelopers/Pages/E-Invoice-specifications.aspx",
+      "version": "XML Implementation Standard and Data Dictionary dated 19 May 2023; page last updated 12 Jan 2026",
+      "sha256": "462db9257eb2faaa020fd653384d5e8bacd4d748062e7873085b8d59cff6f66b",
+      "environment": "local conformance",
+      "decision": "CONFIRMED_OFFICIAL"
+    },
+    {
+      "title": "Download SDK",
+      "url": "https://www.zatca.gov.sa/en/E-Invoicing/SystemsDevelopers/ComplianceEnablementToolbox/Pages/DownloadSDK.aspx",
+      "version": "page last updated 28 May 2025; local oracle SDK 238-R3.4.8",
+      "sha256": "9328b227f777a20d7c353a5b78e1183a90d45eb38a34a3aa513dbf9eb967da0d",
+      "environment": "local-only validation oracle",
+      "decision": "CONFIRMED_OFFICIAL"
+    },
+    {
+      "title": "Developer Portal User Manual",
+      "url": "https://www.zatca.gov.sa/en/E-Invoicing/SystemsDevelopers/ComplianceEnablementToolbox/Documents/Developer%20Portal%20User%20Manual.pdf",
+      "version": "public manual; Swagger endpoint details require portal login",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "environment": "sandbox onboarding evidence",
+      "decision": "CONFIRMED_OFFICIAL"
+    }
+  ],
+  "fields": {
+    "sandboxHost": "BLOCKED_OFFICIAL_CONTRACT_EVIDENCE",
+    "complianceCsidPath": "BLOCKED_OFFICIAL_CONTRACT_EVIDENCE",
+    "clearancePath": "BLOCKED_OFFICIAL_CONTRACT_EVIDENCE",
+    "reportingPath": "BLOCKED_OFFICIAL_CONTRACT_EVIDENCE",
+    "authentication": "BLOCKED_OFFICIAL_CONTRACT_EVIDENCE",
+    "apiVersion": "BLOCKED_OFFICIAL_CONTRACT_EVIDENCE",
+    "complianceMatrix": "BLOCKED_OFFICIAL_CONTRACT_EVIDENCE"
+  },
+  "networkCallsMade": false,
+  "documentBodiesRetained": false
+}
