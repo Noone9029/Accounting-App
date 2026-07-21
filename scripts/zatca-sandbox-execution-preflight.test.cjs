@@ -95,6 +95,21 @@ test("uses the recorded metadata packet hash when a caller does not supply one",
   assert.equal(result.executionAllowed, false);
 });
 
+test("normalizes packet line endings before comparing the recorded hash", () => {
+  const { buildSandboxExecutionPreflight } = loadWithNetworkTrap();
+  const packetText = [
+    "# packet",
+    "Synthetic identifiers only: `ARC07B-SYNTHETIC-001`.",
+    "## Rollback, cleanup, and non-claims",
+    "No network, OTP, CSID, clearance, reporting, credential, or request body is present.",
+  ].join("\r\n");
+  const canonicalHash = crypto.createHash("sha256").update(`${packetText}\n`.replace(/\r\n?/g, "\n"), "utf8").digest("hex");
+  const repo = createRepo({ packetText, evidencePacketHash: canonicalHash });
+  const result = buildSandboxExecutionPreflight({ cwd: repo });
+
+  assert.equal(result.packetHashMatches, true);
+});
+
 test("derives all local readiness fields from metadata-only evidence and fails closed for unresolved execution gates", () => {
   const { buildSandboxExecutionPreflight } = loadWithNetworkTrap();
   const repo = createRepo({
@@ -183,7 +198,7 @@ function createRepo(options = {}) {
   ].join("\n");
   writeText(repo, "docs/zatca/ARC_07B_OFFICIAL_SANDBOX_CONTRACT_MATRIX.md", contract);
   writeText(repo, "docs/zatca/ARC_07B_SANDBOX_EXECUTION_PACKET.md", packet);
-  writeText(repo, "docs/zatca/evidence/arc-07b/sandbox-execution-preflight-local.json", JSON.stringify({ packetSha256: options.evidencePacketHash || crypto.createHash("sha256").update(packet, "utf8").digest("hex") }));
+  writeText(repo, "docs/zatca/evidence/arc-07b/sandbox-execution-preflight-local.json", JSON.stringify({ packetSha256: options.evidencePacketHash || crypto.createHash("sha256").update(`${packet}\n`.replace(/\r\n?/g, "\n"), "utf8").digest("hex") }));
   writeText(repo, "docs/zatca/evidence/arc-07b/fake-sandbox-lifecycle-local-proof.json", "{\"networkCallsMade\":false}");
   if (options.custodyEvidence) writeText(repo, "docs/zatca/evidence/arc-07b/sandbox-local-dpapi-custody.json", JSON.stringify(options.custodyEvidence));
   if (options.csrEvidence) writeText(repo, "docs/zatca/evidence/arc-07b/sandbox-csr-readiness.json", JSON.stringify(options.csrEvidence));

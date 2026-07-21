@@ -1,7 +1,7 @@
 {
   "arc": "ARC-07B-06E",
   "baseSha": "ae4bd5f1e77b65162870def0f5fb86f9bde92d7b",
-  "packetSha256": "f9692a3fde741e70fc8493dd3d748e00b60b0cd97f352df380123feec34cf41a",
+  "packetSha256": "508b44a03a3a822a6627a6fb45a55749441076e72bc2bad248ae78224dccc4b7",
   "status": "PREPARED_BLOCKED",
   "networkEnabled": false,
   "networkCallsMade": false,
