@@ -1,0 +1,22 @@
+{
+  "arc": "ARC-07B-06D",
+  "status": "LOCAL_BOUNDARY_IMPLEMENTED_OFFICIAL_FORMAT_UNCONFIRMED",
+  "command": "corepack pnpm zatca:sandbox-otp-input -- --stdin-secure",
+  "terminalInput": "TTY_RAW_MODE_NON_ECHO",
+  "argumentOtpAccepted": false,
+  "environmentOtpAccepted": false,
+  "fileOtpAccepted": false,
+  "nonInteractiveInputAccepted": false,
+  "oneShotOperation": true,
+  "callbackScopedBuffer": true,
+  "bufferClearedAfterOperation": true,
+  "otpPersisted": false,
+  "otpAvailable": false,
+  "approvalPresent": false,
+  "preflightReady": false,
+  "officialOtpFormatConfirmed": false,
+  "secureOtpInputReady": false,
+  "networkCallsMade": false,
+  "hostedResourcesTouched": false,
+  "secretBodiesRetained": false
+}
