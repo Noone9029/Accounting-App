@@ -25,6 +25,7 @@ import { CostCenterModule } from "./cost-centers/cost-center.module";
 import { CreditNoteModule } from "./credit-notes/credit-note.module";
 import { CustomerPaymentModule } from "./customer-payments/customer-payment.module";
 import { CustomerRefundModule } from "./customer-refunds/customer-refund.module";
+import { DataManagementModule } from "./data-management/data-management.module";
 import { DashboardModule } from "./dashboard/dashboard.module";
 import { DeliveryNoteModule } from "./delivery-notes/delivery-note.module";
 import { DocumentInboxModule } from "./document-inbox/document-inbox.module";
@@ -105,6 +106,7 @@ import { validateLedgerByteConfig } from "./config/production-config";
     CreditNoteModule,
     CustomerPaymentModule,
     CustomerRefundModule,
+    DataManagementModule,
     DashboardModule,
     DeliveryNoteModule,
     DocumentInboxModule,
