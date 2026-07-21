@@ -262,7 +262,6 @@ describe("ZATCA compliance CSID custody provider boundary", () => {
     expect(productionConfig.providerEnabled).toBe(false);
     expect(productionConfig.providerConfigurationReady).toBe(false);
     expect(createComplianceCsidSecretCustodyProvider(productionConfig)).toBeInstanceOf(DisabledComplianceCsidSecretCustodyProvider);
-
     const previousNodeEnv = process.env.NODE_ENV;
     process.env.NODE_ENV = "production";
     try {
