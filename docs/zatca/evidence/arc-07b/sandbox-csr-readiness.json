@@ -1,0 +1,20 @@
+{
+  "arc": "ARC-07B-06C",
+  "status": "LOCAL_CRYPTOGRAPHIC_PROOF_SDK_ORACLE_UNAVAILABLE",
+  "algorithm": "EC_SECP256K1",
+  "syntheticDataOnly": true,
+  "csrSignatureVerified": true,
+  "csrPublicKeyMatchesCustody": true,
+  "privateKeyReturned": false,
+  "csrBodyReturned": false,
+  "legacyPrismaPemFieldsUsed": false,
+  "csrBodyTracked": false,
+  "networkCallsMade": false,
+  "hostedResourcesTouched": false,
+  "officialSdkTier2Executed": false,
+  "officialSdkTier2Blockers": [
+    "ZATCA_SDK_ROOT unavailable in current process",
+    "compatible JDK 11 unavailable in current process"
+  ],
+  "productionCompliance": false
+}
