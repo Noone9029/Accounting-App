@@ -5,6 +5,7 @@ import { AccountingCloseModule } from "./accounting-close/accounting-close.modul
 import { AttachmentModule } from "./attachments/attachment.module";
 import { AuditLogModule } from "./audit-log/audit-log.module";
 import { AuthModule } from "./auth/auth.module";
+import { AutomationModule } from "./automation/automation.module";
 import { BankAccountModule } from "./bank-accounts/bank-account.module";
 import { BankIntegrationModule } from "./bank-integrations/bank-integration.module";
 import { BankingAccountingModule } from "./banking-accounting/banking-accounting.module";
@@ -84,6 +85,7 @@ import { validateLedgerByteConfig } from "./config/production-config";
     AttachmentModule,
     EmailModule,
     AuthModule,
+    AutomationModule,
     BankAccountModule,
     BankIntegrationModule,
     BankingAccountingModule,
