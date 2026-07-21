@@ -619,6 +619,29 @@ export interface GlobalSearchResponse {
   results: GlobalSearchResult[];
 }
 
+export type AutomationProposalBoundaryMode = "PROPOSAL_ONLY";
+
+export interface AutomationProposalBoundaryResponse {
+  generatedAt: string;
+  scope: {
+    organizationId: string;
+    tenantScoped: true;
+  };
+  mode: AutomationProposalBoundaryMode;
+  readOnly: true;
+  noMutation: true;
+  automationEnabled: false;
+  aiAuthoritative: false;
+  requiresHumanConfirmation: true;
+  auditRequiredForConfirmation: true;
+  providerMutationAllowed: false;
+  hostedMutationAllowed: false;
+  productionClaimAllowed: false;
+  allowedProposalActions: string[];
+  blockedActions: string[];
+  confirmationRequirements: string[];
+}
+
 export interface AuthUser {
   id: string;
   email: string;
