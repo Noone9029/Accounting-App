@@ -125,7 +125,7 @@ function fileExists(cwd, relativePath) {
 }
 
 function sha256(value) {
-  return crypto.createHash("sha256").update(value, "utf8").digest("hex");
+  return crypto.createHash("sha256").update(value.replace(/\r\n?/gu, "\n"), "utf8").digest("hex");
 }
 
 function timingSafeEqual(actual, expected) {
