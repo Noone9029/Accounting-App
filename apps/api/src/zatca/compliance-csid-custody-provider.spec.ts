@@ -2,10 +2,14 @@ import {
   DisabledComplianceCsidSecretCustodyProvider,
   MockedKmsComplianceCsidCustodyProvider,
   MockedSecretsManagerComplianceCsidCustodyProvider,
+  SandboxLocalDpapiComplianceCsidCustodyProvider,
   createComplianceCsidSecretCustodyProvider,
   readComplianceCsidCustodyProviderConfig,
   redactSecretReference,
 } from "./custody/compliance-csid-secret-custody.provider";
+import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { ZatcaService } from "./zatca.service";
 
 const organizationId = "11111111-1111-1111-1111-111111111111";
@@ -85,6 +89,10 @@ describe("ZATCA compliance CSID custody provider boundary", () => {
     "ZATCA_CSID_CUSTODY_REGION",
     "ZATCA_CSID_CUSTODY_ENCRYPTED_DB_APPROVED",
     "ZATCA_CSID_CUSTODY_ALLOW_BODY_STORAGE",
+    "ZATCA_SANDBOX_LOCAL_CUSTODY_ENABLED",
+    "ZATCA_SANDBOX_LOCAL_EXECUTION_CLASSIFICATION",
+    "APP_ENV",
+    "NODE_ENV",
   ] as const;
 
   const originalEnv = Object.fromEntries(envKeys.map((key) => [key, process.env[key]]));
@@ -230,6 +238,180 @@ describe("ZATCA compliance CSID custody provider boundary", () => {
     await expect(provider.storeComplianceSecret(sensitiveInput)).rejects.toThrow("CSID secret custody provider is disabled");
     await expect(provider.storeComplianceCertificate(sensitiveInput)).rejects.toThrow("CSID secret custody provider is disabled");
     await expect(provider.storeComplianceToken(sensitiveInput)).rejects.not.toThrow(/binary-security-token-body|SECRET-VALUE|BEGIN CERTIFICATE/);
+  });
+
+  it("allows the DPAPI provider only with an explicit local-test classification and never in production-looking processes", () => {
+    const localConfig = readComplianceCsidCustodyProviderConfig({
+      ZATCA_CSID_CUSTODY_PROVIDER: "sandbox-local-dpapi",
+      ZATCA_SANDBOX_LOCAL_CUSTODY_ENABLED: "true",
+      ZATCA_SANDBOX_LOCAL_EXECUTION_CLASSIFICATION: "LOCAL_TEST",
+      APP_ENV: "local",
+    } as NodeJS.ProcessEnv);
+    const productionConfig = readComplianceCsidCustodyProviderConfig({
+      ZATCA_CSID_CUSTODY_PROVIDER: "sandbox-local-dpapi",
+      ZATCA_SANDBOX_LOCAL_CUSTODY_ENABLED: "true",
+      ZATCA_SANDBOX_LOCAL_EXECUTION_CLASSIFICATION: "LOCAL_TEST",
+      APP_ENV: "production",
+    } as NodeJS.ProcessEnv);
+
+    expect(localConfig.configuredProvider).toBe("SANDBOX_LOCAL_DPAPI");
+    expect(localConfig.providerEnabled).toBe(true);
+    expect(localConfig.realProviderImplementationReady).toBe(true);
+    expect(localConfig.productionCompliance).toBe(false);
+    expect(productionConfig.configuredProvider).toBe("SANDBOX_LOCAL_DPAPI");
+    expect(productionConfig.providerEnabled).toBe(false);
+    expect(productionConfig.providerConfigurationReady).toBe(false);
+    expect(createComplianceCsidSecretCustodyProvider(productionConfig)).toBeInstanceOf(DisabledComplianceCsidSecretCustodyProvider);
+    const previousNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      expect(
+        () =>
+          new SandboxLocalDpapiComplianceCsidCustodyProvider({
+            environment: "LOCAL_TEST",
+            storageDirectory: "synthetic-test-only-path",
+            protector: { protect: async (value) => value, unprotect: async (value) => value },
+          }),
+      ).toThrow("CSID secret custody provider operation failed");
+    } finally {
+      process.env.NODE_ENV = previousNodeEnv;
+    }
+  });
+
+  it("stores synthetic sandbox material as protected local ciphertext and only reveals it to a narrow callback", async () => {
+    const storageDirectory = await mkdtemp(join(tmpdir(), "ledgerbyte-zatca-custody-"));
+    const syntheticSecret = "synthetic-sandbox-secret-not-a-credential";
+    const protector = {
+      protect: jest.fn(async (value: Buffer) => Buffer.from(`protected:${value.toString("base64")}`, "utf8")),
+      unprotect: jest.fn(async (value: Buffer) => {
+        const serialized = value.toString("utf8");
+        if (!serialized.startsWith("protected:")) {
+          throw new Error("wrong local user scope");
+        }
+        return Buffer.from(serialized.slice("protected:".length), "base64");
+      }),
+    };
+    const provider = new SandboxLocalDpapiComplianceCsidCustodyProvider({
+      environment: "LOCAL_TEST",
+      storageDirectory,
+      protector,
+    });
+
+    try {
+      const reference = "synthetic-sandbox-token-reference";
+      const stored = await provider.storeComplianceToken({
+        organizationId,
+        egsUnitId,
+        certificateRequestId: "synthetic-request",
+        referenceId: reference,
+        environment: "SANDBOX",
+        value: syntheticSecret,
+      });
+
+      expect(stored.provider).toBe("SANDBOX_LOCAL_DPAPI");
+      expect(stored.referenceId).not.toContain(reference);
+      expect(JSON.stringify(stored)).not.toContain(syntheticSecret);
+      const files = await readdir(storageDirectory);
+      expect(files).toHaveLength(1);
+      const ciphertext = await readFile(join(storageDirectory, files[0]!));
+      expect(ciphertext.toString("utf8")).not.toContain(syntheticSecret);
+
+      await expect(
+        provider.readSecretForOperation(
+          { organizationId, egsUnitId, referenceId: reference, environment: "SANDBOX" },
+          async (plaintext) => plaintext.toString("utf8"),
+        ),
+      ).resolves.toBe(syntheticSecret);
+
+      await writeFile(join(storageDirectory, files[0]!), Buffer.from("changed-ciphertext", "utf8"));
+      await expect(
+        provider.readSecretForOperation(
+          { organizationId, egsUnitId, referenceId: reference, environment: "SANDBOX" },
+          async () => "unexpected",
+        ),
+      ).rejects.toThrow("CSID secret custody provider operation failed");
+    } finally {
+      await rm(storageDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("fails closed for missing, expired, revoked, and non-sandbox references without leaking material", async () => {
+    const storageDirectory = await mkdtemp(join(tmpdir(), "ledgerbyte-zatca-custody-"));
+    let now = new Date("2026-07-21T00:00:00.000Z");
+    const protector = {
+      protect: async (value: Buffer) => Buffer.from(`protected:${value.toString("base64")}`, "utf8"),
+      unprotect: async (value: Buffer) => {
+        const encoded = value.toString("utf8");
+        if (!encoded.startsWith("protected:")) throw new Error("wrong user scope");
+        return Buffer.from(encoded.slice("protected:".length), "base64");
+      },
+    };
+    const provider = new SandboxLocalDpapiComplianceCsidCustodyProvider({
+      environment: "LOCAL_TEST",
+      storageDirectory,
+      protector,
+      now: () => now,
+    });
+    const referenceId = "synthetic-expiring-reference";
+    const secret = "synthetic-expiring-value";
+    const read = () => provider.readSecretForOperation({ organizationId, egsUnitId, referenceId, environment: "SANDBOX" }, async () => "unexpected");
+
+    try {
+      await expect(read()).rejects.toThrow("CSID secret custody provider operation failed");
+      await expect(
+        provider.storeComplianceSecret({ organizationId, egsUnitId, referenceId, environment: "SIMULATION", value: secret }),
+      ).rejects.toThrow("CSID secret custody provider operation failed");
+      await expect(
+        new SandboxLocalDpapiComplianceCsidCustodyProvider({ environment: "PRODUCTION" as never, storageDirectory, protector }).storeComplianceSecret({
+          organizationId,
+          egsUnitId,
+          referenceId,
+          environment: "SANDBOX",
+          value: secret,
+        }),
+      ).rejects.toThrow("CSID secret custody provider operation failed");
+
+      await provider.storeComplianceSecret({
+        organizationId,
+        egsUnitId,
+        referenceId,
+        environment: "SANDBOX",
+        expiresAt: "2026-07-21T00:01:00.000Z",
+        value: secret,
+      });
+      now = new Date("2026-07-21T00:01:00.000Z");
+      await expect(read()).rejects.toThrow("CSID secret custody provider operation failed");
+
+      now = new Date("2026-07-21T00:00:30.000Z");
+      await provider.storeComplianceSecret({ organizationId, egsUnitId, referenceId, environment: "SANDBOX", value: secret });
+      await provider.revokeReference({ organizationId, egsUnitId, referenceId });
+      await expect(read()).rejects.toThrow("CSID secret custody provider operation failed");
+      await provider.deleteReference({ organizationId, egsUnitId, referenceId, environment: "SANDBOX" });
+      expect(await readdir(storageDirectory)).toEqual([]);
+    } finally {
+      await rm(storageDirectory, { recursive: true, force: true });
+    }
+  });
+
+  (process.platform === "win32" ? it : it.skip)("round-trips only synthetic material through current-user Windows DPAPI", async () => {
+    const storageDirectory = await mkdtemp(join(tmpdir(), "ledgerbyte-zatca-dpapi-"));
+    const provider = new SandboxLocalDpapiComplianceCsidCustodyProvider({ environment: "LOCAL_TEST", storageDirectory });
+    const referenceId = "synthetic-dpapi-proof-reference";
+    const syntheticValue = "synthetic-dpapi-proof-value";
+
+    try {
+      await provider.storeComplianceToken({ organizationId, egsUnitId, referenceId, environment: "SANDBOX", value: syntheticValue });
+      await expect(
+        provider.readSecretForOperation(
+          { organizationId, egsUnitId, referenceId, environment: "SANDBOX" },
+          async (plaintext) => plaintext.toString("utf8"),
+        ),
+      ).resolves.toBe(syntheticValue);
+      const [file] = await readdir(storageDirectory);
+      expect(await readFile(join(storageDirectory, file!), "utf8")).not.toContain(syntheticValue);
+    } finally {
+      await rm(storageDirectory, { recursive: true, force: true });
+    }
   });
 
   it("feeds disabled provider readiness into custody plan and dry-run gates", async () => {
