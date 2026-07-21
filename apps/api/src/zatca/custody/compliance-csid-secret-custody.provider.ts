@@ -1,12 +1,17 @@
-export type ComplianceCsidSecretCustodyProviderKind = "DISABLED" | "FUTURE_SECRETS_MANAGER" | "FUTURE_KMS" | "FUTURE_ENCRYPTED_DB";
+import { createHash } from "node:crypto";
+import { mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { spawn } from "node:child_process";
+
+export type ComplianceCsidSecretCustodyProviderKind = "DISABLED" | "SANDBOX_LOCAL_DPAPI" | "FUTURE_SECRETS_MANAGER" | "FUTURE_KMS" | "FUTURE_ENCRYPTED_DB";
 
 export interface ComplianceCsidCustodyProviderConfigurationPlan {
   configuredProvider: ComplianceCsidSecretCustodyProviderKind;
-  providerEnabled: false;
+  providerEnabled: boolean;
   providerConfigPresent: boolean;
-  providerConfigurationReady: false;
+  providerConfigurationReady: boolean;
   mockProviderContractsAvailable: boolean;
-  realProviderImplementationReady: false;
+  realProviderImplementationReady: boolean;
   defaultProvider: "DISABLED";
   configurationPresent: {
     provider: boolean;
@@ -24,15 +29,15 @@ export interface ComplianceCsidCustodyProviderConfigurationPlan {
     encryptedDbApproved: boolean;
     allowBodyStorageRequested: boolean;
   };
-  tokenStorageReady: false;
-  secretStorageReady: false;
-  certificateStorageReady: false;
+  tokenStorageReady: boolean;
+  secretStorageReady: boolean;
+  certificateStorageReady: boolean;
   kmsConfigured: boolean;
   secretsManagerConfigured: boolean;
   encryptedDbApproved: boolean;
   bodyStorageAllowed: false;
   productionCompliance: false;
-  futureProviderModes: Exclude<ComplianceCsidSecretCustodyProviderKind, "DISABLED">[];
+  futureProviderModes: ("FUTURE_SECRETS_MANAGER" | "FUTURE_KMS" | "FUTURE_ENCRYPTED_DB")[];
   blockers: string[];
   warnings: string[];
   recommendedNextSteps: string[];
@@ -43,10 +48,10 @@ export interface CustodyProviderReadiness {
   enabled: boolean;
   configuredProvider: ComplianceCsidSecretCustodyProviderKind;
   providerConfigPresent: boolean;
-  providerEnabled: false;
-  providerConfigurationReady: false;
+  providerEnabled: boolean;
+  providerConfigurationReady: boolean;
   mockProviderContractsAvailable: boolean;
-  realProviderImplementationReady: false;
+  realProviderImplementationReady: boolean;
   defaultProvider: "DISABLED";
   configurationPlanSummary: Pick<
     ComplianceCsidCustodyProviderConfigurationPlan,
@@ -85,6 +90,12 @@ export interface StoreComplianceCsidSecretInput {
   organizationId: string;
   egsUnitId: string;
   certificateRequestId?: string | null;
+  referenceId?: string;
+  environment?: "SANDBOX" | "SIMULATION" | "PRODUCTION";
+  expiresAt?: Date | string | null;
+  certificateFingerprint?: string | null;
+  certificateSerialNumber?: string | null;
+  certificateIssuer?: string | null;
   value: string;
 }
 
@@ -118,8 +129,39 @@ export interface ComplianceCsidSecretCustodyProvider {
   revokeReference(input: RevokeStoredSecretReferenceInput): Promise<void>;
 }
 
+export interface SandboxLocalSecretReadInput {
+  organizationId: string;
+  egsUnitId: string;
+  referenceId: string;
+  environment: "SANDBOX";
+}
+
+export interface SandboxLocalDpapiProtector {
+  protect(plaintext: Buffer): Promise<Buffer>;
+  unprotect(ciphertext: Buffer): Promise<Buffer>;
+}
+
+interface SandboxLocalStoredMaterial {
+  schemaVersion: 1;
+  kind: ComplianceCsidSecretMaterialKind;
+  environment: "SANDBOX";
+  referenceDigest: string;
+  protectedValue: string;
+  certificateRequestId: string | null;
+  certificateFingerprint: string | null;
+  certificateSerialNumber: string | null;
+  certificateIssuer: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+  rotatedAt: string | null;
+  revokedAt: string | null;
+}
+
 function normalizeProvider(value: string | undefined): ComplianceCsidSecretCustodyProviderKind {
   const normalized = value?.trim().toLowerCase();
+  if (normalized === "sandbox-local-dpapi" || normalized === "local-dpapi" || normalized === "dpapi") {
+    return "SANDBOX_LOCAL_DPAPI";
+  }
   if (normalized === "secrets-manager" || normalized === "secret-manager" || normalized === "secrets_manager") {
     return "FUTURE_SECRETS_MANAGER";
   }
@@ -176,13 +218,20 @@ export function readComplianceCsidCustodyProviderConfig(env: NodeJS.ProcessEnv =
   const region = env.ZATCA_CSID_CUSTODY_REGION?.trim();
   const encryptedDbApproved = isTruthy(env.ZATCA_CSID_CUSTODY_ENCRYPTED_DB_APPROVED);
   const allowBodyStorageRequested = isTruthy(env.ZATCA_CSID_CUSTODY_ALLOW_BODY_STORAGE);
+  const sandboxLocalEnabled = isTruthy(env.ZATCA_SANDBOX_LOCAL_CUSTODY_ENABLED);
+  const sandboxLocalClassification = env.ZATCA_SANDBOX_LOCAL_EXECUTION_CLASSIFICATION?.trim() === "LOCAL_TEST";
+  const runtimeEnvironment = (env.APP_ENV ?? env.NODE_ENV ?? "").trim().toUpperCase();
+  const sandboxLocalRuntime = runtimeEnvironment === "LOCAL" || runtimeEnvironment === "TEST";
+  const sandboxLocalReady = configuredProvider === "SANDBOX_LOCAL_DPAPI" && sandboxLocalEnabled && sandboxLocalClassification && sandboxLocalRuntime;
   const providerConfigPresent = Boolean(
     env.ZATCA_CSID_CUSTODY_PROVIDER?.trim() ||
       kmsKeyId ||
       secretPrefix ||
       region ||
       env.ZATCA_CSID_CUSTODY_ENCRYPTED_DB_APPROVED?.trim() ||
-      env.ZATCA_CSID_CUSTODY_ALLOW_BODY_STORAGE?.trim(),
+      env.ZATCA_CSID_CUSTODY_ALLOW_BODY_STORAGE?.trim() ||
+      env.ZATCA_SANDBOX_LOCAL_CUSTODY_ENABLED?.trim() ||
+      env.ZATCA_SANDBOX_LOCAL_EXECUTION_CLASSIFICATION?.trim(),
   );
   const kmsConfigured = Boolean(kmsKeyId || configuredProvider === "FUTURE_KMS");
   const secretsManagerConfigured = Boolean(secretPrefix || configuredProvider === "FUTURE_SECRETS_MANAGER");
@@ -196,11 +245,11 @@ export function readComplianceCsidCustodyProviderConfig(env: NodeJS.ProcessEnv =
 
   return {
     configuredProvider,
-    providerEnabled: false,
+    providerEnabled: sandboxLocalReady,
     providerConfigPresent,
-    providerConfigurationReady: false,
+    providerConfigurationReady: sandboxLocalReady,
     mockProviderContractsAvailable: true,
-    realProviderImplementationReady: false,
+    realProviderImplementationReady: sandboxLocalReady,
     defaultProvider: "DISABLED",
     configurationPresent: {
       provider: Boolean(env.ZATCA_CSID_CUSTODY_PROVIDER?.trim()),
@@ -218,28 +267,30 @@ export function readComplianceCsidCustodyProviderConfig(env: NodeJS.ProcessEnv =
       encryptedDbApproved,
       allowBodyStorageRequested,
     },
-    tokenStorageReady: false,
-    secretStorageReady: false,
-    certificateStorageReady: false,
+    tokenStorageReady: sandboxLocalReady,
+    secretStorageReady: sandboxLocalReady,
+    certificateStorageReady: sandboxLocalReady,
     kmsConfigured,
     secretsManagerConfigured,
     encryptedDbApproved,
     bodyStorageAllowed: false,
     productionCompliance: false,
     futureProviderModes: ["FUTURE_SECRETS_MANAGER", "FUTURE_KMS", "FUTURE_ENCRYPTED_DB"],
-    blockers: [
-      "provider configuration not approved",
-      "provider implementation disabled",
-      "real provider implementation not enabled",
-      "body storage explicitly blocked",
-      "real secure storage not tested",
-      "reference ID strategy not approved",
-      "rotation/renewal not implemented",
-      "production compliance false",
-    ],
+    blockers: sandboxLocalReady
+      ? ["sandbox-only local custody is not production-compliant", "future KMS/HSM custody remains unimplemented"]
+      : [
+          "provider configuration not approved",
+          "provider implementation disabled",
+          "real provider implementation not enabled",
+          "body storage explicitly blocked",
+          "real secure storage not tested",
+          "reference ID strategy not approved",
+          "rotation/renewal not implemented",
+          "production compliance false",
+        ],
     warnings,
     recommendedNextSteps: [
-      "Approve a non-production custody provider configuration plan before implementing any real provider.",
+      "Set the explicit LOCAL_TEST classification only for controlled synthetic sandbox custody; production remains rejected.",
       "Use mocked provider client contract tests only as interface validation; they do not enable real secrets-manager, KMS, or encrypted DB custody.",
       "Define redacted reference IDs, version handling, access review, audit logging, rotation, renewal, backup, and recovery controls.",
       "Keep token, secret, certificate, CSR, OTP, private key, signed XML, and QR bodies out of API/UI responses.",
@@ -469,6 +520,309 @@ export class MockedKmsComplianceCsidCustodyProvider implements ComplianceCsidSec
   }
 }
 
-export function createComplianceCsidSecretCustodyProvider(_config: ComplianceCsidCustodyProviderConfigurationPlan = readComplianceCsidCustodyProviderConfig()): ComplianceCsidSecretCustodyProvider {
+class WindowsCurrentUserDpapiProtector implements SandboxLocalDpapiProtector {
+  async protect(plaintext: Buffer): Promise<Buffer> {
+    return this.invoke("protect", plaintext);
+  }
+
+  async unprotect(ciphertext: Buffer): Promise<Buffer> {
+    return this.invoke("unprotect", ciphertext);
+  }
+
+  private async invoke(operation: "protect" | "unprotect", value: Buffer): Promise<Buffer> {
+    if (process.platform !== "win32") {
+      throw sanitizeProviderError();
+    }
+    const action = operation === "protect" ? "Protect" : "Unprotect";
+    const script = [
+      "$ErrorActionPreference='Stop'",
+      "Add-Type -AssemblyName System.Security",
+      "$encoded=[Console]::In.ReadToEnd().Trim()",
+      "$bytes=[Convert]::FromBase64String($encoded)",
+      "$entropy=[Text.Encoding]::UTF8.GetBytes('LedgerByte:ZatcaSandboxCustody:v1')",
+      `$result=[Security.Cryptography.ProtectedData]::${action}($bytes,$entropy,[Security.Cryptography.DataProtectionScope]::CurrentUser)`,
+      "[Console]::Out.Write([Convert]::ToBase64String($result))",
+    ].join(";");
+    return new Promise<Buffer>((resolve, reject) => {
+      const child = spawn("powershell.exe", ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script], {
+        windowsHide: true,
+        stdio: ["pipe", "pipe", "ignore"],
+      });
+      const output: Buffer[] = [];
+      child.stdout.on("data", (chunk: Buffer) => output.push(Buffer.from(chunk)));
+      child.once("error", () => reject(sanitizeProviderError()));
+      child.once("close", (code) => {
+        if (code !== 0) {
+          reject(sanitizeProviderError());
+          return;
+        }
+        try {
+          resolve(Buffer.from(Buffer.concat(output).toString("utf8").trim(), "base64"));
+        } catch {
+          reject(sanitizeProviderError());
+        }
+      });
+      child.stdin.end(value.toString("base64"));
+    });
+  }
+}
+
+export class SandboxLocalDpapiComplianceCsidCustodyProvider implements ComplianceCsidSecretCustodyProvider {
+  private readonly now: () => Date;
+  private readonly protector: SandboxLocalDpapiProtector;
+
+  constructor(
+    private readonly options: {
+      environment: "LOCAL_TEST";
+      storageDirectory: string;
+      protector?: SandboxLocalDpapiProtector;
+      now?: () => Date;
+    },
+  ) {
+    this.protector = options.protector ?? new WindowsCurrentUserDpapiProtector();
+    this.now = options.now ?? (() => new Date());
+  }
+
+  getReadiness(): CustodyProviderReadiness {
+    return {
+      provider: "SANDBOX_LOCAL_DPAPI",
+      enabled: true,
+      configuredProvider: "SANDBOX_LOCAL_DPAPI",
+      providerConfigPresent: true,
+      providerEnabled: true,
+      providerConfigurationReady: true,
+      mockProviderContractsAvailable: true,
+      realProviderImplementationReady: true,
+      defaultProvider: "DISABLED",
+      configurationPlanSummary: {
+        configuredProvider: "SANDBOX_LOCAL_DPAPI",
+        providerEnabled: true,
+        providerConfigPresent: true,
+        providerConfigurationReady: true,
+        mockProviderContractsAvailable: true,
+        realProviderImplementationReady: true,
+        defaultProvider: "DISABLED",
+        redactedConfigurationSummary: {
+          provider: "SANDBOX_LOCAL_DPAPI",
+          kmsKeyId: "NOT_CONFIGURED",
+          secretPrefix: "NOT_CONFIGURED",
+          region: "NOT_CONFIGURED",
+          encryptedDbApproved: false,
+          allowBodyStorageRequested: false,
+        },
+        bodyStorageAllowed: false,
+      },
+      tokenStorageReady: true,
+      secretStorageReady: true,
+      certificateStorageReady: true,
+      kmsConfigured: false,
+      secretsManagerConfigured: false,
+      encryptedDbApproved: false,
+      productionCompliance: false,
+      blockers: ["sandbox-only local custody is not production-compliant", "future KMS/HSM custody remains unimplemented"],
+      warnings: ["Material is protected with Windows DPAPI for the current user and is stored outside the repository as ciphertext only."],
+      recommendedNextSteps: ["Use only synthetic sandbox material and replace this provider with an approved KMS/HSM before production."],
+    };
+  }
+
+  async storeComplianceToken(input: StoreComplianceCsidSecretInput): Promise<StoredSecretReference> {
+    return this.store("TOKEN", input);
+  }
+
+  async storeComplianceSecret(input: StoreComplianceCsidSecretInput): Promise<StoredSecretReference> {
+    return this.store("SECRET", input);
+  }
+
+  async storeComplianceCertificate(input: StoreComplianceCsidSecretInput): Promise<StoredSecretReference> {
+    return this.store("CERTIFICATE", input);
+  }
+
+  async readSecretForOperation<T>(input: SandboxLocalSecretReadInput, operation: (plaintext: Buffer) => Promise<T> | T): Promise<T> {
+    this.assertSandboxReference(input);
+    let plaintext: Buffer | undefined;
+    try {
+      const material = await this.readMaterial(input, false);
+      if (material.revokedAt || (material.expiresAt && new Date(material.expiresAt).getTime() <= this.now().getTime())) {
+        throw sanitizeProviderError();
+      }
+      const protectedValue = Buffer.from(material.protectedValue, "base64");
+      plaintext = await this.protector.unprotect(protectedValue);
+      return await operation(plaintext);
+    } catch (error) {
+      if (error instanceof Error && error.name === "ComplianceCsidSecretCustodyProviderError") {
+        throw error;
+      }
+      throw sanitizeProviderError();
+    } finally {
+      plaintext?.fill(0);
+    }
+  }
+
+  async revokeReference(input: RevokeStoredSecretReferenceInput): Promise<void> {
+    const reference = { ...input, environment: "SANDBOX" as const };
+    this.assertSandboxReference(reference);
+    try {
+      const material = await this.readMaterial(reference, false);
+      material.revokedAt = this.now().toISOString();
+      await this.writeMaterial(reference, material);
+    } catch (error) {
+      if (error instanceof Error && error.name === "ComplianceCsidSecretCustodyProviderError") {
+        throw error;
+      }
+      throw sanitizeProviderError();
+    }
+  }
+
+  async deleteReference(input: SandboxLocalSecretReadInput): Promise<void> {
+    this.assertSandboxReference(input);
+    try {
+      await rm(this.pathFor(input), { force: false });
+    } catch {
+      throw sanitizeProviderError();
+    }
+  }
+
+  async listMetadataOnly(): Promise<Array<Omit<SandboxLocalStoredMaterial, "protectedValue">>> {
+    try {
+      const names = await readdir(this.options.storageDirectory);
+      const records = await Promise.all(
+        names.filter((name) => name.endsWith(".json")).map(async (name) => {
+          const material = this.parseMaterial(await readFile(join(this.options.storageDirectory, name)));
+          const { protectedValue: _protectedValue, ...metadata } = material;
+          return metadata;
+        }),
+      );
+      return records;
+    } catch {
+      return [];
+    }
+  }
+
+  private async store(kind: ComplianceCsidSecretMaterialKind, input: StoreComplianceCsidSecretInput): Promise<StoredSecretReference> {
+    this.assertSandboxReference(input);
+    if (!input.value || !input.value.trim()) {
+      throw sanitizeProviderError();
+    }
+    let plaintext = Buffer.from(input.value, "utf8");
+    try {
+      const protectedValue = await this.protector.protect(plaintext);
+      const createdAt = this.now().toISOString();
+      await this.writeMaterial(input as SandboxLocalSecretReadInput, {
+        schemaVersion: 1,
+        kind,
+        environment: "SANDBOX",
+        referenceDigest: this.referenceDigest(input as SandboxLocalSecretReadInput),
+        protectedValue: protectedValue.toString("base64"),
+        certificateRequestId: input.certificateRequestId?.trim() || null,
+        certificateFingerprint: input.certificateFingerprint?.trim() || null,
+        certificateSerialNumber: input.certificateSerialNumber?.trim() || null,
+        certificateIssuer: input.certificateIssuer?.trim() || null,
+        expiresAt: input.expiresAt ? new Date(input.expiresAt).toISOString() : null,
+        createdAt,
+        rotatedAt: null,
+        revokedAt: null,
+      });
+      return createStoredReference("SANDBOX_LOCAL_DPAPI", input.referenceId!);
+    } catch (error) {
+      if (error instanceof Error && error.name === "ComplianceCsidSecretCustodyProviderError") {
+        throw error;
+      }
+      throw sanitizeProviderError();
+    } finally {
+      plaintext.fill(0);
+    }
+  }
+
+  private assertSandboxReference(input: {
+    organizationId?: string;
+    egsUnitId?: string;
+    referenceId?: string;
+    environment?: string;
+  }): asserts input is SandboxLocalSecretReadInput {
+    if (this.options.environment !== "LOCAL_TEST" || input.environment !== "SANDBOX" || !input.organizationId?.trim() || !input.egsUnitId?.trim() || !input.referenceId?.trim()) {
+      throw sanitizeProviderError();
+    }
+  }
+
+  private referenceDigest(input: SandboxLocalSecretReadInput): string {
+    return createHash("sha256").update(`${input.organizationId}\u0000${input.egsUnitId}\u0000${input.environment}\u0000${input.referenceId}`).digest("hex");
+  }
+
+  private pathFor(input: SandboxLocalSecretReadInput): string {
+    return join(this.options.storageDirectory, `${this.referenceDigest(input)}.json`);
+  }
+
+  private async readMaterial(input: SandboxLocalSecretReadInput, allowMissing: boolean): Promise<SandboxLocalStoredMaterial> {
+    try {
+      const material = this.parseMaterial(await readFile(this.pathFor(input)));
+      if (material.environment !== input.environment || material.referenceDigest !== this.referenceDigest(input)) {
+        throw sanitizeProviderError();
+      }
+      return material;
+    } catch (error) {
+      if (allowMissing && (error as NodeJS.ErrnoException)?.code === "ENOENT") {
+        throw sanitizeProviderError();
+      }
+      if (error instanceof Error && error.name === "ComplianceCsidSecretCustodyProviderError") {
+        throw error;
+      }
+      throw sanitizeProviderError();
+    }
+  }
+
+  private parseMaterial(value: Buffer): SandboxLocalStoredMaterial {
+    const parsed = JSON.parse(value.toString("utf8")) as SandboxLocalStoredMaterial;
+    if (
+      parsed.schemaVersion !== 1 ||
+      parsed.environment !== "SANDBOX" ||
+      !parsed.referenceDigest ||
+      !parsed.protectedValue ||
+      !["TOKEN", "SECRET", "CERTIFICATE"].includes(parsed.kind)
+    ) {
+      throw sanitizeProviderError();
+    }
+    return parsed;
+  }
+
+  private async writeMaterial(input: SandboxLocalSecretReadInput, material: SandboxLocalStoredMaterial): Promise<void> {
+    await mkdir(this.options.storageDirectory, { recursive: true, mode: 0o700 });
+    await this.restrictStorageDirectory();
+    const target = this.pathFor(input);
+    const temporary = `${target}.tmp`;
+    await writeFile(temporary, JSON.stringify(material), { encoding: "utf8", mode: 0o600 });
+    await rename(temporary, target);
+  }
+
+  private async restrictStorageDirectory(): Promise<void> {
+    if (process.platform !== "win32" || !process.env.USERNAME?.trim()) {
+      throw sanitizeProviderError();
+    }
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn(
+        "icacls.exe",
+        [
+          this.options.storageDirectory,
+          "/inheritance:r",
+          "/grant:r",
+          `${process.env.USERNAME}:(OI)(CI)F`,
+          "/grant:r",
+          "SYSTEM:(OI)(CI)F",
+        ],
+        { windowsHide: true, stdio: "ignore" },
+      );
+      child.once("error", () => reject(sanitizeProviderError()));
+      child.once("close", (code) => (code === 0 ? resolve() : reject(sanitizeProviderError())));
+    });
+  }
+}
+
+export function createComplianceCsidSecretCustodyProvider(config: ComplianceCsidCustodyProviderConfigurationPlan = readComplianceCsidCustodyProviderConfig()): ComplianceCsidSecretCustodyProvider {
+  if (config.configuredProvider === "SANDBOX_LOCAL_DPAPI" && config.providerEnabled && config.providerConfigurationReady) {
+    const localAppData = process.env.LOCALAPPDATA?.trim();
+    if (localAppData) {
+      const storageDirectory = join(localAppData, "LedgerByte", "ZatcaSandboxCustody");
+      return new SandboxLocalDpapiComplianceCsidCustodyProvider({ environment: "LOCAL_TEST", storageDirectory });
+    }
+  }
   return new DisabledComplianceCsidSecretCustodyProvider();
 }

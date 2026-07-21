@@ -1,0 +1,35 @@
+{
+  "arc": "ARC-07B-06B",
+  "status": "LOCAL_PROVEN_NOT_NETWORK_READY",
+  "provider": "SANDBOX_LOCAL_DPAPI",
+  "runtimeDefault": "DISABLED",
+  "scope": "WINDOWS_CURRENT_USER_DPAPI",
+  "storage": "UNTRACKED_USER_LOCAL_CIPHERTEXT_ONLY",
+  "environmentGate": "LOCAL_TEST_PLUS_SANDBOX_ONLY",
+  "productionCompliance": false,
+  "syntheticMaterialOnly": true,
+  "publicPlaintextReturn": false,
+  "legacyPrismaPemFieldsUsed": false,
+  "networkCallsMade": false,
+  "hostedResourcesTouched": false,
+  "sensitiveBodiesRetained": false,
+  "proofCoverage": [
+    "ciphertext differs from plaintext",
+    "current-user DPAPI round trip",
+    "changed ciphertext rejection",
+    "missing reference rejection",
+    "wrong environment rejection",
+    "production-like process rejection",
+    "expired and revoked reference rejection",
+    "test-owned cleanup",
+    "bounded redacted errors"
+  ],
+  "remainingBlockers": [
+    "official sandbox contract evidence",
+    "sandbox CSR readiness",
+    "ephemeral OTP boundary",
+    "standalone sandbox network execution approval",
+    "production KMS/HSM custody",
+    "production certificate trust"
+  ]
+}
