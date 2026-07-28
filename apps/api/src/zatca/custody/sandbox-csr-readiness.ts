@@ -1,4 +1,4 @@
-import { createHash, createPrivateKey, createPublicKey, generateKeyPairSync, sign, verify, type KeyObject } from "node:crypto";
+import { createHash, createPublicKey, generateKeyPairSync, verify } from "node:crypto";
 import { SandboxLocalDpapiComplianceCsidCustodyProvider, redactSecretReference } from "./compliance-csid-secret-custody.provider";
 
 export interface SandboxCsrSubject {
@@ -60,15 +60,14 @@ export class SandboxCsrReadinessService {
       const publicKey = Buffer.from(pair.publicKey.export({ type: "spki", format: "der" }));
       const subject = encodeSubject(input.subject);
       const certificationRequestInfo = derSequence(derInteger(0), subject, publicKey, Buffer.from([0xa0, 0x00]));
-      const signature = await this.options.custody.readSecretForOperation(
+      const signature = await this.options.custody.signSha256ForOperation(
         { organizationId: input.organizationId, egsUnitId: input.egsUnitId, referenceId: input.keyReferenceId, environment: "SANDBOX" },
-        async (sealedKey) => sign("sha256", certificationRequestInfo, createPrivateKey(sealedKey)),
+        certificationRequestInfo,
       );
       const csr = derSequence(certificationRequestInfo, derSequence(derOid("1.2.840.10045.4.3.2")), derBitString(signature));
       const verified = verify("sha256", certificationRequestInfo, createPublicKey({ key: publicKey, format: "der", type: "spki" }), signature);
-      const custodyPublicKey = await this.options.custody.readSecretForOperation(
+      const custodyPublicKey = await this.options.custody.deriveSpkiPublicKeyForOperation(
         { organizationId: input.organizationId, egsUnitId: input.egsUnitId, referenceId: input.keyReferenceId, environment: "SANDBOX" },
-        async (sealedKey) => Buffer.from(createPublicKey(createPrivateKey(sealedKey)).export({ type: "spki", format: "der" })),
       );
       return {
         algorithm: "EC_SECP256K1",
