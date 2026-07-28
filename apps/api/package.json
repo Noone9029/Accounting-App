@@ -34,6 +34,7 @@
     "zatca:compliance-csid-dry-run": "tsx scripts/zatca-compliance-csid-plan.ts",
     "zatca:compliance-csid-custody-plan": "tsx scripts/zatca-compliance-csid-plan.ts --mode custody",
     "zatca:sandbox-otp-input": "tsx src/zatca/custody/ephemeral-otp-cli.ts",
+    "zatca:sandbox-csr-sdk-oracle": "tsx scripts/zatca-sandbox-csr-sdk-oracle.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "prisma db seed"

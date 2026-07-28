@@ -8,6 +8,16 @@ This older checklist remains historical context. The current status checklist is
 
 No OTP was requested, no CSID was requested, and no ZATCA network call was made by the design task.
 
+## 2026-07-28 SDK Simulation CSR oracle clarification
+
+ARC-07B-06C proves LedgerByte's independent synthetic CSR and custody path. ARC-07B-06H separately used official SDK `238-R3.4.8` with Microsoft OpenJDK `11.0.26` to generate the SDK's own Simulation key and CSR. LedgerByte independently inspected that SDK artifact and moved the SDK-generated key into disposable DPAPI custody.
+
+The SDK does not document validation of an existing CSR or ingestion of an existing private key. The 06H proof therefore does not validate or compare the 06C CSR, and no CSR-byte, CSR-hash, public-key-fingerprint, or private-key equality between the two independent artifacts is claimed.
+
+The 06H acceptance boundary pins the SDK JAR and configuration plus five exact JDK runtime components, holds execution inputs with read-only Windows handle leases, applies ACLs to the current Windows token SID, removes the plaintext key before DPAPI re-derivation, and requires confirmed termination plus complete expected-digest cleanup. Cleanup never recursively deletes an unexpected artifact; such an entry keeps the proof failed and is preserved for investigation.
+
+The onboarding sequence is now statically ready. Execution remains dynamically blocked: no owner approval, fresh OTP, or network enablement was present, and no OTP, CSID request, production operation, or sensitive body was used or retained.
+
 ## 2026-06-06 Sandbox CSID Preflight Guard Update
 
 `SANDBOX_CSID_PREFLIGHT_GUARD.md` and `SANDBOX_CSID_PREFLIGHT_RESULTS.md` now provide the no-network preflight before any sandbox OTP/CSID approval. The current status is `PREFLIGHT_BLOCKED`.
@@ -18,7 +28,7 @@ The guard checks CSR reference presence and CSR property keys, but it does not r
 
 `SANDBOX_OTP_CSID_APPROVAL_PLAN.md`, `SANDBOX_OTP_CSID_APPROVAL_RUNBOOK.md`, and `SANDBOX_OTP_CSID_APPROVAL_RESULTS.md` now document the future approval phrase and runbook. The guard recognizes the exact phrase for planning only as `APPROVAL_PLAN_RECOGNIZED_BUT_EXECUTION_BLOCKED`; no OTP request, CSID request, ZATCA network call, sandbox adapter execution, response body handling, signing, clearance/reporting, PDF-A3, or production compliance is enabled.
 
-- Current CSR generation is local development groundwork only.
+- At the time of this 2026-06-06 snapshot, CSR generation was local development groundwork only.
 - Verify official CSR subject attributes, serial-number format, extensions, key algorithm, and certificate profile.
 - Get FATOORA sandbox access and a real OTP before testing compliance CSID onboarding.
 - Map official compliance CSID request/response fields.
@@ -34,7 +44,7 @@ The guard checks CSR reference presence and CSR property keys, but it does not r
 - `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Readme/readme.md`
 - `reference/zatca-einvoicing-sdk-Java-238-R3.4.8/Data/Input/csr-config-template.properties`
 
-Current LedgerByte CSR generation remains local-only. Before real compliance CSID work, compare local CSR output against the SDK CSR tool and verify CSR subject, serial-number, key algorithm, OTP handling, and response fields.
+Current LedgerByte CSR generation remains local-only. The correct official-SDK oracle is separate SDK Simulation CSR generation followed by independent structural and cryptographic inspection of that SDK artifact. It is not an equality comparison with LedgerByte's independently generated CSR. Real compliance-CSID work still requires its separate owner approval, fresh OTP, network gate, and response-custody controls.
 
 ## Sandbox CSID Request Execution Guard Update
 

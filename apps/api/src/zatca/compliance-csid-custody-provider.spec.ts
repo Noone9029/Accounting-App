@@ -1,5 +1,7 @@
 import {
   __testOnlyInvokeWindowsCurrentUserDpapi,
+  __testOnlyRestrictWindowsStorageDirectoryAcl,
+  ComplianceCsidCustodyProcessTerminationUnconfirmedError,
   DisabledComplianceCsidSecretCustodyProvider,
   MockedKmsComplianceCsidCustodyProvider,
   MockedSecretsManagerComplianceCsidCustodyProvider,
@@ -20,11 +22,15 @@ const egsUnitId = "22222222-2222-2222-2222-222222222222";
 
 function makeSyntheticChildProcess(options: {
   output?: Buffer;
+  outputs?: readonly Buffer[];
   closeCode?: number;
+  closeCodes?: readonly number[];
   neverClose?: boolean;
   killCloseDelayMs?: number;
+  stdoutError?: Error;
 }) {
   const inputChunks: Buffer[] = [];
+  let invocationIndex = 0;
   let activeChild: (EventEmitter & {
     stdin: PassThrough;
     stdout: PassThrough;
@@ -40,6 +46,8 @@ function makeSyntheticChildProcess(options: {
     return true;
   });
   const spawnProcess = jest.fn(() => {
+    const currentInvocationIndex = invocationIndex;
+    invocationIndex += 1;
     const child = new EventEmitter() as EventEmitter & {
       stdin: PassThrough;
       stdout: PassThrough;
@@ -51,12 +59,24 @@ function makeSyntheticChildProcess(options: {
     child.stdin.on("data", (chunk: Buffer) => inputChunks.push(Buffer.from(chunk)));
     activeChild = child;
     queueMicrotask(() => {
-      if (options.output) {
-        child.stdout.write(Buffer.from(options.output));
+      if (options.stdoutError) {
+        child.stdout.emit("error", options.stdoutError);
+        return;
+      }
+      const output =
+        options.outputs?.[currentInvocationIndex] ?? options.output;
+      if (output) {
+        child.stdout.write(Buffer.from(output));
       }
       if (!options.neverClose) {
         child.stdout.end();
-        child.emit("close", options.closeCode ?? 0, null);
+        child.emit(
+          "close",
+          options.closeCodes?.[currentInvocationIndex] ??
+            options.closeCode ??
+            0,
+          null,
+        );
       }
     });
     return child;
@@ -66,6 +86,72 @@ function makeSyntheticChildProcess(options: {
     spawnMock: spawnProcess,
     kill,
     stdinBytes: () => Buffer.concat(inputChunks),
+  };
+}
+
+function makeStuckDpapiChildWithTaskkill(options: {
+  taskkillCloseCode: number;
+  taskkillClosesPrimary: boolean;
+  taskkillStdoutError?: Error;
+  taskkillNeverCloses?: boolean;
+}) {
+  const primary = new EventEmitter() as EventEmitter & {
+    pid: number;
+    stdin: PassThrough;
+    stdout: PassThrough;
+    kill: jest.Mock<boolean, []>;
+  };
+  primary.pid = 4242;
+  primary.stdin = new PassThrough();
+  primary.stdout = new PassThrough();
+  primary.kill = jest.fn(() => true);
+
+  const taskkill = new EventEmitter() as EventEmitter & {
+    stdin: PassThrough;
+    stdout: PassThrough;
+    kill: jest.Mock<boolean, []>;
+  };
+  taskkill.stdin = new PassThrough();
+  taskkill.stdout = new PassThrough();
+  taskkill.kill = jest.fn(() => true);
+
+  const spawnProcess = jest.fn(
+    (
+      _command: string,
+      _args: readonly string[],
+      _options: {
+        windowsHide: boolean;
+        stdio: ["pipe", "pipe", "ignore"];
+        cwd: string;
+        env: NodeJS.ProcessEnv;
+      },
+    ) => {
+      if (spawnProcess.mock.calls.length === 1) {
+        return primary;
+      }
+      queueMicrotask(() => {
+        if (options.taskkillStdoutError) {
+          taskkill.stdout.emit("error", options.taskkillStdoutError);
+          return;
+        }
+        if (options.taskkillClosesPrimary) {
+          primary.emit("close", null, "SIGKILL");
+        }
+        if (options.taskkillNeverCloses) {
+          return;
+        }
+        taskkill.stdout.end();
+        taskkill.emit("close", options.taskkillCloseCode, null);
+      });
+      return taskkill;
+    },
+  );
+
+  return {
+    spawn: spawnProcess as never,
+    spawnMock: spawnProcess,
+    primaryKill: primary.kill,
+    taskkillKill: taskkill.kill,
   };
 }
 
@@ -618,6 +704,273 @@ describe("ZATCA compliance CSID custody provider boundary", () => {
     });
   });
 
+  it("terminates the primary DPAPI helper and returns a redacted failure when stdout errors", async () => {
+    const child = makeSyntheticChildProcess({
+      stdoutError: new Error("synthetic stdout failure"),
+    });
+
+    const error = await __testOnlyInvokeWindowsCurrentUserDpapi(
+      "protect",
+      Buffer.from("synthetic"),
+      {
+        spawnProcess: child.spawn,
+        maxOutputBytes: 64,
+        timeoutMs: 1_000,
+        platform: "win32",
+        systemRoot: "C:\\Windows",
+      },
+    ).catch((value: unknown) => value);
+
+    expect(error).toMatchObject({
+      name: "ComplianceCsidSecretCustodyProviderError",
+      message:
+        "CSID secret custody provider operation failed. Sensitive provider details were redacted.",
+    });
+    expect(error).not.toBeInstanceOf(
+      ComplianceCsidCustodyProcessTerminationUnconfirmedError,
+    );
+    expect(child.kill).toHaveBeenCalledWith("SIGKILL");
+  });
+
+  it("uses pinned taskkill and confirms the stuck DPAPI process tree before returning a redacted failure", async () => {
+    const child = makeStuckDpapiChildWithTaskkill({
+      taskkillCloseCode: 0,
+      taskkillClosesPrimary: true,
+    });
+
+    const error = await __testOnlyInvokeWindowsCurrentUserDpapi(
+      "protect",
+      Buffer.from("synthetic"),
+      {
+        spawnProcess: child.spawn,
+        maxOutputBytes: 64,
+        timeoutMs: 5,
+        terminationGraceMs: 5,
+        platform: "win32",
+        systemRoot: "C:\\Windows",
+      },
+    ).catch((value: unknown) => value);
+
+    expect(error).toMatchObject({
+      name: "ComplianceCsidSecretCustodyProviderError",
+      message:
+        "CSID secret custody provider operation failed. Sensitive provider details were redacted.",
+    });
+    expect(error).not.toBeInstanceOf(
+      ComplianceCsidCustodyProcessTerminationUnconfirmedError,
+    );
+    expect(child.primaryKill).toHaveBeenCalledWith("SIGKILL");
+    expect(child.spawnMock).toHaveBeenCalledTimes(2);
+    const [taskkillCommand, taskkillArgs, taskkillOptions] =
+      child.spawnMock.mock.calls[1]!;
+    expect(taskkillCommand).toBe("C:\\Windows\\System32\\taskkill.exe");
+    expect(taskkillArgs).toEqual(["/PID", "4242", "/T", "/F"]);
+    expect(taskkillOptions).toMatchObject({
+      cwd: "C:\\Windows\\System32",
+      windowsHide: true,
+      stdio: ["pipe", "pipe", "ignore"],
+    });
+    expect(taskkillOptions.env).toEqual({
+      SystemRoot: "C:\\Windows",
+      WINDIR: "C:\\Windows",
+      ComSpec: "C:\\Windows\\System32\\cmd.exe",
+      PATHEXT: ".COM;.EXE;.BAT;.CMD",
+    });
+  });
+
+  it("propagates a typed redacted failure when neither SIGKILL nor pinned taskkill confirms termination", async () => {
+    const child = makeStuckDpapiChildWithTaskkill({
+      taskkillCloseCode: 1,
+      taskkillClosesPrimary: false,
+    });
+
+    const error = await __testOnlyInvokeWindowsCurrentUserDpapi(
+      "protect",
+      Buffer.from("synthetic"),
+      {
+        spawnProcess: child.spawn,
+        maxOutputBytes: 64,
+        timeoutMs: 5,
+        terminationGraceMs: 5,
+        platform: "win32",
+        systemRoot: "C:\\Windows",
+      },
+    ).catch((value: unknown) => value);
+
+    expect(error).toBeInstanceOf(
+      ComplianceCsidCustodyProcessTerminationUnconfirmedError,
+    );
+    expect(error).toMatchObject({
+      name: "ComplianceCsidCustodyProcessTerminationUnconfirmedError",
+      message:
+        "CSID secret custody provider operation failed. Sensitive provider details were redacted.",
+    });
+    expect(child.primaryKill).toHaveBeenCalledWith("SIGKILL");
+    expect(child.spawnMock).toHaveBeenCalledTimes(2);
+    expect(child.taskkillKill).not.toHaveBeenCalled();
+  });
+
+  it("returns a typed unconfirmed-termination failure when pinned taskkill stdout errors", async () => {
+    const child = makeStuckDpapiChildWithTaskkill({
+      taskkillCloseCode: 0,
+      taskkillClosesPrimary: false,
+      taskkillStdoutError: new Error("synthetic taskkill stdout failure"),
+    });
+
+    const error = await __testOnlyInvokeWindowsCurrentUserDpapi(
+      "protect",
+      Buffer.from("synthetic"),
+      {
+        spawnProcess: child.spawn,
+        maxOutputBytes: 64,
+        timeoutMs: 5,
+        terminationGraceMs: 5,
+        platform: "win32",
+        systemRoot: "C:\\Windows",
+      },
+    ).catch((value: unknown) => value);
+
+    expect(error).toBeInstanceOf(
+      ComplianceCsidCustodyProcessTerminationUnconfirmedError,
+    );
+    expect(error).toMatchObject({
+      name: "ComplianceCsidCustodyProcessTerminationUnconfirmedError",
+      message:
+        "CSID secret custody provider operation failed. Sensitive provider details were redacted.",
+    });
+    expect(child.primaryKill).toHaveBeenCalledWith("SIGKILL");
+    expect(child.spawnMock).toHaveBeenCalledTimes(2);
+    expect(child.taskkillKill).toHaveBeenCalledWith("SIGKILL");
+  });
+
+  it("returns a typed unconfirmed-termination failure when the primary closes but pinned taskkill never confirms its own exit", async () => {
+    const child = makeStuckDpapiChildWithTaskkill({
+      taskkillCloseCode: 0,
+      taskkillClosesPrimary: true,
+      taskkillNeverCloses: true,
+    });
+
+    const error = await __testOnlyInvokeWindowsCurrentUserDpapi(
+      "protect",
+      Buffer.from("synthetic"),
+      {
+        spawnProcess: child.spawn,
+        maxOutputBytes: 64,
+        timeoutMs: 5,
+        terminationGraceMs: 5,
+        platform: "win32",
+        systemRoot: "C:\\Windows",
+      },
+    ).catch((value: unknown) => value);
+
+    expect(error).toBeInstanceOf(
+      ComplianceCsidCustodyProcessTerminationUnconfirmedError,
+    );
+    expect(error).toMatchObject({
+      name: "ComplianceCsidCustodyProcessTerminationUnconfirmedError",
+      processTerminationConfirmed: false,
+      message:
+        "CSID secret custody provider operation failed. Sensitive provider details were redacted.",
+    });
+    expect(child.primaryKill).toHaveBeenCalledWith("SIGKILL");
+    expect(child.spawnMock).toHaveBeenCalledTimes(2);
+    expect(child.taskkillKill).toHaveBeenCalledWith("SIGKILL");
+  });
+
+  it("preserves the typed unconfirmed-termination error through the public custody provider boundary", async () => {
+    const storageDirectory = await mkdtemp(
+      join(tmpdir(), "ledgerbyte-zatca-custody-termination-"),
+    );
+    const expectedError =
+      new ComplianceCsidCustodyProcessTerminationUnconfirmedError();
+    const provider = new SandboxLocalDpapiComplianceCsidCustodyProvider({
+      environment: "LOCAL_TEST",
+      storageDirectory,
+      disposableStorage: true,
+      protector: {
+        protect: jest.fn(async () => {
+          throw expectedError;
+        }),
+        unprotect: jest.fn(async (value: Buffer) => Buffer.from(value)),
+      },
+    });
+
+    try {
+      const error = await provider
+        .storeComplianceToken({
+          organizationId,
+          egsUnitId,
+          referenceId: "synthetic-termination-reference",
+          environment: "SANDBOX",
+          value: "synthetic-noncredential",
+        })
+        .catch((value: unknown) => value);
+      expect(error).toBe(expectedError);
+      expect(error).toBeInstanceOf(
+        ComplianceCsidCustodyProcessTerminationUnconfirmedError,
+      );
+      expect(error).toMatchObject({
+        processTerminationConfirmed: false,
+        message:
+          "CSID secret custody provider operation failed. Sensitive provider details were redacted.",
+      });
+    } finally {
+      await rm(storageDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("preserves the typed unconfirmed-termination error during reference revocation", async () => {
+    const storageDirectory = await mkdtemp(
+      join(tmpdir(), "ledgerbyte-zatca-custody-revoke-termination-"),
+    );
+    const provider = new SandboxLocalDpapiComplianceCsidCustodyProvider({
+      environment: "LOCAL_TEST",
+      storageDirectory,
+      disposableStorage: true,
+      protector: {
+        protect: jest.fn(async (value: Buffer) => Buffer.from(value)),
+        unprotect: jest.fn(async (value: Buffer) => Buffer.from(value)),
+      },
+    });
+    const referenceId = "synthetic-revoke-termination-reference";
+
+    try {
+      await provider.storeComplianceToken({
+        organizationId,
+        egsUnitId,
+        referenceId,
+        environment: "SANDBOX",
+        value: "synthetic-noncredential",
+      });
+      const expectedError =
+        new ComplianceCsidCustodyProcessTerminationUnconfirmedError();
+      jest
+        .spyOn(
+          provider as unknown as {
+            writeMaterial(...args: unknown[]): Promise<void>;
+          },
+          "writeMaterial",
+        )
+        .mockRejectedValueOnce(expectedError);
+
+      const error = await provider
+        .revokeReference({ organizationId, egsUnitId, referenceId })
+        .catch((value: unknown) => value);
+
+      expect(error).toBe(expectedError);
+      expect(error).toBeInstanceOf(
+        ComplianceCsidCustodyProcessTerminationUnconfirmedError,
+      );
+      expect(error).toMatchObject({
+        processTerminationConfirmed: false,
+        message:
+          "CSID secret custody provider operation failed. Sensitive provider details were redacted.",
+      });
+    } finally {
+      await rm(storageDirectory, { recursive: true, force: true });
+    }
+  });
+
   it("passes DPAPI input and output as bounded binary buffers", async () => {
     const output = Buffer.from([0x00, 0xff, 0x10, 0x80]);
     const child = makeSyntheticChildProcess({ output, closeCode: 0 });
@@ -651,6 +1004,169 @@ describe("ZATCA compliance CSID custody provider boundary", () => {
     });
     expect(spawnOptions.env.PATH).toBeUndefined();
     result.fill(0);
+  });
+
+  it("ignores substituted ambient Windows directories when resolving the DPAPI executable", async () => {
+    const child = makeSyntheticChildProcess({
+      output: Buffer.from([0x01]),
+      closeCode: 0,
+    });
+    const originalSystemRoot = process.env.SystemRoot;
+    const originalWindir = process.env.WINDIR;
+    process.env.SystemRoot = "D:\\substituted-windows";
+    process.env.WINDIR = "D:\\substituted-windows";
+    try {
+      const result =
+        await __testOnlyInvokeWindowsCurrentUserDpapi(
+          "protect",
+          Buffer.from("synthetic"),
+          {
+            spawnProcess: child.spawn,
+            maxOutputBytes: 64,
+            timeoutMs: 1_000,
+            platform: "win32",
+          },
+        );
+      const [command, , spawnOptions] = child.spawnMock.mock
+        .calls[0] as unknown as [
+        string,
+        readonly string[],
+        { cwd: string; env: NodeJS.ProcessEnv },
+      ];
+      expect(command).toMatch(
+        /^C:\\Windows\\System32\\WindowsPowerShell\\v1\.0\\powershell\.exe$/iu,
+      );
+      expect(spawnOptions.cwd).toBe("C:\\Windows\\System32");
+      expect(spawnOptions.env.SystemRoot).toBe("C:\\Windows");
+      expect(spawnOptions.env.WINDIR).toBe("C:\\Windows");
+      result.fill(0);
+    } finally {
+      if (originalSystemRoot === undefined) {
+        delete process.env.SystemRoot;
+      } else {
+        process.env.SystemRoot = originalSystemRoot;
+      }
+      if (originalWindir === undefined) {
+        delete process.env.WINDIR;
+      } else {
+        process.env.WINDIR = originalWindir;
+      }
+    }
+  });
+
+  it("uses the pinned whoami token SID for icacls even when USERNAME is Everyone", async () => {
+    const storageDirectory = "C:\\synthetic\\zatca-custody";
+    const currentUserSid = "S-1-5-21-1001-1002-1003-1004";
+    const child = makeSyntheticChildProcess({
+      outputs: [
+        Buffer.from(
+          `"trusted-domain\\trusted-user","${currentUserSid}"\r\n`,
+          "utf8",
+        ),
+        Buffer.from("synthetic icacls success", "utf8"),
+      ],
+      closeCodes: [0, 0],
+    });
+    const originalUsername = process.env.USERNAME;
+    process.env.USERNAME = "Everyone";
+    try {
+      await __testOnlyRestrictWindowsStorageDirectoryAcl(storageDirectory, {
+        spawnProcess: child.spawn,
+        platform: "win32",
+      });
+
+      expect(child.spawnMock).toHaveBeenCalledTimes(2);
+      const [whoamiCommand, whoamiArguments, whoamiOptions] = child.spawnMock
+        .mock.calls[0] as unknown as [
+        string,
+        readonly string[],
+        { cwd: string; env: NodeJS.ProcessEnv },
+      ];
+      expect(whoamiCommand).toBe(
+        "C:\\Windows\\System32\\whoami.exe",
+      );
+      expect(whoamiArguments).toEqual(["/user", "/fo", "csv", "/nh"]);
+      expect(whoamiOptions.cwd).toBe("C:\\Windows\\System32");
+      expect(whoamiOptions.env.USERNAME).toBeUndefined();
+      expect(whoamiOptions.env.PATH).toBeUndefined();
+
+      const [icaclsCommand, icaclsArguments, icaclsOptions] = child.spawnMock
+        .mock.calls[1] as unknown as [
+        string,
+        readonly string[],
+        { cwd: string; env: NodeJS.ProcessEnv },
+      ];
+      expect(icaclsCommand).toBe(
+        "C:\\Windows\\System32\\icacls.exe",
+      );
+      expect(icaclsArguments).toEqual([
+        storageDirectory,
+        "/inheritance:r",
+        "/grant:r",
+        `*${currentUserSid}:(OI)(CI)F`,
+        "/grant:r",
+        "SYSTEM:(OI)(CI)F",
+      ]);
+      expect(JSON.stringify(icaclsArguments)).not.toContain("Everyone");
+      expect(icaclsOptions.cwd).toBe("C:\\Windows\\System32");
+      expect(icaclsOptions.env.USERNAME).toBeUndefined();
+      expect(icaclsOptions.env.PATH).toBeUndefined();
+    } finally {
+      if (originalUsername === undefined) {
+        delete process.env.USERNAME;
+      } else {
+        process.env.USERNAME = originalUsername;
+      }
+    }
+  });
+
+  it("fails closed on malformed or oversized whoami output and icacls failure", async () => {
+    const storageDirectory = "C:\\synthetic\\zatca-custody";
+    const malformedWhoami = makeSyntheticChildProcess({
+      output: Buffer.from(
+        '"trusted-domain\\trusted-user","not-a-sid"\r\n',
+        "utf8",
+      ),
+      closeCode: 0,
+    });
+    await expect(
+      __testOnlyRestrictWindowsStorageDirectoryAcl(storageDirectory, {
+        spawnProcess: malformedWhoami.spawn,
+        platform: "win32",
+      }),
+    ).rejects.toThrow("CSID secret custody provider operation failed");
+    expect(malformedWhoami.spawnMock).toHaveBeenCalledTimes(1);
+
+    const oversizedWhoami = makeSyntheticChildProcess({
+      output: Buffer.alloc(4 * 1024 + 1, 0x41),
+      closeCode: 0,
+    });
+    await expect(
+      __testOnlyRestrictWindowsStorageDirectoryAcl(storageDirectory, {
+        spawnProcess: oversizedWhoami.spawn,
+        platform: "win32",
+      }),
+    ).rejects.toThrow("CSID secret custody provider operation failed");
+    expect(oversizedWhoami.kill).toHaveBeenCalled();
+    expect(oversizedWhoami.spawnMock).toHaveBeenCalledTimes(1);
+
+    const failedIcacls = makeSyntheticChildProcess({
+      outputs: [
+        Buffer.from(
+          '"trusted-domain\\trusted-user","S-1-5-21-1001-1002-1003-1004"\r\n',
+          "utf8",
+        ),
+        Buffer.from("synthetic failure details", "utf8"),
+      ],
+      closeCodes: [0, 5],
+    });
+    await expect(
+      __testOnlyRestrictWindowsStorageDirectoryAcl(storageDirectory, {
+        spawnProcess: failedIcacls.spawn,
+        platform: "win32",
+      }),
+    ).rejects.toThrow("CSID secret custody provider operation failed");
+    expect(failedIcacls.spawnMock).toHaveBeenCalledTimes(2);
   });
 
   it("feeds disabled provider readiness into custody plan and dry-run gates", async () => {

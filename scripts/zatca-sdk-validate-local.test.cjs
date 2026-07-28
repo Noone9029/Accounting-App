@@ -61,6 +61,7 @@ test("reports unique artifact counts and treats the historical credit-note id as
   const evidence = runValidationSet({
     cwd: repo,
     parsed: parseArgs(["--fixture", "ledgerbyte-generated-credit-note", "--no-network", "--json"]),
+    env: {},
     spawnSync: fakeJava("11.0.26"),
     validationRunId: "test-run",
     timestamp: "2026-06-06T00:00:00.000Z",
@@ -107,6 +108,7 @@ test("returns a metadata blocker when the SDK is missing", () => {
   const evidence = runValidationSet({
     cwd: repo,
     parsed: parseArgs(["--fixture", "official-standard-invoice", "--no-network", "--json"]),
+    env: {},
     spawnSync: fakeJava("11.0.26"),
     validationRunId: "test-run",
     timestamp: "2026-06-06T00:00:00.000Z",
@@ -128,6 +130,7 @@ test("returns a metadata blocker when Java is missing", () => {
   const evidence = runValidationSet({
     cwd: repo,
     parsed: parseArgs(["--fixture", "ledgerbyte-standard-invoice", "--no-network", "--json"]),
+    env: {},
     spawnSync: () => ({ status: null, stdout: "", stderr: "", error: new Error("not found") }),
     validationRunId: "test-run",
     timestamp: "2026-06-06T00:00:00.000Z",
@@ -148,6 +151,7 @@ test("evidence excludes XML, QR payloads, private keys, tokens, and headers", ()
   const evidence = runValidationSet({
     cwd: repo,
     parsed: parseArgs(["--fixture", "ledgerbyte-standard-invoice", "--no-network", "--json"]),
+    env: {},
     spawnSync: fakeSdkExecution(
       "11.0.26",
       [
@@ -179,6 +183,7 @@ test("generated fixture evidence stays metadata-only", () => {
   const evidence = runValidationSet({
     cwd: repo,
     parsed: parseArgs(["--fixture", "ledgerbyte-generated-credit-note", "--no-network", "--json"]),
+    env: {},
     spawnSync: fakeSdkExecution("11.0.26", "GLOBAL VALIDATION RESULT = PASSED"),
     validationRunId: "test-run",
     timestamp: "2026-06-06T00:00:00.000Z",

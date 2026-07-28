@@ -1,11 +1,11 @@
 {
-  "arc": "ARC-07B-06G",
-  "baseSha": "6afe1175cf54f439f1cc05c62a8224fcdbc40ddc",
+  "arc": "ARC-07B-06H",
+  "baseSha": "f04c043632ce8aebf3fb8ae59a343ebfd5600dfe",
   "contractSha256": "bf564b600700f783515b9e4af46a31f428e27a5e6b8bdae5cf07156ed77e6950",
   "contractHashMatches": true,
-  "packetSha256": "7edaf1dd7852d5e9731d08cbaeb05ed8552992152c34fe95fe0dbb008042da9e",
+  "packetSha256": "a27180c0eb3333f1f0039b49caee6d0e29b79ff7bf9848d69aaa49351cc5c124",
   "packetHashMatches": true,
-  "status": "PREPARED_BLOCKED",
+  "status": "STATIC_STAGE_READY_EXECUTION_BLOCKED",
   "executionStage": "COMPLIANCE_CSID_ONBOARDING",
   "networkEnabled": false,
   "networkCallsMade": false,
@@ -28,21 +28,19 @@
   "productionCertificateValid": false,
   "productionCertificateKeyMatch": false,
   "csrLocalProofReady": true,
-  "csrTier2SdkReady": false,
-  "csrReady": false,
+  "csrTier2SdkReady": true,
+  "csrReady": true,
   "secureOtpInputReady": true,
   "otpAvailable": false,
   "rollbackReady": true,
   "cleanupReady": true,
   "evidenceReady": true,
-  "requestSequenceReady": false,
+  "requestSequenceReady": true,
   "executionAllowed": false,
   "safeErrorCodes": [
-    "ZATCA_CSR_TIER2_SDK_NOT_READY",
     "ZATCA_EXECUTION_APPROVAL_MISSING",
     "ZATCA_OTP_UNAVAILABLE",
-    "ZATCA_NETWORK_DISABLED",
-    "ZATCA_REQUEST_SEQUENCE_NOT_READY"
+    "ZATCA_NETWORK_DISABLED"
   ],
   "retainedSensitiveBodies": false
 }

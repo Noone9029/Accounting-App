@@ -1,7 +1,7 @@
 # ARC-07B-06G stage-aware preflight
 
 Date: 2026-07-28
-Status: **LOCAL STAGE MODEL PROVEN / NETWORK EXECUTION DISALLOWED**
+Status: **LOCAL STAGE MODEL AND CSR ORACLES PROVEN / NETWORK EXECUTION DISALLOWED**
 
 ## Scope
 
@@ -43,12 +43,16 @@ Missing or unsupported stages, missing `--strict`, and missing `--no-network` ar
 | `credentialProviderReady` / `signingKeyReady` | `true` / `true` |
 | `certificateReceiveCustodyReady` | `true` |
 | `complianceCertificatePresent` | `false` — expected before onboarding |
-| `csrLocalProofReady` / `csrTier2SdkReady` / `csrReady` | `true` / `false` / `false` |
+| `csrLocalProofReady` / `csrTier2SdkReady` / `csrReady` | `true` / `true` / `true` |
 | `secureOtpInputReady` / `otpAvailable` | `true` / `false` |
 | `approvalPresent` / `networkEnabled` / `networkCallsMade` | `false` / `false` / `false` |
-| `requestSequenceReady` / `executionAllowed` | `false` / `false` |
+| `requestSequenceReady` / `executionAllowed` | `true` / `false` |
 
-The only static onboarding blocker is the separate 06H official SDK Simulation CSR oracle. A fresh human-controlled OTP, standalone owner approval, and network enablement remain dynamic blockers.
+The ARC-07B-06H official SDK Simulation CSR oracle passed locally. The SDK generated its own synthetic Simulation key and CSR; LedgerByte independently inspected that artifact and moved the SDK-generated key through disposable DPAPI custody. The SDK did not validate the separate 06C LedgerByte CSR, and no equality between the 06C and 06H CSR/key pairs is claimed.
+
+The 06H proof is accepted only with exact SDK JAR/configuration and five-component JDK checksum pins, live read-only handle leases, Windows-token-SID ACLs, a self-tested canonical-workspace write/delete boundary, plaintext-key removal before custody re-derivation, abort-on-lease-loss, confirmed child/helper termination escalation, and complete expected-artifact cleanup. An unconfirmed process termination or an unexpected preserved workspace entry cannot produce `csrTier2SdkReady: true`.
+
+Static onboarding readiness is now complete without requiring a compliance certificate to exist before it can be requested. A fresh human-controlled OTP, standalone owner approval, and network enablement remain dynamic blockers, so `executionAllowed` remains false.
 
 ## Non-claims
 
