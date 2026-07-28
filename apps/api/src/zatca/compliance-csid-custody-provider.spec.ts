@@ -568,6 +568,7 @@ describe("ZATCA compliance CSID custody provider boundary", () => {
         maxOutputBytes: 8,
         timeoutMs: 1_000,
         platform: "win32",
+        systemRoot: "C:\\Windows",
       }),
     ).rejects.toThrow("CSID secret custody provider operation failed");
     expect(oversizedChild.kill).toHaveBeenCalled();
@@ -579,6 +580,7 @@ describe("ZATCA compliance CSID custody provider boundary", () => {
         maxOutputBytes: 64,
         timeoutMs: 5,
         platform: "win32",
+        systemRoot: "C:\\Windows",
       }),
     ).rejects.toThrow("CSID secret custody provider operation failed");
     expect(hangingChild.kill).toHaveBeenCalled();
@@ -596,6 +598,7 @@ describe("ZATCA compliance CSID custody provider boundary", () => {
         maxOutputBytes: 64,
         timeoutMs: 5,
         platform: "win32",
+        systemRoot: "C:\\Windows",
       },
     ).then(
       () => {
@@ -625,6 +628,7 @@ describe("ZATCA compliance CSID custody provider boundary", () => {
       maxOutputBytes: 64,
       timeoutMs: 1_000,
       platform: "win32",
+      systemRoot: "C:\\Windows",
     });
 
     expect(child.stdinBytes()).toEqual(input);
