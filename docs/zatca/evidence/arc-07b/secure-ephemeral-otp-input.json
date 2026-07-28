@@ -1,6 +1,6 @@
 {
-  "arc": "ARC-07B-06D",
-  "status": "LOCAL_BOUNDARY_IMPLEMENTED_OFFICIAL_FORMAT_UNCONFIRMED",
+  "arc": "ARC-07B-06F",
+  "status": "LOCAL_BOUNDARY_READY_OFFICIAL_FORMAT_CONFIRMED_NO_OTP_OR_APPROVAL",
   "command": "corepack pnpm zatca:sandbox-otp-input -- --stdin-secure",
   "terminalInput": "TTY_RAW_MODE_NON_ECHO",
   "argumentOtpAccepted": false,
@@ -14,8 +14,25 @@
   "otpAvailable": false,
   "approvalPresent": false,
   "preflightReady": false,
-  "officialOtpFormatConfirmed": false,
-  "secureOtpInputReady": false,
+  "officialOtpFormatConfirmed": true,
+  "secureOtpInputReady": true,
+  "officialOtpContract": {
+    "length": 6,
+    "characterSet": "ASCII_DIGITS_0_TO_9",
+    "pattern": "^[0-9]{6}$",
+    "validity": "PT1H",
+    "sourceIds": [
+      "zatca-detailed-technical-guidelines",
+      "zatca-fatoora-portal-manual"
+    ],
+    "sourcePages": [
+      "zatca-detailed-technical-guidelines:p30",
+      "zatca-fatoora-portal-manual:p7",
+      "zatca-fatoora-portal-manual:p9",
+      "zatca-fatoora-portal-manual:p20",
+      "zatca-fatoora-portal-manual:p22"
+    ]
+  },
   "networkCallsMade": false,
   "hostedResourcesTouched": false,
   "secretBodiesRetained": false
