@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "corepack pnpm -r --parallel --if-present dev",
     "build": "corepack pnpm -r --if-present build",
-    "test": "corepack pnpm -r --if-present test",
+    "test": "node --test scripts/next-sharp-compatibility.test.cjs && corepack pnpm -r --if-present test",
     "lint": "corepack pnpm -r --if-present lint",
     "typecheck": "corepack pnpm -r --if-present typecheck",
     "verify:diff": "node scripts/verify-gate.cjs verify:diff",
@@ -16,6 +16,7 @@
     "verify:repo": "node scripts/verify-gate.cjs verify:repo",
     "verify:ui:inventory": "node scripts/verify-ui-route-inventory.cjs",
     "test:verify:ui:inventory": "node --test scripts/verify-ui-route-inventory.test.cjs",
+    "test:next-sharp-compatibility": "node --test scripts/next-sharp-compatibility.test.cjs",
     "ui:route-dispositions": "node scripts/generate-ui-route-page-dispositions.cjs",
     "test:ui:route-dispositions": "node scripts/generate-ui-route-page-dispositions.cjs --check",
     "verify:ci:local": "node scripts/verify-gate.cjs verify:ci:local",
@@ -151,6 +152,15 @@
     "db:generate": "corepack pnpm --filter @ledgerbyte/api db:generate",
     "db:migrate": "corepack pnpm --filter @ledgerbyte/api db:migrate",
     "db:seed": "corepack pnpm --filter @ledgerbyte/api db:seed"
+  },
+  "pnpm": {
+    "overrides": {
+      "@babel/core": "7.29.6",
+      "body-parser": "2.3.0",
+      "postcss": "8.5.18",
+      "qs": "6.15.2",
+      "sharp": "0.35.3"
+    }
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

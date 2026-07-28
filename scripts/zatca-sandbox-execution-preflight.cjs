@@ -3,8 +3,12 @@
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
+const {
+  computeContractSha256,
+  validateOfficialSandboxContracts,
+} = require("./zatca-official-sandbox-contracts.cjs");
 
-const CONTRACT_PATH = "docs/zatca/ARC_07B_OFFICIAL_SANDBOX_CONTRACT_MATRIX.md";
+const CONTRACT_EVIDENCE_PATH = "docs/zatca/evidence/arc-07b/official-sandbox-contracts.json";
 const PACKET_PATH = "docs/zatca/ARC_07B_SANDBOX_EXECUTION_PACKET.md";
 const EVIDENCE_PATH = "docs/zatca/evidence/arc-07b/fake-sandbox-lifecycle-local-proof.json";
 const CUSTODY_EVIDENCE_PATH = "docs/zatca/evidence/arc-07b/sandbox-local-dpapi-custody.json";
@@ -15,7 +19,18 @@ const PREFLIGHT_EVIDENCE_PATH = "docs/zatca/evidence/arc-07b/sandbox-execution-p
 function buildSandboxExecutionPreflight(options = {}) {
   const cwd = options.cwd || process.cwd();
   const env = options.env || process.env;
-  const contract = readText(cwd, CONTRACT_PATH);
+  const contractEvidence = readJsonMetadata(cwd, CONTRACT_EVIDENCE_PATH, 1024 * 1024);
+  const contractValidation = validateOfficialSandboxContracts({ cwd });
+  const computedContractSha256 = contractEvidence.ok
+    ? computeContractSha256(contractEvidence.value)
+    : "";
+  const validatorContractHashMatches = timingSafeEqual(
+    computedContractSha256,
+    contractValidation.contractSha256,
+  );
+  const contractSha256 = validatorContractHashMatches
+    ? computedContractSha256
+    : "";
   const packet = readText(cwd, PACKET_PATH);
   const custodyEvidence = readJsonMetadata(cwd, CUSTODY_EVIDENCE_PATH);
   const csrEvidence = readJsonMetadata(cwd, CSR_EVIDENCE_PATH);
@@ -25,8 +40,26 @@ function buildSandboxExecutionPreflight(options = {}) {
   const packetSha256 = sha256(packet.value || "");
   const expectedPacketSha256 = options.expectedPacketSha256 ?? preflightEvidence.value.packetSha256;
   const packetHashMatches = timingSafeEqual(packetSha256, expectedPacketSha256);
+  const packetContractSha256 = packet.ok
+    ? extractPacketContractSha256(packet.value)
+    : "";
+  const evidenceContractSha256 = preflightEvidence.value.contractSha256;
+  const packetContractHashMatches = timingSafeEqual(
+    contractSha256,
+    packetContractSha256,
+  );
+  const evidenceContractHashMatches = timingSafeEqual(
+    contractSha256,
+    evidenceContractSha256,
+  );
+  const contractHashMatches =
+    validatorContractHashMatches &&
+    packetContractHashMatches &&
+    evidenceContractHashMatches;
   const productionTargetDetected = isProductionLookingTarget(env.ZATCA_SANDBOX_BASE_URL);
-  const officialContractComplete = contract.ok && requiredContractFieldsConfirmed(contract.value);
+  const officialContractComplete =
+    contractValidation.officialContractComplete === true &&
+    validatorContractHashMatches;
   const syntheticDataVerified = packet.ok && /Synthetic identifiers only/u.test(packet.value);
   const networkEnabled = options.noNetwork === false;
   const approvalPresent = options.standaloneApproval === true;
@@ -51,28 +84,47 @@ function buildSandboxExecutionPreflight(options = {}) {
     secureOtpInputReady &&
     otpAvailable &&
     approvalPresent;
-  const executionAllowed = networkEnabled && requestSequenceReady && cleanupReady && packetHashMatches;
+  const executionAllowed =
+    networkEnabled &&
+    requestSequenceReady &&
+    cleanupReady &&
+    packetHashMatches &&
+    contractHashMatches;
   const safeErrorCodes = [];
+  const addSafeErrorCode = (code) => {
+    if (!safeErrorCodes.includes(code)) safeErrorCodes.push(code);
+  };
 
-  if (!contract.ok) safeErrorCodes.push("ZATCA_EXECUTION_CONTRACT_MATRIX_MISSING");
-  if (!packet.ok) safeErrorCodes.push("ZATCA_EXECUTION_PACKET_MISSING");
-  if (!officialContractComplete) safeErrorCodes.push("ZATCA_OFFICIAL_CONTRACT_UNCONFIRMED");
-  if (!officialContractComplete) safeErrorCodes.push("ZATCA_SANDBOX_TARGET_UNCONFIRMED");
-  if (!syntheticDataVerified) safeErrorCodes.push("ZATCA_SYNTHETIC_DATA_UNVERIFIED");
-  if (!credentialProviderReady) safeErrorCodes.push("ZATCA_CREDENTIAL_PROVIDER_NOT_READY");
-  if (!signingKeyReady) safeErrorCodes.push("ZATCA_SIGNING_KEY_NOT_READY");
-  if (!certificateCustodyReady) safeErrorCodes.push("ZATCA_CERTIFICATE_CUSTODY_NOT_READY");
-  if (!csrReady) safeErrorCodes.push("ZATCA_CSR_NOT_READY");
-  if (!secureOtpInputReady) safeErrorCodes.push("ZATCA_SECURE_OTP_INPUT_NOT_READY");
-  if (!otpAvailable) safeErrorCodes.push("ZATCA_OTP_UNAVAILABLE");
-  if (!requestSequenceReady) safeErrorCodes.push("ZATCA_REQUEST_SEQUENCE_NOT_READY");
-  if (typeof expectedPacketSha256 !== "string") safeErrorCodes.push("ZATCA_EXECUTION_PACKET_HASH_MISSING");
-  else if (!packetHashMatches) safeErrorCodes.push("ZATCA_EXECUTION_PACKET_HASH_MISMATCH");
-  if (productionTargetDetected) safeErrorCodes.push("ZATCA_PRODUCTION_TARGET_DETECTED");
+  for (const blocker of contractValidation.blockers || []) {
+    if (typeof blocker === "string" && /^ZATCA_[A-Z0-9_]+$/u.test(blocker)) {
+      addSafeErrorCode(blocker);
+    }
+  }
+  if (!contractEvidence.ok) addSafeErrorCode("ZATCA_EXECUTION_CONTRACT_EVIDENCE_MISSING");
+  if (!packet.ok) addSafeErrorCode("ZATCA_EXECUTION_PACKET_MISSING");
+  if (!officialContractComplete) addSafeErrorCode("ZATCA_OFFICIAL_CONTRACT_UNCONFIRMED");
+  if (!officialContractComplete) addSafeErrorCode("ZATCA_SANDBOX_TARGET_UNCONFIRMED");
+  if (!isSha256(packetContractSha256)) addSafeErrorCode("ZATCA_CONTRACT_PACKET_DIGEST_MISSING");
+  else if (!packetContractHashMatches) addSafeErrorCode("ZATCA_CONTRACT_PACKET_DIGEST_MISMATCH");
+  if (!isSha256(evidenceContractSha256)) addSafeErrorCode("ZATCA_CONTRACT_EVIDENCE_DIGEST_MISSING");
+  else if (!evidenceContractHashMatches) addSafeErrorCode("ZATCA_CONTRACT_EVIDENCE_DIGEST_MISMATCH");
+  if (!syntheticDataVerified) addSafeErrorCode("ZATCA_SYNTHETIC_DATA_UNVERIFIED");
+  if (!credentialProviderReady) addSafeErrorCode("ZATCA_CREDENTIAL_PROVIDER_NOT_READY");
+  if (!signingKeyReady) addSafeErrorCode("ZATCA_SIGNING_KEY_NOT_READY");
+  if (!certificateCustodyReady) addSafeErrorCode("ZATCA_CERTIFICATE_CUSTODY_NOT_READY");
+  if (!csrReady) addSafeErrorCode("ZATCA_CSR_NOT_READY");
+  if (!secureOtpInputReady) addSafeErrorCode("ZATCA_SECURE_OTP_INPUT_NOT_READY");
+  if (!otpAvailable) addSafeErrorCode("ZATCA_OTP_UNAVAILABLE");
+  if (!requestSequenceReady) addSafeErrorCode("ZATCA_REQUEST_SEQUENCE_NOT_READY");
+  if (!isSha256(expectedPacketSha256)) addSafeErrorCode("ZATCA_EXECUTION_PACKET_HASH_MISSING");
+  else if (!packetHashMatches) addSafeErrorCode("ZATCA_EXECUTION_PACKET_HASH_MISMATCH");
+  if (productionTargetDetected) addSafeErrorCode("ZATCA_PRODUCTION_TARGET_DETECTED");
 
   return {
     status: "PREPARED_BLOCKED",
     safeErrorCodes,
+    contractSha256,
+    contractHashMatches,
     packetSha256,
     packetHashMatches,
     networkEnabled,
@@ -97,9 +149,11 @@ function buildSandboxExecutionPreflight(options = {}) {
   };
 }
 
-function readJsonMetadata(cwd, relativePath) {
+function readJsonMetadata(cwd, relativePath, maxBytes = 65536) {
   const text = readText(cwd, relativePath);
-  if (!text.ok || text.value.length > 65536) return { ok: false, value: {} };
+  if (!text.ok || Buffer.byteLength(text.value, "utf8") > maxBytes) {
+    return { ok: false, value: {} };
+  }
   try {
     const value = JSON.parse(text.value);
     return value && typeof value === "object" && !Array.isArray(value) ? { ok: true, value } : { ok: false, value: {} };
@@ -129,8 +183,27 @@ function sha256(value) {
 }
 
 function timingSafeEqual(actual, expected) {
-  if (typeof expected !== "string" || !/^[a-f0-9]{64}$/iu.test(expected)) return false;
-  return crypto.timingSafeEqual(Buffer.from(actual, "hex"), Buffer.from(expected.toLowerCase(), "hex"));
+  if (!isSha256(actual) || !isSha256(expected)) return false;
+  return crypto.timingSafeEqual(
+    Buffer.from(actual.toLowerCase(), "hex"),
+    Buffer.from(expected.toLowerCase(), "hex"),
+  );
+}
+
+function isSha256(value) {
+  return typeof value === "string" && /^[a-f0-9]{64}$/iu.test(value);
+}
+
+function extractPacketContractSha256(value) {
+  const matchingLines = value
+    .replace(/\r\n?/gu, "\n")
+    .split("\n")
+    .filter((line) => /^(?:- )?Contract SHA-256:/u.test(line));
+  if (matchingLines.length !== 1) return "";
+  const match = /^(?:- )?Contract SHA-256: `([a-f0-9]{64})`\.?$/iu.exec(
+    matchingLines[0],
+  );
+  return match ? match[1].toLowerCase() : "";
 }
 
 function isProductionLookingTarget(value) {
@@ -141,22 +214,6 @@ function isProductionLookingTarget(value) {
   } catch {
     return true;
   }
-}
-
-function requiredContractFieldsConfirmed(contract) {
-  const required = [
-    "Official sandbox host",
-    "Allowed HTTPS paths and methods",
-    "API-version headers",
-    "Authentication construction",
-    "Compliance CSID sequence",
-    "Standard clearance routing",
-    "Simplified reporting routing",
-  ];
-  return required.every((field) => {
-    const row = contract.split(/\r?\n/u).find((line) => line.includes(field));
-    return row && row.includes("CONFIRMED_OFFICIAL") && !row.includes("BLOCKED_OFFICIAL");
-  });
 }
 
 function parseArgs(argv) {

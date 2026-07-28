@@ -1,40 +1,1154 @@
 {
-  "retrievalDate": "2026-07-21",
+  "schemaVersion": 2,
+  "arc": "ARC-07B-06F",
+  "retrievedOn": "2026-07-28",
+  "contractSha256": "bf564b600700f783515b9e4af46a31f428e27a5e6b8bdae5cf07156ed77e6950",
   "sources": [
     {
-      "title": "E-Invoice specifications",
-      "url": "https://www.zatca.gov.sa/en/E-Invoicing/SystemsDevelopers/Pages/E-Invoice-specifications.aspx",
-      "version": "XML Implementation Standard and Data Dictionary dated 19 May 2023; page last updated 12 Jan 2026",
-      "sha256": "462db9257eb2faaa020fd653384d5e8bacd4d748062e7873085b8d59cff6f66b",
-      "environment": "local conformance",
-      "decision": "CONFIRMED_OFFICIAL"
+      "sourceId": "zatca-clearance-api",
+      "title": "Clearance API",
+      "fileName": "clearance.pdf",
+      "retrievedOn": "2026-07-28",
+      "portalSection": "Integration Sandbox / Clearance API",
+      "version": "e-Invoicing Sandbox Release 2.1.0",
+      "officialLocator": "Authenticated ZATCA Developer Portal Swagger export",
+      "byteLength": 1412311,
+      "sha256": "30cc26348758ddd3fd2fe854687433314ffa7366b447e223107d45863b319643",
+      "evidenceClass": "AUTHENTICATED_SWAGGER_PDF_EXPORT",
+      "redistributionClassification": "METADATA_ONLY_DO_NOT_REDISTRIBUTE"
     },
     {
-      "title": "Download SDK",
-      "url": "https://www.zatca.gov.sa/en/E-Invoicing/SystemsDevelopers/ComplianceEnablementToolbox/Pages/DownloadSDK.aspx",
-      "version": "page last updated 28 May 2025; local oracle SDK 238-R3.4.8",
-      "sha256": "9328b227f777a20d7c353a5b78e1183a90d45eb38a34a3aa513dbf9eb967da0d",
-      "environment": "local-only validation oracle",
-      "decision": "CONFIRMED_OFFICIAL"
+      "sourceId": "zatca-compliance-csid-api",
+      "title": "Compliance CSID API",
+      "fileName": "compliance_csid.pdf",
+      "retrievedOn": "2026-07-28",
+      "portalSection": "Integration Sandbox / Compliance CSID API",
+      "version": "e-Invoicing Sandbox Release 2.1.0",
+      "officialLocator": "Authenticated ZATCA Developer Portal Swagger export",
+      "byteLength": 374182,
+      "sha256": "f27cc9119f8db32dbbc512731ec82971affa86ef31b8f5881989fa0ecdc97325",
+      "evidenceClass": "AUTHENTICATED_SWAGGER_PDF_EXPORT",
+      "redistributionClassification": "METADATA_ONLY_DO_NOT_REDISTRIBUTE"
     },
     {
-      "title": "Developer Portal User Manual",
-      "url": "https://www.zatca.gov.sa/en/E-Invoicing/SystemsDevelopers/ComplianceEnablementToolbox/Documents/Developer%20Portal%20User%20Manual.pdf",
-      "version": "public manual; Swagger endpoint details require portal login",
-      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-      "environment": "sandbox onboarding evidence",
-      "decision": "CONFIRMED_OFFICIAL"
+      "sourceId": "zatca-compliance-invoice-api",
+      "title": "Compliance Invoice API",
+      "fileName": "compliance_invoice.pdf",
+      "retrievedOn": "2026-07-28",
+      "portalSection": "Integration Sandbox / Compliance Invoice API",
+      "version": "e-Invoicing Sandbox Release 2.1.0",
+      "officialLocator": "Authenticated ZATCA Developer Portal Swagger export",
+      "byteLength": 597460,
+      "sha256": "8f7b779057317f0f3408d6b82f80647570f750e10c6d8458f9efb6eb4fbbc93a",
+      "evidenceClass": "AUTHENTICATED_SWAGGER_PDF_EXPORT",
+      "redistributionClassification": "METADATA_ONLY_DO_NOT_REDISTRIBUTE"
+    },
+    {
+      "sourceId": "zatca-detailed-guideline",
+      "title": "E-Invoicing Detailed Guideline",
+      "fileName": "E-Invoicing_Detailed__Guideline.pdf",
+      "retrievedOn": "2026-07-28",
+      "portalSection": "Official E-Invoicing guidance",
+      "version": "Version not asserted by this metadata record",
+      "officialLocator": "Official ZATCA PDF publication",
+      "byteLength": 1095156,
+      "sha256": "55b7dfb481b8732078ee8fa6264a42a7293ac555b0682a8458a75f634e4ff2e4",
+      "evidenceClass": "OFFICIAL_ZATCA_PDF",
+      "redistributionClassification": "METADATA_ONLY_DO_NOT_REDISTRIBUTE"
+    },
+    {
+      "sourceId": "zatca-detailed-technical-guidelines",
+      "title": "E-Invoicing Detailed Technical Guidelines",
+      "fileName": "E-invoicing_Detailed_Technical_Guidelines.pdf",
+      "retrievedOn": "2026-07-28",
+      "portalSection": "Official E-Invoicing technical guidance",
+      "version": "Version not asserted by this metadata record",
+      "officialLocator": "Official ZATCA PDF publication",
+      "byteLength": 1936397,
+      "sha256": "56244c72702e9a5aab7f9ba9900d2b15d91e6cfc05c118cf44c62558df941484",
+      "evidenceClass": "OFFICIAL_ZATCA_PDF",
+      "redistributionClassification": "METADATA_ONLY_DO_NOT_REDISTRIBUTE"
+    },
+    {
+      "sourceId": "zatca-fatoora-portal-manual",
+      "title": "FATOORA Portal User Manual (English)",
+      "fileName": "Fatoora_Portal_User_Manual_English.pdf",
+      "retrievedOn": "2026-07-28",
+      "portalSection": "Official FATOORA portal guidance",
+      "version": "Version not asserted by this metadata record",
+      "officialLocator": "Official ZATCA PDF publication",
+      "byteLength": 7045690,
+      "sha256": "6fec08254aac8f3aab2247f96bd7b4ac2dc3558fb48c2a4b598dde564ad14c52",
+      "evidenceClass": "OFFICIAL_ZATCA_PDF",
+      "redistributionClassification": "METADATA_ONLY_DO_NOT_REDISTRIBUTE"
+    },
+    {
+      "sourceId": "zatca-onboarding-api",
+      "title": "Production CSID (Onboarding) API",
+      "fileName": "onboarding.pdf",
+      "retrievedOn": "2026-07-28",
+      "portalSection": "Integration Sandbox / Production CSID Onboarding API",
+      "version": "e-Invoicing Sandbox Release 2.1.0",
+      "officialLocator": "Authenticated ZATCA Developer Portal Swagger export",
+      "byteLength": 402177,
+      "sha256": "9570f3a54ada2ef70fba20311565661234a39d9ba348fbed8bf80e267074ecf8",
+      "evidenceClass": "AUTHENTICATED_SWAGGER_PDF_EXPORT",
+      "redistributionClassification": "METADATA_ONLY_DO_NOT_REDISTRIBUTE"
+    },
+    {
+      "sourceId": "zatca-renewal-api",
+      "title": "Production CSID (Renewal) API",
+      "fileName": "renewal.pdf",
+      "retrievedOn": "2026-07-28",
+      "portalSection": "Integration Sandbox / Production CSID Renewal API",
+      "version": "e-Invoicing Sandbox Release 2.1.0",
+      "officialLocator": "Authenticated ZATCA Developer Portal Swagger export",
+      "byteLength": 507791,
+      "sha256": "a194a61e0f6d85a5b4ef01312b91d98a2ebde400745fcde117baf830bbb7c88a",
+      "evidenceClass": "AUTHENTICATED_SWAGGER_PDF_EXPORT",
+      "redistributionClassification": "METADATA_ONLY_DO_NOT_REDISTRIBUTE"
+    },
+    {
+      "sourceId": "zatca-reporting-api",
+      "title": "Reporting API",
+      "fileName": "reporting.pdf",
+      "retrievedOn": "2026-07-28",
+      "portalSection": "Integration Sandbox / Reporting API",
+      "version": "e-Invoicing Sandbox Release 2.1.0",
+      "officialLocator": "Authenticated ZATCA Developer Portal Swagger export",
+      "byteLength": 680569,
+      "sha256": "dc497e1039100ce0038ae15928a1b9bb57b61c161234b2ac07b48421ce82c532",
+      "evidenceClass": "AUTHENTICATED_SWAGGER_PDF_EXPORT",
+      "redistributionClassification": "METADATA_ONLY_DO_NOT_REDISTRIBUTE"
+    },
+    {
+      "sourceId": "zatca-developer-portal-manual-v3",
+      "title": "Developer Portal User Manual Version 3",
+      "fileName": "User_Manual_Developer_Portal_Manual_Version_3.pdf",
+      "retrievedOn": "2026-07-28",
+      "portalSection": "Official Developer Portal guidance",
+      "version": "Version 3",
+      "officialLocator": "Official ZATCA PDF publication",
+      "byteLength": 13251887,
+      "sha256": "f74c94302e33b68568545e2e320f73691f47800b6a4374bf784fb663d2743104",
+      "evidenceClass": "OFFICIAL_ZATCA_PDF",
+      "redistributionClassification": "METADATA_ONLY_DO_NOT_REDISTRIBUTE"
     }
   ],
-  "fields": {
-    "sandboxHost": "BLOCKED_OFFICIAL_CONTRACT_EVIDENCE",
-    "complianceCsidPath": "BLOCKED_OFFICIAL_CONTRACT_EVIDENCE",
-    "clearancePath": "BLOCKED_OFFICIAL_CONTRACT_EVIDENCE",
-    "reportingPath": "BLOCKED_OFFICIAL_CONTRACT_EVIDENCE",
-    "authentication": "BLOCKED_OFFICIAL_CONTRACT_EVIDENCE",
-    "apiVersion": "BLOCKED_OFFICIAL_CONTRACT_EVIDENCE",
-    "complianceMatrix": "BLOCKED_OFFICIAL_CONTRACT_EVIDENCE"
+  "contract": {
+    "environments": {
+      "simulation": {
+        "value": {
+          "baseUrl": "https://gw-fatoora.zatca.gov.sa/e-invoicing/simulation",
+          "allowed": true,
+          "purpose": "DEVELOPER_INTEGRATION_SANDBOX_ONLY",
+          "interchangeableWithOtherEnvironments": false
+        },
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-fatoora-portal-manual",
+          "zatca-developer-portal-manual-v3"
+        ],
+        "sourcePages": [
+          "zatca-fatoora-portal-manual:p30",
+          "zatca-fatoora-portal-manual:p31",
+          "zatca-developer-portal-manual-v3:p84"
+        ]
+      },
+      "production": {
+        "value": {
+          "baseUrl": "https://gw-fatoora.zatca.gov.sa/e-invoicing/core",
+          "allowed": false,
+          "purpose": "PRODUCTION",
+          "currentLaneProhibited": true,
+          "interchangeableWithSimulation": false
+        },
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-fatoora-portal-manual"
+        ],
+        "sourcePages": [
+          "zatca-fatoora-portal-manual:p31"
+        ]
+      },
+      "developerPortal": {
+        "value": {
+          "baseUrl": "https://gw-fatoora.zatca.gov.sa/e-invoicing/developer-portal",
+          "allowed": false,
+          "purpose": "DEVELOPER_INTEGRATION_SANDBOX_ONLY",
+          "currentLaneProhibited": true,
+          "interchangeableWithSimulation": false
+        },
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-clearance-api",
+          "zatca-compliance-csid-api",
+          "zatca-compliance-invoice-api",
+          "zatca-onboarding-api",
+          "zatca-renewal-api",
+          "zatca-reporting-api"
+        ],
+        "sourcePages": [
+          "zatca-clearance-api:p1",
+          "zatca-compliance-csid-api:p1",
+          "zatca-compliance-invoice-api:p1",
+          "zatca-onboarding-api:p1",
+          "zatca-renewal-api:p1",
+          "zatca-reporting-api:p1"
+        ]
+      }
+    },
+    "operations": {
+      "complianceCsid": {
+        "value": {
+          "method": "POST",
+          "path": "/compliance",
+          "environment": "simulation"
+        },
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-compliance-csid-api"
+        ],
+        "sourcePages": [
+          "zatca-compliance-csid-api:p1"
+        ]
+      },
+      "complianceInvoice": {
+        "value": {
+          "method": "POST",
+          "path": "/compliance/invoices",
+          "environment": "simulation"
+        },
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-compliance-invoice-api"
+        ],
+        "sourcePages": [
+          "zatca-compliance-invoice-api:p1"
+        ]
+      },
+      "productionCsid": {
+        "value": {
+          "method": "POST",
+          "path": "/production/csids",
+          "environment": "simulation"
+        },
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-onboarding-api"
+        ],
+        "sourcePages": [
+          "zatca-onboarding-api:p1"
+        ]
+      },
+      "clearance": {
+        "value": {
+          "method": "POST",
+          "path": "/invoices/clearance/single",
+          "environment": "simulation"
+        },
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-clearance-api"
+        ],
+        "sourcePages": [
+          "zatca-clearance-api:p1"
+        ]
+      },
+      "reporting": {
+        "value": {
+          "method": "POST",
+          "path": "/invoices/reporting/single",
+          "environment": "simulation"
+        },
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-reporting-api"
+        ],
+        "sourcePages": [
+          "zatca-reporting-api:p1"
+        ]
+      },
+      "renewal": {
+        "value": {
+          "method": "PATCH",
+          "path": "/production/csids",
+          "environment": "simulation"
+        },
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-renewal-api"
+        ],
+        "sourcePages": [
+          "zatca-renewal-api:p1"
+        ]
+      }
+    },
+    "authentication": {
+      "complianceBasic": {
+        "value": {
+          "scheme": "Basic",
+          "usernameField": "binarySecurityToken",
+          "passwordField": "secret",
+          "credentialRole": "Compliance Certificate",
+          "operations": [
+            "complianceInvoice",
+            "productionCsid"
+          ]
+        },
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-compliance-invoice-api",
+          "zatca-onboarding-api",
+          "zatca-developer-portal-manual-v3"
+        ],
+        "sourcePages": [
+          "zatca-compliance-invoice-api:p1",
+          "zatca-onboarding-api:p1",
+          "zatca-developer-portal-manual-v3:p68"
+        ]
+      },
+      "productionBasic": {
+        "value": {
+          "scheme": "Basic",
+          "usernameField": "binarySecurityToken",
+          "passwordField": "secret",
+          "credentialRole": "Production Certificate",
+          "operations": [
+            "clearance",
+            "reporting"
+          ]
+        },
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-clearance-api",
+          "zatca-reporting-api",
+          "zatca-developer-portal-manual-v3"
+        ],
+        "sourcePages": [
+          "zatca-clearance-api:p1",
+          "zatca-reporting-api:p1",
+          "zatca-developer-portal-manual-v3:p68"
+        ]
+      }
+    },
+    "headers": {
+      "otp": {
+        "value": {
+          "name": "OTP",
+          "requiredFor": [
+            "complianceCsid",
+            "renewal"
+          ]
+        },
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-compliance-csid-api",
+          "zatca-renewal-api"
+        ],
+        "sourcePages": [
+          "zatca-compliance-csid-api:p1",
+          "zatca-renewal-api:p1"
+        ]
+      },
+      "acceptVersion": {
+        "value": {
+          "name": "Accept-Version",
+          "value": "V2",
+          "required": true
+        },
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-compliance-csid-api",
+          "zatca-clearance-api",
+          "zatca-reporting-api",
+          "zatca-developer-portal-manual-v3"
+        ],
+        "sourcePages": [
+          "zatca-compliance-csid-api:p1",
+          "zatca-clearance-api:p1",
+          "zatca-reporting-api:p1",
+          "zatca-developer-portal-manual-v3:p27",
+          "zatca-developer-portal-manual-v3:p68"
+        ]
+      },
+      "acceptLanguage": {
+        "value": {
+          "name": "Accept-Language",
+          "required": false,
+          "allowedValues": [
+            "en",
+            "ar"
+          ],
+          "default": "en"
+        },
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-compliance-invoice-api",
+          "zatca-clearance-api",
+          "zatca-renewal-api",
+          "zatca-reporting-api"
+        ],
+        "sourcePages": [
+          "zatca-compliance-invoice-api:p1",
+          "zatca-clearance-api:p1",
+          "zatca-renewal-api:p1",
+          "zatca-reporting-api:p1"
+        ]
+      },
+      "clearanceStatus": {
+        "value": {
+          "name": "Clearance-Status",
+          "required": true,
+          "allowedValues": [
+            "0",
+            "1"
+          ],
+          "meaning": {
+            "0": "clearance disabled",
+            "1": "clearance enabled"
+          },
+          "operations": [
+            "clearance",
+            "reporting"
+          ]
+        },
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-clearance-api",
+          "zatca-reporting-api"
+        ],
+        "sourcePages": [
+          "zatca-clearance-api:p1",
+          "zatca-reporting-api:p1"
+        ]
+      },
+      "contentType": {
+        "value": {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-clearance-api",
+          "zatca-compliance-csid-api",
+          "zatca-compliance-invoice-api",
+          "zatca-onboarding-api",
+          "zatca-renewal-api",
+          "zatca-reporting-api",
+          "zatca-detailed-technical-guidelines"
+        ],
+        "sourcePages": [
+          "zatca-clearance-api:p1",
+          "zatca-compliance-csid-api:p1",
+          "zatca-compliance-invoice-api:p1",
+          "zatca-onboarding-api:p1",
+          "zatca-renewal-api:p1",
+          "zatca-reporting-api:p1",
+          "zatca-detailed-technical-guidelines:p53",
+          "zatca-detailed-technical-guidelines:p65",
+          "zatca-detailed-technical-guidelines:p70"
+        ]
+      },
+      "authorization": {
+        "value": {
+          "name": "Authorization",
+          "scheme": "Basic"
+        },
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-compliance-invoice-api",
+          "zatca-onboarding-api",
+          "zatca-clearance-api",
+          "zatca-reporting-api",
+          "zatca-developer-portal-manual-v3"
+        ],
+        "sourcePages": [
+          "zatca-compliance-invoice-api:p1",
+          "zatca-onboarding-api:p1",
+          "zatca-clearance-api:p1",
+          "zatca-reporting-api:p1",
+          "zatca-developer-portal-manual-v3:p68"
+        ]
+      }
+    },
+    "requestFields": {
+      "complianceCsid": {
+        "value": {
+          "fields": [
+            "csr"
+          ]
+        },
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-compliance-csid-api"
+        ],
+        "sourcePages": [
+          "zatca-compliance-csid-api:p1"
+        ]
+      },
+      "complianceInvoice": {
+        "value": {
+          "fields": [
+            "invoiceHash",
+            "uuid",
+            "invoice"
+          ]
+        },
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-compliance-invoice-api"
+        ],
+        "sourcePages": [
+          "zatca-compliance-invoice-api:p1"
+        ]
+      },
+      "productionCsid": {
+        "value": {
+          "fields": [
+            "compliance_request_id"
+          ]
+        },
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-onboarding-api"
+        ],
+        "sourcePages": [
+          "zatca-onboarding-api:p1"
+        ]
+      },
+      "clearanceReporting": {
+        "value": {
+          "fields": [
+            "invoiceHash",
+            "uuid",
+            "invoice"
+          ],
+          "operations": [
+            "clearance",
+            "reporting"
+          ]
+        },
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-clearance-api",
+          "zatca-reporting-api"
+        ],
+        "sourcePages": [
+          "zatca-clearance-api:p1",
+          "zatca-reporting-api:p1"
+        ]
+      },
+      "renewal": {
+        "value": {
+          "fields": [
+            "csr"
+          ],
+          "credentialContext": [
+            "currentCSID"
+          ]
+        },
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-renewal-api"
+        ],
+        "sourcePages": [
+          "zatca-renewal-api:p1",
+          "zatca-renewal-api:p2"
+        ]
+      }
+    },
+    "responseFields": {
+      "certificateIssue": {
+        "value": {
+          "fields": [
+            "requestID",
+            "dispositionMessage",
+            "binarySecurityToken",
+            "secret"
+          ],
+          "operations": [
+            "complianceCsid",
+            "productionCsid",
+            "renewal"
+          ]
+        },
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-compliance-csid-api",
+          "zatca-onboarding-api",
+          "zatca-renewal-api"
+        ],
+        "sourcePages": [
+          "zatca-compliance-csid-api:p1",
+          "zatca-onboarding-api:p1",
+          "zatca-renewal-api:p1"
+        ]
+      },
+      "invoiceValidation": {
+        "value": {
+          "complianceInvoice": [
+            "validationResults",
+            "reportingStatus",
+            "clearanceStatus",
+            "qrSellertStatus",
+            "qrBuyertStatus"
+          ],
+          "clearance": [
+            "validationResults",
+            "clearanceStatus",
+            "clearedInvoice"
+          ],
+          "reporting": [
+            "validationResults",
+            "reportingStatus"
+          ]
+        },
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-compliance-invoice-api",
+          "zatca-clearance-api",
+          "zatca-reporting-api"
+        ],
+        "sourcePages": [
+          "zatca-compliance-invoice-api:p2",
+          "zatca-compliance-invoice-api:p4",
+          "zatca-clearance-api:p2",
+          "zatca-clearance-api:p9",
+          "zatca-reporting-api:p2",
+          "zatca-reporting-api:p4"
+        ]
+      }
+    },
+    "statusCodes": {
+      "complianceCsid": {
+        "value": [
+          200,
+          400,
+          406,
+          500
+        ],
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-compliance-csid-api"
+        ],
+        "sourcePages": [
+          "zatca-compliance-csid-api:p1",
+          "zatca-compliance-csid-api:p2"
+        ]
+      },
+      "complianceInvoice": {
+        "value": [
+          200,
+          400,
+          401,
+          406,
+          500
+        ],
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-compliance-invoice-api"
+        ],
+        "sourcePages": [
+          "zatca-compliance-invoice-api:p2",
+          "zatca-compliance-invoice-api:p3"
+        ]
+      },
+      "productionCsid": {
+        "value": [
+          200,
+          400,
+          401,
+          406,
+          500
+        ],
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-onboarding-api"
+        ],
+        "sourcePages": [
+          "zatca-onboarding-api:p1",
+          "zatca-onboarding-api:p2"
+        ]
+      },
+      "clearance": {
+        "value": [
+          200,
+          202,
+          208,
+          303,
+          400,
+          401,
+          500
+        ],
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-clearance-api"
+        ],
+        "sourcePages": [
+          "zatca-clearance-api:p2",
+          "zatca-clearance-api:p4",
+          "zatca-clearance-api:p6",
+          "zatca-clearance-api:p7",
+          "zatca-clearance-api:p8"
+        ]
+      },
+      "reporting": {
+        "value": [
+          200,
+          202,
+          400,
+          401,
+          406,
+          409,
+          500
+        ],
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-reporting-api"
+        ],
+        "sourcePages": [
+          "zatca-reporting-api:p2",
+          "zatca-reporting-api:p3",
+          "zatca-reporting-api:p4"
+        ]
+      },
+      "renewal": {
+        "value": [
+          200,
+          400,
+          401,
+          406,
+          428,
+          500
+        ],
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-renewal-api"
+        ],
+        "sourcePages": [
+          "zatca-renewal-api:p2",
+          "zatca-renewal-api:p3"
+        ]
+      }
+    },
+    "credentialProgression": {
+      "sequence": {
+        "value": [
+          "fresh human-controlled OTP",
+          "Compliance CSID and secret",
+          "required compliance-document validations",
+          "Simulation Production CSID and secret",
+          "standard clearance or simplified reporting"
+        ],
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-compliance-csid-api",
+          "zatca-compliance-invoice-api",
+          "zatca-onboarding-api",
+          "zatca-clearance-api",
+          "zatca-reporting-api",
+          "zatca-fatoora-portal-manual",
+          "zatca-developer-portal-manual-v3"
+        ],
+        "sourcePages": [
+          "zatca-compliance-csid-api:p1",
+          "zatca-compliance-invoice-api:p1",
+          "zatca-onboarding-api:p1",
+          "zatca-clearance-api:p1",
+          "zatca-reporting-api:p1",
+          "zatca-fatoora-portal-manual:p30",
+          "zatca-fatoora-portal-manual:p31",
+          "zatca-developer-portal-manual-v3:p27",
+          "zatca-developer-portal-manual-v3:p84"
+        ]
+      }
+    },
+    "otp": {
+      "format": {
+        "value": {
+          "length": 6,
+          "characterSet": "ASCII_DIGITS_0_TO_9",
+          "pattern": "^[0-9]{6}$"
+        },
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-detailed-technical-guidelines"
+        ],
+        "sourcePages": [
+          "zatca-detailed-technical-guidelines:p30"
+        ]
+      },
+      "validity": {
+        "value": {
+          "duration": "PT1H",
+          "minutes": 60
+        },
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-fatoora-portal-manual"
+        ],
+        "sourcePages": [
+          "zatca-fatoora-portal-manual:p7",
+          "zatca-fatoora-portal-manual:p9",
+          "zatca-fatoora-portal-manual:p20",
+          "zatca-fatoora-portal-manual:p22"
+        ]
+      },
+      "entryPolicy": {
+        "value": {
+          "mode": "TTY_RAW_MODE_NON_ECHO",
+          "oneShot": true,
+          "persisted": false,
+          "acceptedFromArguments": false,
+          "acceptedFromEnvironment": false,
+          "acceptedFromFiles": false
+        },
+        "status": "NOT_APPLICABLE",
+        "sourceIds": [
+          "zatca-compliance-csid-api",
+          "zatca-renewal-api",
+          "zatca-developer-portal-manual-v3"
+        ],
+        "sourcePages": [
+          "zatca-compliance-csid-api:p1",
+          "zatca-renewal-api:p1",
+          "zatca-developer-portal-manual-v3:p27",
+          "zatca-developer-portal-manual-v3:p44"
+        ]
+      }
+    },
+    "csr": {
+      "requestField": {
+        "value": {
+          "name": "csr"
+        },
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-compliance-csid-api",
+          "zatca-renewal-api"
+        ],
+        "sourcePages": [
+          "zatca-compliance-csid-api:p1",
+          "zatca-renewal-api:p1"
+        ]
+      },
+      "requirements": {
+        "value": {
+          "curve": "secp256k1",
+          "digest": "SHA-256",
+          "signature": "ECDSA-SHA256",
+          "subjectFields": [
+            "csr.common.name",
+            "csr.serial.number",
+            "csr.organization.identifier",
+            "csr.organization.unit.name",
+            "csr.organization.name",
+            "csr.country.name",
+            "csr.invoice.type",
+            "csr.location.address",
+            "csr.industry.business.category"
+          ],
+          "templates": {
+            "simulation": "PREZATCA-Code-Signing",
+            "production": "ZATCA-Code-Signing"
+          }
+        },
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-detailed-technical-guidelines",
+          "zatca-developer-portal-manual-v3"
+        ],
+        "sourcePages": [
+          "zatca-detailed-technical-guidelines:p52",
+          "zatca-detailed-technical-guidelines:p53",
+          "zatca-detailed-technical-guidelines:p54",
+          "zatca-detailed-technical-guidelines:p55",
+          "zatca-detailed-technical-guidelines:p57",
+          "zatca-developer-portal-manual-v3:p73",
+          "zatca-developer-portal-manual-v3:p74",
+          "zatca-developer-portal-manual-v3:p89",
+          "zatca-developer-portal-manual-v3:p90",
+          "zatca-developer-portal-manual-v3:p91",
+          "zatca-developer-portal-manual-v3:p92"
+        ]
+      }
+    },
+    "complianceMatrix": {
+      "requiredDocuments": {
+        "value": {
+          "1000": [
+            "standard invoice",
+            "standard debit note",
+            "standard credit note"
+          ],
+          "0100": [
+            "simplified invoice",
+            "simplified debit note",
+            "simplified credit note"
+          ],
+          "1100": [
+            "standard invoice",
+            "standard debit note",
+            "standard credit note",
+            "simplified invoice",
+            "simplified debit note",
+            "simplified credit note"
+          ]
+        },
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-fatoora-portal-manual",
+          "zatca-developer-portal-manual-v3",
+          "zatca-compliance-invoice-api"
+        ],
+        "sourcePages": [
+          "zatca-fatoora-portal-manual:p31",
+          "zatca-developer-portal-manual-v3:p91",
+          "zatca-compliance-invoice-api:p1"
+        ]
+      }
+    },
+    "retry": {
+      "automaticRetry": {
+        "value": {
+          "resendAfterFailureStatusCodes": [
+            429,
+            500,
+            503,
+            504
+          ],
+          "retryWithSmallerPayloadStatusCodes": [
+            413
+          ],
+          "correctRequestBeforeRetryStatusCodes": [
+            400
+          ],
+          "correctAuthenticationBeforeRetryStatusCodes": [
+            401
+          ]
+        },
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-detailed-technical-guidelines"
+        ],
+        "sourcePages": [
+          "zatca-detailed-technical-guidelines:p53",
+          "zatca-detailed-technical-guidelines:p65",
+          "zatca-detailed-technical-guidelines:p70"
+        ]
+      },
+      "ambiguousTransmission": {
+        "value": {
+          "blindRetryAllowed": false,
+          "bounded": true,
+          "immutablePayloadRequired": true,
+          "requireOutcomeReconciliation": true,
+          "unresolvedOutcome": "UNCERTAIN",
+          "failClosed": true
+        },
+        "status": "NOT_APPLICABLE",
+        "sourceIds": [
+          "zatca-detailed-technical-guidelines"
+        ],
+        "sourcePages": [
+          "zatca-detailed-technical-guidelines:p53",
+          "zatca-detailed-technical-guidelines:p65",
+          "zatca-detailed-technical-guidelines:p70"
+        ]
+      }
+    },
+    "duplicates": {
+      "clearance208": {
+        "value": {
+          "statusCode": 208,
+          "meaning": "invoice hash previously submitted",
+          "action": "reconcile as a duplicate outcome; do not blindly resubmit"
+        },
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-clearance-api"
+        ],
+        "sourcePages": [
+          "zatca-clearance-api:p6"
+        ]
+      },
+      "reporting409": {
+        "value": {
+          "statusCode": 409,
+          "meaning": "invoice already reported successfully",
+          "action": "reconcile as a duplicate outcome; do not blindly resubmit"
+        },
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-reporting-api"
+        ],
+        "sourcePages": [
+          "zatca-reporting-api:p4"
+        ]
+      },
+      "clearance303": {
+        "value": {
+          "statusCode": 303,
+          "meaning": "clearance is deactivated for the submitted standard invoice",
+          "action": "route explicitly to /invoices/reporting/single",
+          "genericRedirectAllowed": false
+        },
+        "status": "CONFIRMED_AUTHENTICATED_OFFICIAL",
+        "sourceIds": [
+          "zatca-clearance-api",
+          "zatca-developer-portal-manual-v3"
+        ],
+        "sourcePages": [
+          "zatca-clearance-api:p7",
+          "zatca-developer-portal-manual-v3:p85",
+          "zatca-developer-portal-manual-v3:p86"
+        ]
+      }
+    },
+    "unpublished": {
+      "rateLimit": {
+        "value": "UNPUBLISHED",
+        "status": "BLOCKED_AUTHENTICATED_CONTRACT_EVIDENCE",
+        "sourceIds": [
+          "zatca-clearance-api",
+          "zatca-compliance-csid-api",
+          "zatca-compliance-invoice-api",
+          "zatca-onboarding-api",
+          "zatca-renewal-api",
+          "zatca-reporting-api",
+          "zatca-detailed-technical-guidelines"
+        ],
+        "sourcePages": [
+          "zatca-clearance-api:p1",
+          "zatca-compliance-csid-api:p1",
+          "zatca-compliance-invoice-api:p1",
+          "zatca-onboarding-api:p1",
+          "zatca-renewal-api:p1",
+          "zatca-reporting-api:p1",
+          "zatca-detailed-technical-guidelines:p53",
+          "zatca-detailed-technical-guidelines:p65",
+          "zatca-detailed-technical-guidelines:p70"
+        ]
+      },
+      "retryAfter": {
+        "value": "UNPUBLISHED",
+        "status": "BLOCKED_AUTHENTICATED_CONTRACT_EVIDENCE",
+        "sourceIds": [
+          "zatca-clearance-api",
+          "zatca-compliance-csid-api",
+          "zatca-compliance-invoice-api",
+          "zatca-onboarding-api",
+          "zatca-renewal-api",
+          "zatca-reporting-api",
+          "zatca-detailed-technical-guidelines"
+        ],
+        "sourcePages": [
+          "zatca-clearance-api:p1",
+          "zatca-compliance-csid-api:p1",
+          "zatca-compliance-invoice-api:p1",
+          "zatca-onboarding-api:p1",
+          "zatca-renewal-api:p1",
+          "zatca-reporting-api:p1",
+          "zatca-detailed-technical-guidelines:p53",
+          "zatca-detailed-technical-guidelines:p65",
+          "zatca-detailed-technical-guidelines:p70"
+        ]
+      },
+      "backoff": {
+        "value": "UNPUBLISHED",
+        "status": "BLOCKED_AUTHENTICATED_CONTRACT_EVIDENCE",
+        "sourceIds": [
+          "zatca-clearance-api",
+          "zatca-compliance-csid-api",
+          "zatca-compliance-invoice-api",
+          "zatca-onboarding-api",
+          "zatca-renewal-api",
+          "zatca-reporting-api",
+          "zatca-detailed-technical-guidelines"
+        ],
+        "sourcePages": [
+          "zatca-clearance-api:p1",
+          "zatca-compliance-csid-api:p1",
+          "zatca-compliance-invoice-api:p1",
+          "zatca-onboarding-api:p1",
+          "zatca-renewal-api:p1",
+          "zatca-reporting-api:p1",
+          "zatca-detailed-technical-guidelines:p53",
+          "zatca-detailed-technical-guidelines:p65",
+          "zatca-detailed-technical-guidelines:p70"
+        ]
+      }
+    },
+    "localPolicy": {
+      "targetAllowlist": {
+        "value": {
+          "exactBaseUrl": "https://gw-fatoora.zatca.gov.sa/e-invoicing/simulation",
+          "productionBaseUrlAllowed": false,
+          "developerPortalBaseUrlAllowed": false,
+          "deriveTargetFromInput": false
+        },
+        "status": "NOT_APPLICABLE",
+        "sourceIds": [
+          "zatca-fatoora-portal-manual",
+          "zatca-developer-portal-manual-v3"
+        ],
+        "sourcePages": [
+          "zatca-fatoora-portal-manual:p30",
+          "zatca-fatoora-portal-manual:p31",
+          "zatca-developer-portal-manual-v3:p84"
+        ]
+      },
+      "redirects": {
+        "value": {
+          "followGenericRedirects": false,
+          "clearance303Action": "explicit reporting operation branch"
+        },
+        "status": "NOT_APPLICABLE",
+        "sourceIds": [
+          "zatca-clearance-api"
+        ],
+        "sourcePages": [
+          "zatca-clearance-api:p7"
+        ]
+      },
+      "responseHandling": {
+        "value": {
+          "retainResponseBodies": false,
+          "retainCredentials": false,
+          "retainOtp": false,
+          "failClosedOnUnexpectedStatus": true
+        },
+        "status": "NOT_APPLICABLE",
+        "sourceIds": [
+          "zatca-clearance-api",
+          "zatca-compliance-invoice-api",
+          "zatca-reporting-api"
+        ],
+        "sourcePages": [
+          "zatca-clearance-api:p2",
+          "zatca-clearance-api:p9",
+          "zatca-compliance-invoice-api:p2",
+          "zatca-compliance-invoice-api:p4",
+          "zatca-reporting-api:p2",
+          "zatca-reporting-api:p4"
+        ]
+      }
+    }
   },
-  "networkCallsMade": false,
-  "documentBodiesRetained": false
+  "nonNormativeNotes": [
+    "Qoyod material is non-normative and does not populate any contract leaf.",
+    "Community forum material is non-normative and does not populate any contract leaf.",
+    "The six authenticated API files are PDF exports of Swagger/OAS views, not raw OpenAPI documents."
+  ],
+  "safety": {
+    "networkCallsMade": false,
+    "documentBodiesRetained": false,
+    "secretBodiesRetained": false,
+    "rawOutputRetained": false,
+    "localPathsRetained": false,
+    "otpAvailable": false,
+    "approvalPresent": false,
+    "hostedResourcesTouched": false
+  }
 }
