@@ -1,13 +1,13 @@
 # ARC-07B sandbox execution packet
 
 Date: 2026-07-28
-Status: **CONTRACT IMPORTED / BLOCKED BY CUSTODY, CSR ORACLE, OTP AVAILABILITY, AND APPROVAL**
+Status: **STAGE GATES IMPLEMENTED / BLOCKED BY SDK CSR ORACLE, OTP AVAILABILITY, APPROVAL, AND NETWORK**
 
 This metadata-only packet prepares a future synthetic-data sandbox run. It is not an approval, contains no unreviewed or dynamically supplied target, credential, CSR, OTP, request body, XML, QR value, certificate, or response body, and cannot enable network execution.
 
 ## Baseline and local proof lineage
 
-- Current main baseline before this packet update: `3808a4a2f7df073962e0eb413561a6f1a2593119`.
+- Current main baseline before this packet update: `6afe1175cf54f439f1cc05c62a8224fcdbc40ddc`.
 - ARC-07A local conformance: PR [#385](https://github.com/Noone9029/Accounting-App/pull/385), merge `20315e55`.
 - ARC-07B credential custody boundary: PR [#389](https://github.com/Noone9029/Accounting-App/pull/389), merge `aa0514d6`.
 - ARC-07B disabled adapter boundary: PR [#390](https://github.com/Noone9029/Accounting-App/pull/390), merge `4c1ee7ae`.
@@ -18,7 +18,8 @@ This metadata-only packet prepares a future synthetic-data sandbox run. It is no
 - ARC-07B-06C local CSR cryptographic proof: PR [#396](https://github.com/Noone9029/Accounting-App/pull/396), merge `4c2db6dd`.
 - ARC-07B-06D secure ephemeral OTP boundary: PR [#397](https://github.com/Noone9029/Accounting-App/pull/397), merge `ae4bd5f1`.
 - ARC-07B-06E strict evidence-driven preflight: PR [#398](https://github.com/Noone9029/Accounting-App/pull/398), merge `a79fa70e`; normalized packet-hash follow-up PR [#399](https://github.com/Noone9029/Accounting-App/pull/399), merge `3808a4a2`.
-- ARC-07B-06F authenticated contract import: ten checksum/size-pinned official PDF metadata records; six API records are authenticated Swagger/OAS PDF exports, not raw OpenAPI.
+- ARC-07B-06F authenticated contract import: PR [#400](https://github.com/Noone9029/Accounting-App/pull/400), merge `6afe1175`; ten checksum/size-pinned official PDF metadata records; six API records are authenticated Swagger/OAS PDF exports, not raw OpenAPI.
+- ARC-07B-06G stage-aware preflight: explicit onboarding, compliance-document, Simulation production-CSID, clearance, and reporting stages are evaluated independently. This packet records the local branch state before review and merge.
 - Authorized local SDK oracle: 238-R3.4.8, JAR SHA-256 `48ABEB828D453EF6FAFBA792FDDBBB2701DA5C7018C24BDE918853E80FF5D530`, JDK 11.0.26. This is not a redistributable CI dependency.
 - Dependency audit note: Next 16.2.12 declares optional Sharp `^0.34.5`, but Sharp 0.34.5 remains affected by `GHSA-f88m-g3jw-g9cj`. The root override deliberately selects audited Sharp 0.35.3 outside that optional range. `test:next-sharp-compatibility` exercises Next's real image-optimizer boundary, and the override should be removed once Next declares a patched compatible range.
 
@@ -35,7 +36,7 @@ This metadata-only packet prepares a future synthetic-data sandbox run. It is no
 ## Planned sequence after separate approval
 
 1. Revalidate the exact official source register, canonical contract digest, and packet SHA-256 without accepting undocumented endpoint or rate-limit values.
-2. Verify a synthetic-only identity, approved non-production credential provider, CSR procedure, and fresh human-controlled OTP procedure.
+2. Select exactly one explicit execution stage and verify its independent static gates. The first authorized stage is `COMPLIANCE_CSID_ONBOARDING`; it requires receive custody but cannot require a certificate that the request is intended to obtain.
 3. Run one bounded compliance-stage request with an immutable payload only after the exact contract and approval gates pass; record metadata-only evidence.
 4. Stop on any contract mismatch, credential/custody refusal, unexpected redirect, non-synthetic identity, unsafe response classification, or ambiguous `UNCERTAIN` outcome.
 5. Do not attempt production CSID, clearance, reporting, or production signing as part of the first sandbox request.
@@ -49,7 +50,7 @@ This metadata-only packet prepares a future synthetic-data sandbox run. It is no
 
 ## Required gates
 
-The future owner authorization is a standalone message, not text in this packet, source, documentation, or Git history. Until it is received and all other fields are independently ready, the preflight must remain `PREPARED_BLOCKED` with `executionAllowed: false`.
+The future owner authorization is a standalone message, not text in this packet, source, documentation, or Git history. Static `requestSequenceReady` is stage-specific and independent of owner approval, OTP availability, and network enablement. Until the Tier-2 SDK CSR oracle is proven locally, onboarding remains `PREPARED_BLOCKED`; after that proof, it may become `STATIC_STAGE_READY_EXECUTION_BLOCKED` while `executionAllowed` remains false.
 
 ## Current no-network gate snapshot
 
@@ -60,11 +61,14 @@ The strict preflight reads only this packet and committed metadata evidence. It 
 | `networkEnabled` / `networkCallsMade` | `false` / `false` | Invocation requires `--no-network`; no network path is loaded. |
 | `approvalPresent` / `otpAvailable` | `false` / `false` | The standalone owner authorization is absent and no OTP is requested. |
 | `sandboxTargetVerified` / `officialContractComplete` | `true` / `true` | Schema-v2 metadata pins the exact `/e-invoicing/simulation` target and authenticated official contract. Production and Developer Portal bases are non-interchangeable and prohibited for this lane. |
+| `executionStage` | `COMPLIANCE_CSID_ONBOARDING` | No implicit stage is permitted. Missing or unsupported stages fail before preflight execution. |
 | `credentialProviderReady` / `signingKeyReady` | `true` / `true` | Local DPAPI custody and local CSR/key cryptographic proof are metadata-backed. |
-| `certificateCustodyReady` | `false` | No compliance response/certificate exists; custody is staged but a certificate must not be invented. |
-| `csrLocalProofReady` / `csrReady` | `true` / `false` | Local secp256k1 CSR proof exists; the configured JDK 11 and authorized SDK Tier-2 CSR oracle are unavailable in the current process. |
+| `certificateReceiveCustodyReady` / `productionCredentialReceiveCustodyReady` | `true` / `true` | A disposable synthetic Windows CurrentUser DPAPI proof stored, fixed-purpose compared, revoked, deleted, and cleaned token, secret, and certificate material. Canonical System32 binaries, a scrubbed child environment, bounded I/O, confirmed termination close, and ciphertext/plaintext inequality are required. `networkIsolationProven` remains false because no OS-enforced child-process network sandbox is claimed. Reviewed `FATOORA_SIMULATION` maps only to the provider's internal `SANDBOX` label. |
+| `complianceCertificatePresent` / `productionCertificatePresent` | `false` / `false` | No credential has been requested or received. Onboarding correctly does not require an existing compliance certificate. |
+| `complianceDocumentMatrixComplete` | `false` | No compliance document was submitted. This blocks only the later Simulation production-CSID stage. |
+| `csrLocalProofReady` / `csrTier2SdkReady` / `csrReady` | `true` / `false` / `false` | Local secp256k1 CSR proof exists; the official SDK Simulation CSR oracle remains the independent 06H gate. |
 | `secureOtpInputReady` | `true` | The non-echo one-shot mechanism is paired with official evidence for exactly six ASCII digits and one-hour validity. No OTP is present. |
 | `rollbackReady` / `cleanupReady` / `evidenceReady` | `true` / `true` / `true` | Local loopback cleanup and metadata-only evidence are proven. |
 | `requestSequenceReady` / `executionAllowed` | `false` / `false` | Every required execution gate must be true; no partial evidence can enable a request. |
 
-The remaining blockers are therefore not only owner approval. Certificate custody, the Tier-2 CSR oracle, a fresh human-controlled OTP, and the standalone owner authorization remain absent. No network, OTP, CSID, clearance, reporting, credential, certificate, hosted mutation, or customer-data action occurred during 06F.
+The receive-custody circularity is removed. The remaining onboarding blockers are the Tier-2 SDK Simulation CSR oracle, a fresh human-controlled OTP, standalone owner authorization, and network enablement. Compliance documents, Simulation production-CSID, clearance, and reporting remain independently blocked by credentials or evidence that do not yet exist. No network, OTP, CSID, clearance, reporting, credential, certificate, hosted mutation, or customer-data action occurred during 06G.

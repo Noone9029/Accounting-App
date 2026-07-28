@@ -1,7 +1,66 @@
-import { createHash } from "node:crypto";
-import { mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import {
+  createHash,
+  createPrivateKey,
+  createPublicKey,
+  sign as signData,
+  timingSafeEqual,
+  type KeyObject,
+} from "node:crypto";
+import {
+  mkdir,
+  readFile,
+  readdir,
+  realpath,
+  rename,
+  rm,
+  writeFile,
+} from "node:fs/promises";
+import { join, win32 } from "node:path";
 import { spawn } from "node:child_process";
+
+const LOCAL_DPAPI_PROCESS_TIMEOUT_MS = 10_000;
+const LOCAL_PROCESS_TERMINATION_GRACE_MS = 2_000;
+const LOCAL_DPAPI_MAX_IO_BYTES = 1024 * 1024;
+const LOCAL_ICACLS_MAX_OUTPUT_BYTES = 64 * 1024;
+const WINDOWS_POWERSHELL_RELATIVE_PATH = Object.freeze([
+  "WindowsPowerShell",
+  "v1.0",
+  "powershell.exe",
+]);
+const WINDOWS_ICACLS_RELATIVE_PATH = Object.freeze(["icacls.exe"]);
+
+interface SandboxLocalBoundedChildProcess {
+  stdin: {
+    end(value?: Uint8Array): void;
+    once(event: "error", listener: () => void): unknown;
+  };
+  stdout: {
+    on(event: "data", listener: (chunk: Buffer | Uint8Array) => void): unknown;
+  };
+  once(event: "error", listener: () => void): unknown;
+  once(
+    event: "close",
+    listener: (code: number | null, signal: string | null) => void,
+  ): unknown;
+  kill(signal?: NodeJS.Signals | number): boolean;
+}
+
+export type SandboxLocalBoundedChildSpawn = (
+  command: string,
+  args: readonly string[],
+  options: {
+    windowsHide: boolean;
+    stdio: ["pipe", "pipe", "ignore"];
+    cwd: string;
+    env: NodeJS.ProcessEnv;
+  },
+) => SandboxLocalBoundedChildProcess;
+
+interface TrustedWindowsSystemBinary {
+  command: string;
+  systemDirectory: string;
+  childEnvironment: NodeJS.ProcessEnv;
+}
 
 export type ComplianceCsidSecretCustodyProviderKind = "DISABLED" | "SANDBOX_LOCAL_DPAPI" | "FUTURE_SECRETS_MANAGER" | "FUTURE_KMS" | "FUTURE_ENCRYPTED_DB";
 
@@ -520,7 +579,82 @@ export class MockedKmsComplianceCsidCustodyProvider implements ComplianceCsidSec
   }
 }
 
+async function resolveTrustedWindowsSystemBinary(
+  relativePath: readonly string[],
+  options: {
+    systemRoot?: string;
+    skipFilesystemValidation?: boolean;
+  } = {},
+): Promise<TrustedWindowsSystemBinary> {
+  const configuredSystemRoot =
+    options.systemRoot ?? process.env.SystemRoot?.trim();
+  const configuredWindowsDirectory =
+    options.systemRoot ?? process.env.windir?.trim();
+  if (
+    !configuredSystemRoot ||
+    !configuredWindowsDirectory ||
+    !win32.isAbsolute(configuredSystemRoot) ||
+    configuredSystemRoot.startsWith("\\\\") ||
+    configuredSystemRoot.toLowerCase() !==
+      configuredWindowsDirectory.toLowerCase() ||
+    relativePath.length === 0 ||
+    relativePath.some(
+      (part) =>
+        !part ||
+        part === "." ||
+        part === ".." ||
+        part.includes("/") ||
+        part.includes("\\"),
+    )
+  ) {
+    throw sanitizeProviderError();
+  }
+
+  const systemRoot = win32.normalize(configuredSystemRoot);
+  const systemDirectory = win32.join(systemRoot, "System32");
+  const candidate = win32.join(systemDirectory, ...relativePath);
+  let command = candidate;
+  let canonicalSystemDirectory = systemDirectory;
+  if (!options.skipFilesystemValidation) {
+    try {
+      canonicalSystemDirectory = await realpath(systemDirectory);
+      command = await realpath(candidate);
+    } catch {
+      throw sanitizeProviderError();
+    }
+    const expectedPrefix = `${canonicalSystemDirectory.toLowerCase()}\\`;
+    if (
+      !command.toLowerCase().startsWith(expectedPrefix) ||
+      win32.basename(command).toLowerCase() !==
+        relativePath.at(-1)!.toLowerCase()
+    ) {
+      throw sanitizeProviderError();
+    }
+  }
+
+  return {
+    command,
+    systemDirectory: canonicalSystemDirectory,
+    childEnvironment: {
+      SystemRoot: systemRoot,
+      WINDIR: systemRoot,
+      ComSpec: win32.join(systemDirectory, "cmd.exe"),
+      PATHEXT: ".COM;.EXE;.BAT;.CMD",
+    },
+  };
+}
+
 class WindowsCurrentUserDpapiProtector implements SandboxLocalDpapiProtector {
+  constructor(
+    private readonly options: {
+      spawnProcess?: SandboxLocalBoundedChildSpawn;
+      timeoutMs?: number;
+      maxOutputBytes?: number;
+      platform?: NodeJS.Platform;
+      systemRoot?: string;
+    } = {},
+  ) {}
+
   async protect(plaintext: Buffer): Promise<Buffer> {
     return this.invoke("protect", plaintext);
   }
@@ -530,47 +664,223 @@ class WindowsCurrentUserDpapiProtector implements SandboxLocalDpapiProtector {
   }
 
   private async invoke(operation: "protect" | "unprotect", value: Buffer): Promise<Buffer> {
-    if (process.platform !== "win32") {
+    if ((this.options.platform ?? process.platform) !== "win32") {
+      throw sanitizeProviderError();
+    }
+    const maxOutputBytes =
+      this.options.maxOutputBytes ?? LOCAL_DPAPI_MAX_IO_BYTES;
+    if (
+      value.length === 0 ||
+      value.length > LOCAL_DPAPI_MAX_IO_BYTES ||
+      maxOutputBytes <= 0 ||
+      maxOutputBytes > LOCAL_DPAPI_MAX_IO_BYTES
+    ) {
       throw sanitizeProviderError();
     }
     const action = operation === "protect" ? "Protect" : "Unprotect";
     const script = [
       "$ErrorActionPreference='Stop'",
       "Add-Type -AssemblyName System.Security",
-      "$encoded=[Console]::In.ReadToEnd().Trim()",
-      "$bytes=[Convert]::FromBase64String($encoded)",
-      "$entropy=[Text.Encoding]::UTF8.GetBytes('LedgerByte:ZatcaSandboxCustody:v1')",
-      `$result=[Security.Cryptography.ProtectedData]::${action}($bytes,$entropy,[Security.Cryptography.DataProtectionScope]::CurrentUser)`,
-      "[Console]::Out.Write([Convert]::ToBase64String($result))",
-    ].join(";");
-    return new Promise<Buffer>((resolve, reject) => {
-      const child = spawn("powershell.exe", ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script], {
-        windowsHide: true,
-        stdio: ["pipe", "pipe", "ignore"],
-      });
-      const output: Buffer[] = [];
-      child.stdout.on("data", (chunk: Buffer) => output.push(Buffer.from(chunk)));
-      child.once("error", () => reject(sanitizeProviderError()));
-      child.once("close", (code) => {
-        if (code !== 0) {
-          reject(sanitizeProviderError());
-          return;
-        }
-        try {
-          resolve(Buffer.from(Buffer.concat(output).toString("utf8").trim(), "base64"));
-        } catch {
-          reject(sanitizeProviderError());
-        }
-      });
-      child.stdin.end(value.toString("base64"));
+      "$inputStream=[Console]::OpenStandardInput()",
+      "$outputStream=[Console]::OpenStandardOutput()",
+      "$memory=[IO.MemoryStream]::new()",
+      "$bytes=$null",
+      "$entropy=$null",
+      "$result=$null",
+      "try {",
+      "  $inputStream.CopyTo($memory)",
+      "  $bytes=$memory.ToArray()",
+      "  $entropy=[Text.Encoding]::UTF8.GetBytes('LedgerByte:ZatcaSandboxCustody:v1')",
+      `  $result=[Security.Cryptography.ProtectedData]::${action}($bytes,$entropy,[Security.Cryptography.DataProtectionScope]::CurrentUser)`,
+      "  $outputStream.Write($result,0,$result.Length)",
+      "  $outputStream.Flush()",
+      "} finally {",
+      "  if ($bytes -ne $null) { [Array]::Clear($bytes,0,$bytes.Length) }",
+      "  if ($entropy -ne $null) { [Array]::Clear($entropy,0,$entropy.Length) }",
+      "  if ($result -ne $null) { [Array]::Clear($result,0,$result.Length) }",
+      "  $memory.Dispose()",
+      "}",
+    ].join("\n");
+    const trustedPowerShell = await resolveTrustedWindowsSystemBinary(
+      WINDOWS_POWERSHELL_RELATIVE_PATH,
+      {
+        systemRoot: this.options.systemRoot,
+        skipFilesystemValidation: Boolean(this.options.spawnProcess),
+      },
+    );
+    const result = await runSandboxLocalBoundedChildProcess({
+      command: trustedPowerShell.command,
+      args: ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", script],
+      input: value,
+      timeoutMs: this.options.timeoutMs ?? LOCAL_DPAPI_PROCESS_TIMEOUT_MS,
+      maxOutputBytes,
+      spawnProcess: this.options.spawnProcess,
+      childEnvironment: trustedPowerShell.childEnvironment,
+      workingDirectory: trustedPowerShell.systemDirectory,
     });
+    if (result.length === 0) {
+      result.fill(0);
+      throw sanitizeProviderError();
+    }
+    return result;
   }
 }
 
+async function runSandboxLocalBoundedChildProcess(input: {
+  command: string;
+  args: readonly string[];
+  input: Buffer;
+  timeoutMs: number;
+  maxOutputBytes: number;
+  spawnProcess?: SandboxLocalBoundedChildSpawn;
+  childEnvironment: NodeJS.ProcessEnv;
+  workingDirectory: string;
+}): Promise<Buffer> {
+  if (
+    input.timeoutMs <= 0 ||
+    input.timeoutMs > 60_000 ||
+    input.maxOutputBytes <= 0 ||
+    input.maxOutputBytes > LOCAL_DPAPI_MAX_IO_BYTES
+  ) {
+    throw sanitizeProviderError();
+  }
+
+  let child: SandboxLocalBoundedChildProcess;
+  try {
+    const spawnProcess =
+      input.spawnProcess ??
+      (spawn as unknown as SandboxLocalBoundedChildSpawn);
+    child = spawnProcess(input.command, input.args, {
+      windowsHide: true,
+      stdio: ["pipe", "pipe", "ignore"],
+      cwd: input.workingDirectory,
+      env: input.childEnvironment,
+    });
+  } catch {
+    throw sanitizeProviderError();
+  }
+
+  return new Promise<Buffer>((resolve, reject) => {
+    const outputChunks: Buffer[] = [];
+    let outputLength = 0;
+    let settled = false;
+    let terminationRequested = false;
+    let terminationConfirmationTimer: NodeJS.Timeout | undefined;
+    const timer = setTimeout(() => failAndTerminate(), input.timeoutMs);
+    timer.unref?.();
+
+    const zeroOutputChunks = () => {
+      for (const chunk of outputChunks) {
+        chunk.fill(0);
+      }
+      outputChunks.length = 0;
+      outputLength = 0;
+    };
+    const finishFailure = () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timer);
+      if (terminationConfirmationTimer) {
+        clearTimeout(terminationConfirmationTimer);
+      }
+      zeroOutputChunks();
+      reject(sanitizeProviderError());
+    };
+    const failAndTerminate = () => {
+      if (settled || terminationRequested) {
+        return;
+      }
+      terminationRequested = true;
+      try {
+        child.kill("SIGKILL");
+      } catch {
+        // The close event or bounded confirmation timeout remains authoritative.
+      }
+      if (!settled) {
+        terminationConfirmationTimer = setTimeout(
+          finishFailure,
+          LOCAL_PROCESS_TERMINATION_GRACE_MS,
+        );
+        terminationConfirmationTimer.unref?.();
+      }
+    };
+
+    child.stdout.on("data", (value) => {
+      const source = Buffer.isBuffer(value)
+        ? value
+        : Buffer.from(value.buffer, value.byteOffset, value.byteLength);
+      const copy = Buffer.from(source);
+      source.fill(0);
+      if (settled) {
+        copy.fill(0);
+        return;
+      }
+      outputLength += copy.length;
+      if (outputLength > input.maxOutputBytes) {
+        copy.fill(0);
+        failAndTerminate();
+        return;
+      }
+      outputChunks.push(copy);
+    });
+    child.once("error", failAndTerminate);
+    child.stdin.once("error", failAndTerminate);
+    child.once("close", (code) => {
+      if (settled) {
+        return;
+      }
+      if (terminationRequested) {
+        finishFailure();
+        return;
+      }
+      if (code !== 0) {
+        finishFailure();
+        return;
+      }
+      const output = Buffer.concat(outputChunks, outputLength);
+      settled = true;
+      clearTimeout(timer);
+      if (terminationConfirmationTimer) {
+        clearTimeout(terminationConfirmationTimer);
+      }
+      zeroOutputChunks();
+      resolve(output);
+    });
+    try {
+      child.stdin.end(input.input);
+    } catch {
+      failAndTerminate();
+    }
+  });
+}
+
+export async function __testOnlyInvokeWindowsCurrentUserDpapi(
+  operation: "protect" | "unprotect",
+  value: Buffer,
+  options: {
+    spawnProcess: SandboxLocalBoundedChildSpawn;
+    timeoutMs: number;
+    maxOutputBytes: number;
+    platform: NodeJS.Platform;
+    systemRoot?: string;
+  },
+): Promise<Buffer> {
+  if (process.env.NODE_ENV !== "test") {
+    throw new Error("ZATCA custody DPAPI test-only override is unavailable.");
+  }
+  const protector = new WindowsCurrentUserDpapiProtector(options);
+  if (operation === "protect") {
+    return protector.protect(value);
+  }
+  return protector.unprotect(value);
+}
+
 export class SandboxLocalDpapiComplianceCsidCustodyProvider implements ComplianceCsidSecretCustodyProvider {
-  private readonly now: () => Date;
-  private readonly protector: SandboxLocalDpapiProtector;
-  private readonly usingTestProtector: boolean;
+  readonly #now: () => Date;
+  readonly #protector: SandboxLocalDpapiProtector;
+  readonly #usingTestProtector: boolean;
 
   constructor(
     private readonly options: {
@@ -580,12 +890,24 @@ export class SandboxLocalDpapiComplianceCsidCustodyProvider implements Complianc
       now?: () => Date;
     },
   ) {
-    if (options.protector && process.env.NODE_ENV !== "test") {
+    const runtimeEnvironment = (
+      process.env.APP_ENV ??
+      process.env.NODE_ENV ??
+      ""
+    )
+      .trim()
+      .toUpperCase();
+    const testProtectorOverride =
+      Boolean(options.protector) && process.env.NODE_ENV === "test";
+    if (
+      (runtimeEnvironment !== "LOCAL" && runtimeEnvironment !== "TEST") ||
+      (options.protector && !testProtectorOverride)
+    ) {
       throw sanitizeProviderError();
     }
-    this.protector = options.protector ?? new WindowsCurrentUserDpapiProtector();
-    this.usingTestProtector = Boolean(options.protector);
-    this.now = options.now ?? (() => new Date());
+    this.#protector = options.protector ?? new WindowsCurrentUserDpapiProtector();
+    this.#usingTestProtector = Boolean(options.protector);
+    this.#now = options.now ?? (() => new Date());
   }
 
   getReadiness(): CustodyProviderReadiness {
@@ -642,24 +964,89 @@ export class SandboxLocalDpapiComplianceCsidCustodyProvider implements Complianc
     return this.store("CERTIFICATE", input);
   }
 
-  async readSecretForOperation<T>(input: SandboxLocalSecretReadInput, operation: (plaintext: Buffer) => Promise<T> | T): Promise<T> {
-    this.assertSandboxReference(input);
-    let plaintext: Buffer | undefined;
+  async secretMatchesExpectedValue(
+    input: SandboxLocalSecretReadInput,
+    expectedPlaintext: Buffer,
+  ): Promise<boolean> {
+    this.assertBoundedOperationInput(expectedPlaintext);
+    const expectedCopy = Buffer.from(expectedPlaintext);
     try {
-      const material = await this.readMaterial(input, false);
-      if (material.revokedAt || (material.expiresAt && new Date(material.expiresAt).getTime() <= this.now().getTime())) {
+      return await this.#withSecretPlaintext(input, (plaintext) =>
+        plaintext.length === expectedCopy.length &&
+        timingSafeEqual(plaintext, expectedCopy),
+      );
+    } finally {
+      expectedCopy.fill(0);
+    }
+  }
+
+  async signSha256ForOperation(
+    input: SandboxLocalSecretReadInput,
+    data: Buffer,
+  ): Promise<Buffer> {
+    this.assertBoundedOperationInput(data);
+    return this.#withSecretPlaintext(input, (plaintext) => {
+      const privateKey = createPrivateKey(plaintext);
+      this.assertSecp256k1PrivateKey(privateKey);
+      const signature = signData("sha256", data, privateKey);
+      if (signature.length === 0 || signature.length > LOCAL_DPAPI_MAX_IO_BYTES) {
+        signature.fill(0);
         throw sanitizeProviderError();
       }
-      const protectedValue = Buffer.from(material.protectedValue, "base64");
-      plaintext = await this.protector.unprotect(protectedValue);
-      return await operation(plaintext);
+      return signature;
+    });
+  }
+
+  async deriveSpkiPublicKeyForOperation(
+    input: SandboxLocalSecretReadInput,
+  ): Promise<Buffer> {
+    return this.#withSecretPlaintext(input, (plaintext) => {
+      const privateKey = createPrivateKey(plaintext);
+      this.assertSecp256k1PrivateKey(privateKey);
+      const exported = createPublicKey(privateKey).export({
+        type: "spki",
+        format: "der",
+      });
+      const publicKey = Buffer.isBuffer(exported)
+        ? Buffer.from(exported)
+        : Buffer.from(exported, "utf8");
+      if (
+        publicKey.length === 0 ||
+        publicKey.length > LOCAL_DPAPI_MAX_IO_BYTES
+      ) {
+        publicKey.fill(0);
+        throw sanitizeProviderError();
+      }
+      return publicKey;
+    });
+  }
+
+  async storedCiphertextDiffersFromExpectedValue(
+    input: SandboxLocalSecretReadInput,
+    expectedPlaintext: Buffer,
+  ): Promise<boolean> {
+    this.assertBoundedOperationInput(expectedPlaintext);
+    const expectedCopy = Buffer.from(expectedPlaintext);
+    let protectedValue: Buffer | undefined;
+    try {
+      this.assertSandboxReference(input);
+      const material = await this.readMaterial(input, false);
+      protectedValue = Buffer.from(material.protectedValue, "base64");
+      return !(
+        protectedValue.length === expectedCopy.length &&
+        timingSafeEqual(protectedValue, expectedCopy)
+      );
     } catch (error) {
-      if (error instanceof Error && error.name === "ComplianceCsidSecretCustodyProviderError") {
+      if (
+        error instanceof Error &&
+        error.name === "ComplianceCsidSecretCustodyProviderError"
+      ) {
         throw error;
       }
       throw sanitizeProviderError();
     } finally {
-      plaintext?.fill(0);
+      protectedValue?.fill(0);
+      expectedCopy.fill(0);
     }
   }
 
@@ -668,7 +1055,7 @@ export class SandboxLocalDpapiComplianceCsidCustodyProvider implements Complianc
     this.assertSandboxReference(reference);
     try {
       const material = await this.readMaterial(reference, false);
-      material.revokedAt = this.now().toISOString();
+      material.revokedAt = this.#now().toISOString();
       await this.writeMaterial(reference, material);
     } catch (error) {
       if (error instanceof Error && error.name === "ComplianceCsidSecretCustodyProviderError") {
@@ -708,10 +1095,11 @@ export class SandboxLocalDpapiComplianceCsidCustodyProvider implements Complianc
     if (!input.value || !input.value.trim()) {
       throw sanitizeProviderError();
     }
-    let plaintext = Buffer.from(input.value, "utf8");
+    const plaintext = Buffer.from(input.value, "utf8");
+    let protectedValue: Buffer | undefined;
     try {
-      const protectedValue = await this.protector.protect(plaintext);
-      const createdAt = this.now().toISOString();
+      protectedValue = await this.#protector.protect(plaintext);
+      const createdAt = this.#now().toISOString();
       await this.writeMaterial(input as SandboxLocalSecretReadInput, {
         schemaVersion: 1,
         kind,
@@ -735,6 +1123,7 @@ export class SandboxLocalDpapiComplianceCsidCustodyProvider implements Complianc
       throw sanitizeProviderError();
     } finally {
       plaintext.fill(0);
+      protectedValue?.fill(0);
     }
   }
 
@@ -799,28 +1188,92 @@ export class SandboxLocalDpapiComplianceCsidCustodyProvider implements Complianc
   }
 
   private async restrictStorageDirectory(): Promise<void> {
-    if (this.usingTestProtector) {
+    if (this.#usingTestProtector) {
       return;
     }
     if (process.platform !== "win32" || !process.env.USERNAME?.trim()) {
       throw sanitizeProviderError();
     }
-    await new Promise<void>((resolve, reject) => {
-      const child = spawn(
-        "icacls.exe",
-        [
-          this.options.storageDirectory,
-          "/inheritance:r",
-          "/grant:r",
-          `${process.env.USERNAME}:(OI)(CI)F`,
-          "/grant:r",
-          "SYSTEM:(OI)(CI)F",
-        ],
-        { windowsHide: true, stdio: "ignore" },
-      );
-      child.once("error", () => reject(sanitizeProviderError()));
-      child.once("close", (code) => (code === 0 ? resolve() : reject(sanitizeProviderError())));
+    const trustedIcacls = await resolveTrustedWindowsSystemBinary(
+      WINDOWS_ICACLS_RELATIVE_PATH,
+    );
+    const output = await runSandboxLocalBoundedChildProcess({
+      command: trustedIcacls.command,
+      args: [
+        this.options.storageDirectory,
+        "/inheritance:r",
+        "/grant:r",
+        `${process.env.USERNAME}:(OI)(CI)F`,
+        "/grant:r",
+        "SYSTEM:(OI)(CI)F",
+      ],
+      input: Buffer.alloc(0),
+      timeoutMs: LOCAL_DPAPI_PROCESS_TIMEOUT_MS,
+      maxOutputBytes: LOCAL_ICACLS_MAX_OUTPUT_BYTES,
+      childEnvironment: trustedIcacls.childEnvironment,
+      workingDirectory: trustedIcacls.systemDirectory,
     });
+    output.fill(0);
+  }
+
+  async #withSecretPlaintext<T>(
+    input: SandboxLocalSecretReadInput,
+    operation: (plaintext: Buffer) => Promise<T> | T,
+  ): Promise<T> {
+    this.assertSandboxReference(input);
+    let protectedValue: Buffer | undefined;
+    let plaintext: Buffer | undefined;
+    try {
+      const material = await this.readMaterial(input, false);
+      if (
+        material.revokedAt ||
+        (material.expiresAt &&
+          new Date(material.expiresAt).getTime() <= this.#now().getTime())
+      ) {
+        throw sanitizeProviderError();
+      }
+      protectedValue = Buffer.from(material.protectedValue, "base64");
+      plaintext = await this.#protector.unprotect(protectedValue);
+      if (
+        !Buffer.isBuffer(plaintext) ||
+        plaintext.length === 0 ||
+        plaintext.length > LOCAL_DPAPI_MAX_IO_BYTES
+      ) {
+        throw sanitizeProviderError();
+      }
+      return await operation(plaintext);
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.name === "ComplianceCsidSecretCustodyProviderError"
+      ) {
+        throw error;
+      }
+      throw sanitizeProviderError();
+    } finally {
+      plaintext?.fill(0);
+      protectedValue?.fill(0);
+    }
+  }
+
+  private assertBoundedOperationInput(value: Buffer): void {
+    if (
+      !Buffer.isBuffer(value) ||
+      value.length === 0 ||
+      value.length > LOCAL_DPAPI_MAX_IO_BYTES
+    ) {
+      throw sanitizeProviderError();
+    }
+  }
+
+  private assertSecp256k1PrivateKey(privateKey: KeyObject): void {
+    if (
+      privateKey.type !== "private" ||
+      privateKey.asymmetricKeyType !== "ec" ||
+      privateKey.asymmetricKeyDetails?.namedCurve !== "secp256k1"
+    ) {
+      throw sanitizeProviderError();
+    }
   }
 }
 

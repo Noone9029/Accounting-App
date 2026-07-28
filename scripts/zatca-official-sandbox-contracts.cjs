@@ -203,6 +203,9 @@ function buildSafeValidationFailure() {
     apiVersionConfirmed: false,
     complianceMatrixConfirmed: false,
     unpublishedItemsRecorded: false,
+    simulationBaseUrl: "",
+    productionBaseUrl: "",
+    developerIntegrationSandboxBaseUrl: "",
     networkCallsMade: false,
     blockers: [
       "ZATCA_OFFICIAL_CONTRACT_SCHEMA_INVALID",
@@ -269,6 +272,18 @@ function validateOfficialSandboxContractsUnchecked(options = {}, expectedReviewe
     contractDigestVerified;
   const officialContractComplete = metadataValid && (!restrictedMode || restrictedEvidenceVerified);
   if (!officialContractComplete) addBlocker("ZATCA_OFFICIAL_CONTRACT_UNCONFIRMED");
+  const environmentValues = officialContractComplete
+    ? {
+        simulationBaseUrl: evidence.contract.environments.simulation.value.baseUrl,
+        productionBaseUrl: evidence.contract.environments.production.value.baseUrl,
+        developerIntegrationSandboxBaseUrl:
+          evidence.contract.environments.developerPortal.value.baseUrl,
+      }
+    : {
+        simulationBaseUrl: "",
+        productionBaseUrl: "",
+        developerIntegrationSandboxBaseUrl: "",
+      };
 
   return {
     schemaVersion: evidence.schemaVersion === 2 ? 2 : null,
@@ -288,6 +303,7 @@ function validateOfficialSandboxContractsUnchecked(options = {}, expectedReviewe
     apiVersionConfirmed: contractValidation.apiVersionValid,
     complianceMatrixConfirmed: contractValidation.complianceMatrixValid,
     unpublishedItemsRecorded: contractValidation.unpublishedItemsRecorded,
+    ...environmentValues,
     networkCallsMade: false,
     blockers,
   };
@@ -1045,6 +1061,7 @@ function parseArgs(argv) {
   const result = { ok: true, evidenceDirectory: undefined };
   for (let index = 0; index < argv.length; index += 1) {
     const token = argv[index];
+    if (token === "--") continue;
     if (token === "--json") continue;
     if (token === "--evidence-directory" && result.evidenceDirectory === undefined && index + 1 < argv.length) {
       result.evidenceDirectory = argv[index + 1];
@@ -1174,6 +1191,7 @@ module.exports = {
   REQUIRED_SOURCES,
   canonicalize,
   computeContractSha256,
+  parseJsonWithoutDuplicateMembers,
   parseArgs,
   runCli,
   validateOfficialSandboxContracts,

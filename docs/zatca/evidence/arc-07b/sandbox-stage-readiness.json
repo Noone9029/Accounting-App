@@ -1,0 +1,21 @@
+{
+  "arc": "ARC-07B-06G",
+  "status": "NO_SANDBOX_CREDENTIALS_OR_COMPLIANCE_DOCUMENTS",
+  "contractSha256": "bf564b600700f783515b9e4af46a31f428e27a5e6b8bdae5cf07156ed77e6950",
+  "packetSha256": "7edaf1dd7852d5e9731d08cbaeb05ed8552992152c34fe95fe0dbb008042da9e",
+  "evidenceProducer": "LEDGERBYTE_NO_CREDENTIALS_ASSERTION_V1",
+  "credentialInspectionPerformed": false,
+  "credentialInspectionSha256": null,
+  "syntheticDataOnly": true,
+  "complianceCertificatePresent": false,
+  "complianceCertificateValid": false,
+  "complianceCertificateKeyMatch": false,
+  "complianceDocumentMatrixComplete": false,
+  "productionCertificatePresent": false,
+  "productionCertificateValid": false,
+  "productionCertificateKeyMatch": false,
+  "credentialBodiesRetained": false,
+  "persistentStateMutated": false,
+  "networkCallsMade": false,
+  "hostedResourcesTouched": false
+}

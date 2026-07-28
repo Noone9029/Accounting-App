@@ -47,6 +47,18 @@ test("normal CI validates v2 metadata, canonical digest, safety, and synthetic s
     assert.deepEqual(result.blockers, []);
     assert.equal(result.sourceCount, 10);
     assert.equal(result.networkCallsMade, false);
+    assert.equal(
+      result.simulationBaseUrl,
+      "https://gw-fatoora.zatca.gov.sa/e-invoicing/simulation",
+    );
+    assert.equal(
+      result.productionBaseUrl,
+      "https://gw-fatoora.zatca.gov.sa/e-invoicing/core",
+    );
+    assert.equal(
+      result.developerIntegrationSandboxBaseUrl,
+      "https://gw-fatoora.zatca.gov.sa/e-invoicing/developer-portal",
+    );
   } finally {
     fs.openSync = originalOpen;
   }
@@ -116,6 +128,9 @@ test("fails closed with bounded output for malformed but parseable leaf shapes",
   assert.doesNotThrow(() => {
     const result = validateFixture(fixture);
     assert.equal(result.officialContractComplete, false);
+    assert.equal(result.simulationBaseUrl, "");
+    assert.equal(result.productionBaseUrl, "");
+    assert.equal(result.developerIntegrationSandboxBaseUrl, "");
     assert.ok(result.blockers.includes("ZATCA_OFFICIAL_CONTRACT_SCHEMA_INVALID"));
   });
 
@@ -551,6 +566,20 @@ test("strict CLI pins the reviewed digest, requires an absolute evidence directo
   });
   assert.equal(refused.status, 2);
   assert.doesNotMatch(`${refused.stdout}${refused.stderr}`, /relative-evidence/u);
+});
+
+test("CLI accepts the pnpm argument separator without weakening argument validation", () => {
+  const repoRoot = path.join(__dirname, "..");
+  const result = spawnSync(process.execPath, [SCRIPT, "--", "--json"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    windowsHide: true,
+  });
+
+  assert.equal(result.status, 0);
+  const payload = JSON.parse(result.stdout);
+  assert.equal(payload.officialContractComplete, true);
+  assert.equal(payload.networkCallsMade, false);
 });
 
 function loadWithNetworkTrap() {

@@ -1,4 +1,5 @@
 import {
+  __testOnlyInvokeWindowsCurrentUserDpapi,
   DisabledComplianceCsidSecretCustodyProvider,
   MockedKmsComplianceCsidCustodyProvider,
   MockedSecretsManagerComplianceCsidCustodyProvider,
@@ -7,13 +8,66 @@ import {
   readComplianceCsidCustodyProviderConfig,
   redactSecretReference,
 } from "./custody/compliance-csid-secret-custody.provider";
+import { EventEmitter } from "node:events";
 import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { PassThrough } from "node:stream";
 import { ZatcaService } from "./zatca.service";
 
 const organizationId = "11111111-1111-1111-1111-111111111111";
 const egsUnitId = "22222222-2222-2222-2222-222222222222";
+
+function makeSyntheticChildProcess(options: {
+  output?: Buffer;
+  closeCode?: number;
+  neverClose?: boolean;
+  killCloseDelayMs?: number;
+}) {
+  const inputChunks: Buffer[] = [];
+  let activeChild: (EventEmitter & {
+    stdin: PassThrough;
+    stdout: PassThrough;
+    kill: jest.Mock<boolean, []>;
+  }) | null = null;
+  const kill = jest.fn(() => {
+    const emitClose = () => activeChild?.emit("close", null, "SIGKILL");
+    if (options.killCloseDelayMs === undefined) {
+      queueMicrotask(emitClose);
+    } else {
+      setTimeout(emitClose, options.killCloseDelayMs);
+    }
+    return true;
+  });
+  const spawnProcess = jest.fn(() => {
+    const child = new EventEmitter() as EventEmitter & {
+      stdin: PassThrough;
+      stdout: PassThrough;
+      kill: jest.Mock<boolean, []>;
+    };
+    child.stdin = new PassThrough();
+    child.stdout = new PassThrough();
+    child.kill = kill;
+    child.stdin.on("data", (chunk: Buffer) => inputChunks.push(Buffer.from(chunk)));
+    activeChild = child;
+    queueMicrotask(() => {
+      if (options.output) {
+        child.stdout.write(Buffer.from(options.output));
+      }
+      if (!options.neverClose) {
+        child.stdout.end();
+        child.emit("close", options.closeCode ?? 0, null);
+      }
+    });
+    return child;
+  });
+  return {
+    spawn: spawnProcess as never,
+    spawnMock: spawnProcess,
+    kill,
+    stdinBytes: () => Buffer.concat(inputChunks),
+  };
+}
 
 function makeSafeEgs(overrides: Record<string, unknown> = {}) {
   return {
@@ -262,9 +316,18 @@ describe("ZATCA compliance CSID custody provider boundary", () => {
     expect(productionConfig.providerEnabled).toBe(false);
     expect(productionConfig.providerConfigurationReady).toBe(false);
     expect(createComplianceCsidSecretCustodyProvider(productionConfig)).toBeInstanceOf(DisabledComplianceCsidSecretCustodyProvider);
+    const previousAppEnv = process.env.APP_ENV;
     const previousNodeEnv = process.env.NODE_ENV;
+    process.env.APP_ENV = "PRODUCTION";
     process.env.NODE_ENV = "production";
     try {
+      expect(
+        () =>
+          new SandboxLocalDpapiComplianceCsidCustodyProvider({
+            environment: "LOCAL_TEST",
+            storageDirectory: "synthetic-test-only-path",
+          }),
+      ).toThrow("CSID secret custody provider operation failed");
       expect(
         () =>
           new SandboxLocalDpapiComplianceCsidCustodyProvider({
@@ -274,6 +337,26 @@ describe("ZATCA compliance CSID custody provider boundary", () => {
           }),
       ).toThrow("CSID secret custody provider operation failed");
     } finally {
+      process.env.APP_ENV = previousAppEnv;
+      process.env.NODE_ENV = previousNodeEnv;
+    }
+
+    process.env.APP_ENV = "PRODUCTION";
+    process.env.NODE_ENV = "test";
+    try {
+      expect(
+        () =>
+          new SandboxLocalDpapiComplianceCsidCustodyProvider({
+            environment: "LOCAL_TEST",
+            storageDirectory: "synthetic-test-only-path",
+            protector: {
+              protect: async (value) => Buffer.from(value),
+              unprotect: async (value) => Buffer.from(value),
+            },
+          }),
+      ).toThrow("CSID secret custody provider operation failed");
+    } finally {
+      process.env.APP_ENV = previousAppEnv;
       process.env.NODE_ENV = previousNodeEnv;
     }
   });
@@ -317,19 +400,76 @@ describe("ZATCA compliance CSID custody provider boundary", () => {
       expect(ciphertext.toString("utf8")).not.toContain(syntheticSecret);
 
       await expect(
-        provider.readSecretForOperation(
+        provider.secretMatchesExpectedValue(
           { organizationId, egsUnitId, referenceId: reference, environment: "SANDBOX" },
-          async (plaintext) => plaintext.toString("utf8"),
+          Buffer.from(syntheticSecret, "utf8"),
         ),
-      ).resolves.toBe(syntheticSecret);
+      ).resolves.toBe(true);
 
       await writeFile(join(storageDirectory, files[0]!), Buffer.from("changed-ciphertext", "utf8"));
       await expect(
-        provider.readSecretForOperation(
+        provider.secretMatchesExpectedValue(
           { organizationId, egsUnitId, referenceId: reference, environment: "SANDBOX" },
-          async () => "unexpected",
+          Buffer.from(syntheticSecret, "utf8"),
         ),
       ).rejects.toThrow("CSID secret custody provider operation failed");
+    } finally {
+      await rm(storageDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("does not expose an arbitrary plaintext callback and permits only fixed custody operations", async () => {
+    const storageDirectory = await mkdtemp(join(tmpdir(), "ledgerbyte-zatca-custody-"));
+    const syntheticSecret = "synthetic-callback-secret";
+    const protector = {
+      protect: async (value: Buffer) => Buffer.from(`protected:${value.toString("base64")}`, "utf8"),
+      unprotect: async (value: Buffer) => Buffer.from(value.toString("utf8").replace("protected:", ""), "base64"),
+    };
+    const provider = new SandboxLocalDpapiComplianceCsidCustodyProvider({
+      environment: "LOCAL_TEST",
+      storageDirectory,
+      protector,
+    });
+    const referenceId = "synthetic-callback-reference";
+    const input = { organizationId, egsUnitId, referenceId, environment: "SANDBOX" as const };
+
+    try {
+      await provider.storeComplianceSecret({ ...input, value: syntheticSecret });
+      expect(
+        (
+          provider as unknown as {
+            readSecretForOperation?: unknown;
+            withSecretPlaintext?: unknown;
+            protector?: unknown;
+          }
+        ).readSecretForOperation,
+      ).toBeUndefined();
+      expect(
+        (
+          provider as unknown as {
+            withSecretPlaintext?: unknown;
+          }
+        ).withSecretPlaintext,
+      ).toBeUndefined();
+      expect(
+        (
+          provider as unknown as {
+            protector?: unknown;
+          }
+        ).protector,
+      ).toBeUndefined();
+      await expect(
+        provider.secretMatchesExpectedValue(
+          input,
+          Buffer.from(syntheticSecret, "utf8"),
+        ),
+      ).resolves.toBe(true);
+      await expect(
+        provider.secretMatchesExpectedValue(
+          input,
+          Buffer.from(`${syntheticSecret}-wrong`, "utf8"),
+        ),
+      ).resolves.toBe(false);
     } finally {
       await rm(storageDirectory, { recursive: true, force: true });
     }
@@ -354,7 +494,10 @@ describe("ZATCA compliance CSID custody provider boundary", () => {
     });
     const referenceId = "synthetic-expiring-reference";
     const secret = "synthetic-expiring-value";
-    const read = () => provider.readSecretForOperation({ organizationId, egsUnitId, referenceId, environment: "SANDBOX" }, async () => "unexpected");
+    const read = () => provider.secretMatchesExpectedValue(
+      { organizationId, egsUnitId, referenceId, environment: "SANDBOX" },
+      Buffer.from(secret, "utf8"),
+    );
 
     try {
       await expect(read()).rejects.toThrow("CSID secret custody provider operation failed");
@@ -402,16 +545,108 @@ describe("ZATCA compliance CSID custody provider boundary", () => {
     try {
       await provider.storeComplianceToken({ organizationId, egsUnitId, referenceId, environment: "SANDBOX", value: syntheticValue });
       await expect(
-        provider.readSecretForOperation(
+        provider.secretMatchesExpectedValue(
           { organizationId, egsUnitId, referenceId, environment: "SANDBOX" },
-          async (plaintext) => plaintext.toString("utf8"),
+          Buffer.from(syntheticValue, "utf8"),
         ),
-      ).resolves.toBe(syntheticValue);
+      ).resolves.toBe(true);
       const [file] = await readdir(storageDirectory);
       expect(await readFile(join(storageDirectory, file!), "utf8")).not.toContain(syntheticValue);
     } finally {
       await rm(storageDirectory, { recursive: true, force: true });
     }
+  });
+
+  it("bounds DPAPI subprocess output and terminates a timed-out child", async () => {
+    const oversizedChild = makeSyntheticChildProcess({
+      output: Buffer.alloc(64, 0x41),
+      closeCode: 0,
+    });
+    await expect(
+      __testOnlyInvokeWindowsCurrentUserDpapi("protect", Buffer.from("synthetic"), {
+        spawnProcess: oversizedChild.spawn,
+        maxOutputBytes: 8,
+        timeoutMs: 1_000,
+        platform: "win32",
+      }),
+    ).rejects.toThrow("CSID secret custody provider operation failed");
+    expect(oversizedChild.kill).toHaveBeenCalled();
+
+    const hangingChild = makeSyntheticChildProcess({ neverClose: true });
+    await expect(
+      __testOnlyInvokeWindowsCurrentUserDpapi("protect", Buffer.from("synthetic"), {
+        spawnProcess: hangingChild.spawn,
+        maxOutputBytes: 64,
+        timeoutMs: 5,
+        platform: "win32",
+      }),
+    ).rejects.toThrow("CSID secret custody provider operation failed");
+    expect(hangingChild.kill).toHaveBeenCalled();
+
+    const delayedCloseChild = makeSyntheticChildProcess({
+      neverClose: true,
+      killCloseDelayMs: 50,
+    });
+    let settledBeforeClose = false;
+    const delayedResult = __testOnlyInvokeWindowsCurrentUserDpapi(
+      "protect",
+      Buffer.from("synthetic"),
+      {
+        spawnProcess: delayedCloseChild.spawn,
+        maxOutputBytes: 64,
+        timeoutMs: 5,
+        platform: "win32",
+      },
+    ).then(
+      () => {
+        settledBeforeClose = true;
+        return null;
+      },
+      (error: unknown) => {
+        settledBeforeClose = true;
+        return error;
+      },
+    );
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(delayedCloseChild.kill).toHaveBeenCalled();
+    expect(settledBeforeClose).toBe(false);
+    await expect(delayedResult).resolves.toMatchObject({
+      name: "ComplianceCsidSecretCustodyProviderError",
+    });
+  });
+
+  it("passes DPAPI input and output as bounded binary buffers", async () => {
+    const output = Buffer.from([0x00, 0xff, 0x10, 0x80]);
+    const child = makeSyntheticChildProcess({ output, closeCode: 0 });
+    const input = Buffer.from([0xde, 0xad, 0xbe, 0xef]);
+
+    const result = await __testOnlyInvokeWindowsCurrentUserDpapi("protect", input, {
+      spawnProcess: child.spawn,
+      maxOutputBytes: 64,
+      timeoutMs: 1_000,
+      platform: "win32",
+    });
+
+    expect(child.stdinBytes()).toEqual(input);
+    expect(result).toEqual(output);
+    const [command, , spawnOptions] = child.spawnMock.mock
+      .calls[0] as unknown as [
+      string,
+      readonly string[],
+      { cwd: string; env: NodeJS.ProcessEnv },
+    ];
+    expect(command).toMatch(
+      /^[A-Z]:\\.+\\System32\\WindowsPowerShell\\v1\.0\\powershell\.exe$/iu,
+    );
+    expect(spawnOptions.cwd).toMatch(/\\System32$/iu);
+    expect(spawnOptions.env).toEqual({
+      SystemRoot: expect.stringMatching(/^[A-Z]:\\/iu),
+      WINDIR: expect.stringMatching(/^[A-Z]:\\/iu),
+      ComSpec: expect.stringMatching(/\\System32\\cmd\.exe$/iu),
+      PATHEXT: ".COM;.EXE;.BAT;.CMD",
+    });
+    expect(spawnOptions.env.PATH).toBeUndefined();
+    result.fill(0);
   });
 
   it("feeds disabled provider readiness into custody plan and dry-run gates", async () => {
