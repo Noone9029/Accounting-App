@@ -2,6 +2,24 @@
   "generatedFrom": "apps/web/src/app/**/page.tsx",
   "generatedAt": "stable-inventory",
   "contract": "Each page row records coverage status and only claims role, viewport, locale, state, classification, disposition, and evidence for canonical active routes that are actually exercised; inventory-only modules are explicitly marked as requiring route-specific proof.",
+  "fixedAssetRouteGovernance": {
+    "contract": "The fixed-assets MVP contains eleven intentional page modules. Only the register and reports landing routes are canonical active-route matrix targets; the remaining operational modules stay inventory-only until route-specific proof is added.",
+    "canonicalActiveRoutes": [
+      "/fixed-assets",
+      "/reports/fixed-assets"
+    ],
+    "inventoryOnlyRoutes": [
+      "/fixed-assets/:id",
+      "/fixed-assets/:id/edit",
+      "/fixed-assets/:id/schedule",
+      "/fixed-assets/categories",
+      "/fixed-assets/depreciation-runs",
+      "/fixed-assets/depreciation-runs/:id",
+      "/fixed-assets/depreciation-runs/new",
+      "/fixed-assets/new",
+      "/settings/fixed-assets"
+    ]
+  },
   "pages": [
     {
       "id": "page:/*placeholder",
@@ -862,6 +880,195 @@
       "id": "page:/fiscal-periods",
       "pageModule": "apps/web/src/app/(app)/fiscal-periods/page.tsx",
       "route": "/fiscal-periods",
+      "surface": "signed-in",
+      "coverage": "canonical-active-route",
+      "roles": [
+        "Owner",
+        "Admin",
+        "Accountant",
+        "Sales",
+        "Purchases",
+        "Viewer"
+      ],
+      "viewports": [
+        "1440x1000",
+        "1024x768",
+        "390x844"
+      ],
+      "locales": [
+        "en/LTR",
+        "ar/RTL"
+      ],
+      "stateContract": [
+        "normal",
+        "loading",
+        "empty",
+        "zero-value",
+        "large-data",
+        "long-text",
+        "validation",
+        "api-failure",
+        "denied",
+        "success",
+        "destructive"
+      ],
+      "classification": "canonical route baseline disposition",
+      "disposition": "Canonical active route included in the bounded role/viewport structural matrix; route-specific workflow findings remain linked from the product stabilization ledger.",
+      "evidence": [
+        "verify:ui:inventory",
+        "role-filtered-route-polish.visual.spec.ts",
+        "arabic-locale.visual.spec.ts",
+        "all-active-routes.visual.spec.ts"
+      ]
+    },
+    {
+      "id": "page:/fixed-assets/:id/edit",
+      "pageModule": "apps/web/src/app/(app)/fixed-assets/[id]/edit/page.tsx",
+      "route": "/fixed-assets/:id/edit",
+      "surface": "signed-in",
+      "coverage": "inventory-only-page-module",
+      "roles": [],
+      "viewports": [],
+      "locales": [],
+      "stateContract": [
+        "inventory-only; route-specific state proof required"
+      ],
+      "classification": "inventory-only page-module disposition",
+      "disposition": "Page module is inventoried but is not a canonical active-route matrix target; do not infer role, viewport, locale, or state proof from this row.",
+      "evidence": [
+        "verify:ui:inventory"
+      ]
+    },
+    {
+      "id": "page:/fixed-assets/:id",
+      "pageModule": "apps/web/src/app/(app)/fixed-assets/[id]/page.tsx",
+      "route": "/fixed-assets/:id",
+      "surface": "signed-in",
+      "coverage": "inventory-only-page-module",
+      "roles": [],
+      "viewports": [],
+      "locales": [],
+      "stateContract": [
+        "inventory-only; route-specific state proof required"
+      ],
+      "classification": "inventory-only page-module disposition",
+      "disposition": "Page module is inventoried but is not a canonical active-route matrix target; do not infer role, viewport, locale, or state proof from this row.",
+      "evidence": [
+        "verify:ui:inventory"
+      ]
+    },
+    {
+      "id": "page:/fixed-assets/:id/schedule",
+      "pageModule": "apps/web/src/app/(app)/fixed-assets/[id]/schedule/page.tsx",
+      "route": "/fixed-assets/:id/schedule",
+      "surface": "signed-in",
+      "coverage": "inventory-only-page-module",
+      "roles": [],
+      "viewports": [],
+      "locales": [],
+      "stateContract": [
+        "inventory-only; route-specific state proof required"
+      ],
+      "classification": "inventory-only page-module disposition",
+      "disposition": "Page module is inventoried but is not a canonical active-route matrix target; do not infer role, viewport, locale, or state proof from this row.",
+      "evidence": [
+        "verify:ui:inventory"
+      ]
+    },
+    {
+      "id": "page:/fixed-assets/categories",
+      "pageModule": "apps/web/src/app/(app)/fixed-assets/categories/page.tsx",
+      "route": "/fixed-assets/categories",
+      "surface": "signed-in",
+      "coverage": "inventory-only-page-module",
+      "roles": [],
+      "viewports": [],
+      "locales": [],
+      "stateContract": [
+        "inventory-only; route-specific state proof required"
+      ],
+      "classification": "inventory-only page-module disposition",
+      "disposition": "Page module is inventoried but is not a canonical active-route matrix target; do not infer role, viewport, locale, or state proof from this row.",
+      "evidence": [
+        "verify:ui:inventory"
+      ]
+    },
+    {
+      "id": "page:/fixed-assets/depreciation-runs/:id",
+      "pageModule": "apps/web/src/app/(app)/fixed-assets/depreciation-runs/[id]/page.tsx",
+      "route": "/fixed-assets/depreciation-runs/:id",
+      "surface": "signed-in",
+      "coverage": "inventory-only-page-module",
+      "roles": [],
+      "viewports": [],
+      "locales": [],
+      "stateContract": [
+        "inventory-only; route-specific state proof required"
+      ],
+      "classification": "inventory-only page-module disposition",
+      "disposition": "Page module is inventoried but is not a canonical active-route matrix target; do not infer role, viewport, locale, or state proof from this row.",
+      "evidence": [
+        "verify:ui:inventory"
+      ]
+    },
+    {
+      "id": "page:/fixed-assets/depreciation-runs/new",
+      "pageModule": "apps/web/src/app/(app)/fixed-assets/depreciation-runs/new/page.tsx",
+      "route": "/fixed-assets/depreciation-runs/new",
+      "surface": "signed-in",
+      "coverage": "inventory-only-page-module",
+      "roles": [],
+      "viewports": [],
+      "locales": [],
+      "stateContract": [
+        "inventory-only; route-specific state proof required"
+      ],
+      "classification": "inventory-only page-module disposition",
+      "disposition": "Page module is inventoried but is not a canonical active-route matrix target; do not infer role, viewport, locale, or state proof from this row.",
+      "evidence": [
+        "verify:ui:inventory"
+      ]
+    },
+    {
+      "id": "page:/fixed-assets/depreciation-runs",
+      "pageModule": "apps/web/src/app/(app)/fixed-assets/depreciation-runs/page.tsx",
+      "route": "/fixed-assets/depreciation-runs",
+      "surface": "signed-in",
+      "coverage": "inventory-only-page-module",
+      "roles": [],
+      "viewports": [],
+      "locales": [],
+      "stateContract": [
+        "inventory-only; route-specific state proof required"
+      ],
+      "classification": "inventory-only page-module disposition",
+      "disposition": "Page module is inventoried but is not a canonical active-route matrix target; do not infer role, viewport, locale, or state proof from this row.",
+      "evidence": [
+        "verify:ui:inventory"
+      ]
+    },
+    {
+      "id": "page:/fixed-assets/new",
+      "pageModule": "apps/web/src/app/(app)/fixed-assets/new/page.tsx",
+      "route": "/fixed-assets/new",
+      "surface": "signed-in",
+      "coverage": "inventory-only-page-module",
+      "roles": [],
+      "viewports": [],
+      "locales": [],
+      "stateContract": [
+        "inventory-only; route-specific state proof required"
+      ],
+      "classification": "inventory-only page-module disposition",
+      "disposition": "Page module is inventoried but is not a canonical active-route matrix target; do not infer role, viewport, locale, or state proof from this row.",
+      "evidence": [
+        "verify:ui:inventory"
+      ]
+    },
+    {
+      "id": "page:/fixed-assets",
+      "pageModule": "apps/web/src/app/(app)/fixed-assets/page.tsx",
+      "route": "/fixed-assets",
       "surface": "signed-in",
       "coverage": "canonical-active-route",
       "roles": [
@@ -3496,6 +3703,51 @@
       ]
     },
     {
+      "id": "page:/reports/fixed-assets",
+      "pageModule": "apps/web/src/app/(app)/reports/fixed-assets/page.tsx",
+      "route": "/reports/fixed-assets",
+      "surface": "signed-in",
+      "coverage": "canonical-active-route",
+      "roles": [
+        "Owner",
+        "Admin",
+        "Accountant",
+        "Sales",
+        "Purchases",
+        "Viewer"
+      ],
+      "viewports": [
+        "1440x1000",
+        "1024x768",
+        "390x844"
+      ],
+      "locales": [
+        "en/LTR",
+        "ar/RTL"
+      ],
+      "stateContract": [
+        "normal",
+        "loading",
+        "empty",
+        "zero-value",
+        "large-data",
+        "long-text",
+        "validation",
+        "api-failure",
+        "denied",
+        "success",
+        "destructive"
+      ],
+      "classification": "canonical route baseline disposition",
+      "disposition": "Canonical active route included in the bounded role/viewport structural matrix; route-specific workflow findings remain linked from the product stabilization ledger.",
+      "evidence": [
+        "verify:ui:inventory",
+        "role-filtered-route-polish.visual.spec.ts",
+        "arabic-locale.visual.spec.ts",
+        "all-active-routes.visual.spec.ts"
+      ]
+    },
+    {
       "id": "page:/reports/fx-activity",
       "pageModule": "apps/web/src/app/(app)/reports/fx-activity/page.tsx",
       "route": "/reports/fx-activity",
@@ -5212,6 +5464,24 @@
         "role-filtered-route-polish.visual.spec.ts",
         "arabic-locale.visual.spec.ts",
         "all-active-routes.visual.spec.ts"
+      ]
+    },
+    {
+      "id": "page:/settings/fixed-assets",
+      "pageModule": "apps/web/src/app/(app)/settings/fixed-assets/page.tsx",
+      "route": "/settings/fixed-assets",
+      "surface": "signed-in",
+      "coverage": "inventory-only-page-module",
+      "roles": [],
+      "viewports": [],
+      "locales": [],
+      "stateContract": [
+        "inventory-only; route-specific state proof required"
+      ],
+      "classification": "inventory-only page-module disposition",
+      "disposition": "Page module is inventoried but is not a canonical active-route matrix target; do not infer role, viewport, locale, or state proof from this row.",
+      "evidence": [
+        "verify:ui:inventory"
       ]
     },
     {
