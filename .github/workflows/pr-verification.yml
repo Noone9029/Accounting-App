@@ -18,6 +18,7 @@ jobs:
     timeout-minutes: 25
     env:
       CI: "true"
+      NODE_OPTIONS: "--max-old-space-size=8192"
 
     steps:
       - name: Checkout
@@ -34,7 +35,7 @@ jobs:
         run: corepack enable
 
       - name: Install dependencies
-        run: corepack pnpm install --frozen-lockfile
+        run: corepack pnpm install --frozen-lockfile --network-concurrency=4 --child-concurrency=1
 
       # Non-mutating PR gate only. Keep deployed E2E, smoke, migrations,
       # seed/reset/delete, deploys, ZATCA, email, backup/restore, and
