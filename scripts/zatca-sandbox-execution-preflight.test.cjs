@@ -86,6 +86,11 @@ test("centralized execution-stage table evaluates static readiness independently
       assert.equal(result.approvalPresent, false);
       assert.equal(result.certificateReceiveCustodyReady, true);
       assert.equal(result.productionCredentialReceiveCustodyReady, true);
+      assert.equal(result.executionBindingImplemented, true);
+      assert.equal(result.oneShotApprovalBoundaryReady, true);
+      assert.equal(result.officialHttpsTransportReady, true);
+      assert.equal(result.complianceResponseParserReady, true);
+      assert.equal(result.complianceResponseCustodyReady, true);
       assert.equal(result.networkCallsMade, false);
       assert.equal(result.status, "STATIC_STAGE_READY_EXECUTION_BLOCKED");
     });
@@ -104,6 +109,25 @@ test("compliance onboarding is statically ready without an existing certificate"
   assert.equal(result.complianceCertificateKeyMatch, false);
   assert.equal(result.requestSequenceReady, true);
   assert.ok(!result.safeErrorCodes.includes("ZATCA_COMPLIANCE_CERTIFICATE_MISSING"));
+});
+
+test("binding evidence requires every reviewed one-shot implementation gate", () => {
+  const { buildSandboxExecutionPreflight } = loadWithNetworkTrap();
+  for (const field of [
+    "executionBindingImplemented",
+    "executionBindingReviewed",
+    "oneShotApprovalBoundaryReady",
+    "officialHttpsTransportReady",
+    "complianceResponseParserReady",
+    "complianceResponseCustodyReady",
+  ]) {
+    const evidence = createReadyEvidence(READY_STAGE_CASES[0]);
+    evidence.bindingEvidence[field] = false;
+    const result = buildSandboxExecutionPreflight({ cwd: createRepo(evidence), executionStage: "COMPLIANCE_CSID_ONBOARDING" });
+    assert.equal(result.requestSequenceReady, false);
+    assert.equal(result[field], false);
+    assert.ok(result.safeErrorCodes.includes("ZATCA_EXECUTION_BINDING_EVIDENCE_NOT_READY"));
+  }
 });
 
 test("approval, OTP availability, and network enablement never change static stage readiness", () => {
@@ -1173,6 +1197,38 @@ function createReadyEvidence(row) {
     otpEvidence: createOtpEvidence(row.otpReady === true),
     stageEvidence: createStageEvidence(row.stageEvidence),
     lifecycleEvidence: createLifecycleEvidence(),
+    bindingEvidence: createBindingEvidence(),
+  };
+}
+
+function createBindingEvidence(overrides = {}) {
+  return {
+    arc: "ARC-07B-07A",
+    status: "LOCAL_LOOPBACK_PROOF_PASSED",
+    baseMainSha: "a".repeat(40),
+    contractSha256: null,
+    packetSha256: null,
+    loopbackScenarioCount: 26,
+    acceptedCasePassed: true,
+    approvalReplayRejected: true,
+    executionBindingImplemented: true,
+    executionBindingReviewed: true,
+    oneShotApprovalBoundaryReady: true,
+    officialHttpsTransportReady: true,
+    complianceResponseParserReady: true,
+    complianceResponseCustodyReady: true,
+    syntheticDataOnly: true,
+    cleanupComplete: true,
+    externalDnsLookups: 0,
+    externalSockets: 0,
+    networkCallsMade: false,
+    zatcaCalls: 0,
+    otpRead: false,
+    otpRetained: false,
+    credentialBodiesRetained: false,
+    plaintextValuesRetained: false,
+    prismaMutations: 0,
+    ...overrides,
   };
 }
 
@@ -1315,6 +1371,13 @@ function createRepo(options = {}) {
         computeCredentialInspectionSha256(stageEvidence);
     }
   }
+  const bindingEvidence = options.bindingEvidence === null
+    ? null
+    : JSON.parse(JSON.stringify(options.bindingEvidence ?? createBindingEvidence()));
+  if (bindingEvidence) {
+    bindingEvidence.contractSha256 ??= contractEvidence.contractSha256;
+    bindingEvidence.packetSha256 ??= preflightEvidence.packetSha256;
+  }
 
   writeText(
     repo,
@@ -1337,6 +1400,7 @@ function createRepo(options = {}) {
   if (options.sdkEvidence) writeText(repo, "docs/zatca/evidence/arc-07b/sandbox-csr-sdk-oracle.json", JSON.stringify(options.sdkEvidence));
   if (options.otpEvidence) writeText(repo, "docs/zatca/evidence/arc-07b/secure-ephemeral-otp-input.json", JSON.stringify(options.otpEvidence));
   if (stageEvidence) writeText(repo, "docs/zatca/evidence/arc-07b/sandbox-stage-readiness.json", JSON.stringify(stageEvidence));
+  if (bindingEvidence) writeText(repo, "docs/zatca/evidence/arc-07b/simulation-compliance-csid-binding-local-proof.json", JSON.stringify(bindingEvidence));
   return repo;
 }
 

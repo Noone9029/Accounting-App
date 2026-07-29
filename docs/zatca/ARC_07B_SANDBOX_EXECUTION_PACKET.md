@@ -1,13 +1,13 @@
 # ARC-07B sandbox execution packet
 
-Date: 2026-07-28
-Status: **READY FOR OWNER-APPROVED COMPLIANCE-CSID ONBOARDING / STATIC STAGE READY / NO EXECUTION**
+Date: 2026-07-29
+Status: **READY FOR FRESH ONE-SHOT OWNER APPROVAL / STATIC STAGE READY / NO EXECUTION**
 
 This metadata-only packet prepares a future synthetic-data sandbox run. It is not an approval, contains no unreviewed or dynamically supplied target, credential, CSR, OTP, request body, XML, QR value, certificate, or response body, and cannot enable network execution.
 
 ## Baseline and local proof lineage
 
-- Current main baseline before this packet update: `f04c043632ce8aebf3fb8ae59a343ebfd5600dfe`.
+- Current main baseline before this packet update: `999d10a17116708bea8e5cb46a216be47f422bbe`.
 - ARC-07A local conformance: PR [#385](https://github.com/Noone9029/Accounting-App/pull/385), merge `20315e55`.
 - ARC-07B credential custody boundary: PR [#389](https://github.com/Noone9029/Accounting-App/pull/389), merge `aa0514d6`.
 - ARC-07B disabled adapter boundary: PR [#390](https://github.com/Noone9029/Accounting-App/pull/390), merge `4c1ee7ae`.
@@ -20,7 +20,8 @@ This metadata-only packet prepares a future synthetic-data sandbox run. It is no
 - ARC-07B-06E strict evidence-driven preflight: PR [#398](https://github.com/Noone9029/Accounting-App/pull/398), merge `a79fa70e`; normalized packet-hash follow-up PR [#399](https://github.com/Noone9029/Accounting-App/pull/399), merge `3808a4a2`.
 - ARC-07B-06F authenticated contract import: PR [#400](https://github.com/Noone9029/Accounting-App/pull/400), merge `6afe1175`; ten checksum/size-pinned official PDF metadata records; six API records are authenticated Swagger/OAS PDF exports, not raw OpenAPI.
 - ARC-07B-06G stage-aware preflight: PR [#401](https://github.com/Noone9029/Accounting-App/pull/401), merge `f04c0436`; explicit onboarding, compliance-document, Simulation production-CSID, clearance, and reporting stages are evaluated independently.
-- ARC-07B-06H official SDK Simulation CSR oracle: local Tier-2 execution passed on the current review branch; PR and merge are pending. SDK 238-R3.4.8, JAR SHA-256 `48ABEB828D453EF6FAFBA792FDDBBB2701DA5C7018C24BDE918853E80FF5D530`, SDK configuration SHA-256 `5ECA6FFE95659F58319C9B7F831D54EB71860E9434595798628F42E4C3495408`, and five exact Microsoft OpenJDK 11.0.26 runtime components were verified and protected by read-only handle leases during execution. Workspace/custody ACLs use the current Windows token SID. LedgerByte independently verified the SDK-generated PKCS#10 signature, ECDSA-SHA256 algorithm, secp256k1 public key, required subject and requested extensions, `PREZATCA-Code-Signing` template, private-key match, and post-import DPAPI custody match. The plaintext key was zeroed and securely removed before custody re-derivation. A passing result requires confirmed process termination and complete expected-digest cleanup; unexpected artifacts are preserved rather than recursively deleted. This is a local generation/configuration oracle, not validation of the separate 06C CSR, and it is not a redistributable CI dependency.
+- ARC-07B-06H official SDK Simulation CSR oracle: PR [#402](https://github.com/Noone9029/Accounting-App/pull/402), merge `999d10a1`. Local Tier-2 execution passed with SDK 238-R3.4.8 and Microsoft OpenJDK 11.0.26. This is a local generation/configuration oracle, not validation of the separate 06C CSR, and it is not a redistributable CI dependency.
+- ARC-07B-07A one-shot Simulation compliance-CSID binding: a CLI-only operator boundary now binds clean-main and checksum preflight, external one-shot approval consumption, hidden TTY OTP input, one exact Simulation HTTPS attempt, strict response parsing, and atomic sandbox DPAPI custody. The local 26-case literal-loopback proof is metadata-only and records no external DNS, external socket, ZATCA call, OTP read, CSID, credential body, Prisma mutation, or hosted mutation.
 - Dependency audit note: Next 16.2.12 declares optional Sharp `^0.34.5`, but Sharp 0.34.5 remains affected by `GHSA-f88m-g3jw-g9cj`. The root override deliberately selects audited Sharp 0.35.3 outside that optional range. `test:next-sharp-compatibility` exercises Next's real image-optimizer boundary, and the override should be removed once Next declares a patched compatible range.
 
 ## Contract and synthetic scope
@@ -37,7 +38,7 @@ This metadata-only packet prepares a future synthetic-data sandbox run. It is no
 
 1. Revalidate the exact official source register, canonical contract digest, and packet SHA-256 without accepting undocumented endpoint or rate-limit values.
 2. Select exactly one explicit execution stage and verify its independent static gates. The first authorized stage is `COMPLIANCE_CSID_ONBOARDING`; it requires receive custody but cannot require a certificate that the request is intended to obtain.
-3. Run one bounded compliance-stage request with an immutable payload only after the exact contract and approval gates pass; record metadata-only evidence.
+3. Atomically consume a fresh external approval record, rerun non-secret static gates, read the OTP from a hidden TTY, and run one bounded compliance-stage request with an immutable payload only after every gate passes; record metadata-only evidence.
 4. Stop on any contract mismatch, credential/custody refusal, unexpected redirect, non-synthetic identity, unsafe response classification, or ambiguous `UNCERTAIN` outcome.
 5. Do not attempt production CSID, clearance, reporting, or production signing as part of the first sandbox request.
 
@@ -68,7 +69,11 @@ The strict preflight reads only this packet and committed metadata evidence. It 
 | `complianceDocumentMatrixComplete` | `false` | No compliance document was submitted. This blocks only the later Simulation production-CSID stage. |
 | `csrLocalProofReady` / `csrTier2SdkReady` / `csrReady` | `true` / `true` / `true` | The separate 06C local CSR proof and the 06H official SDK Simulation CSR generation/configuration oracle both pass. The two CSRs are not claimed to be byte-identical or key-identical. |
 | `secureOtpInputReady` | `true` | The non-echo one-shot mechanism is paired with official evidence for exactly six ASCII digits and one-hour validity. No OTP is present. |
+| `executionBindingImplemented` / `executionBindingReviewed` | `true` / `true` | A separate CLI-only operator binding is implemented and reviewed; normal runtime adapters remain disabled. |
+| `oneShotApprovalBoundaryReady` | `true` | A future approval is external, hash/stage/scope/budget-bound, atomically consumed before request, and never restored after uncertainty. No approval record exists now. |
+| `officialHttpsTransportReady` | `true` | The bounded transport accepts only the reviewed Simulation base, HTTPS, a standard TLS chain, no proxy, no redirect, bounded DNS/body/timeouts, and one request. |
+| `complianceResponseParserReady` / `complianceResponseCustodyReady` | `true` / `true` | Strict duplicate-member/field/certificate-key checks feed an atomic sandbox DPAPI custody transaction with rollback. No credential has been received. |
 | `rollbackReady` / `cleanupReady` / `evidenceReady` | `true` / `true` / `true` | Local loopback cleanup and metadata-only evidence are proven. |
-| `requestSequenceReady` / `executionAllowed` | `true` / `false` | Static onboarding gates pass. Standalone approval, a fresh human-controlled OTP, network enablement, and execution permission remain absent, so no request can run. |
+| `requestSequenceReady` / `executionAllowed` | `true` / `false` | Static onboarding gates, including the 26-case local binding proof, pass. A fresh standalone approval, a fresh human-controlled OTP, network enablement, and execution permission remain absent, so no request can run. |
 
-The receive-custody circularity is removed and the independent Tier-2 SDK Simulation CSR oracle is complete. The only remaining onboarding execution blockers are a fresh human-controlled OTP, standalone owner authorization, network enablement, and execution permission. `complianceCertificatePresent` remains false and is correctly not an onboarding blocker. Compliance documents, Simulation production-CSID, clearance, and reporting remain independently blocked by credentials or evidence that do not yet exist. No network, OTP, CSID, clearance, reporting, credential, certificate, hosted mutation, or customer-data action occurred during 06H.
+The receive-custody circularity is removed, the independent Tier-2 SDK Simulation CSR oracle is complete, and the CLI-only one-shot binding is proven locally. The only remaining onboarding execution blockers are a fresh one-shot owner approval, a fresh human-controlled OTP, network enablement, and execution permission. `complianceCertificatePresent` remains false and is correctly not an onboarding blocker. Compliance documents, Simulation production-CSID, clearance, and reporting remain independently blocked by credentials or evidence that do not yet exist. No network, OTP, CSID, clearance, reporting, credential, certificate, hosted mutation, or customer-data action occurred during this local preparation.

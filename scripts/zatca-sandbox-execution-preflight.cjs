@@ -26,6 +26,8 @@ const STAGE_EVIDENCE_PATH =
   "docs/zatca/evidence/arc-07b/sandbox-stage-readiness.json";
 const PREFLIGHT_EVIDENCE_PATH =
   "docs/zatca/evidence/arc-07b/sandbox-execution-preflight-local.json";
+const BINDING_EVIDENCE_PATH =
+  "docs/zatca/evidence/arc-07b/simulation-compliance-csid-binding-local-proof.json";
 
 const EXECUTION_STAGES = Object.freeze([
   "COMPLIANCE_CSID_ONBOARDING",
@@ -179,6 +181,33 @@ const SDK_CSR_EVIDENCE_KEYS = Object.freeze([
   "status",
   "csidRequested",
 ]);
+const BINDING_EVIDENCE_KEYS = Object.freeze([
+  "acceptedCasePassed",
+  "approvalReplayRejected",
+  "arc",
+  "baseMainSha",
+  "cleanupComplete",
+  "complianceResponseCustodyReady",
+  "complianceResponseParserReady",
+  "contractSha256",
+  "credentialBodiesRetained",
+  "executionBindingImplemented",
+  "executionBindingReviewed",
+  "externalDnsLookups",
+  "externalSockets",
+  "loopbackScenarioCount",
+  "networkCallsMade",
+  "officialHttpsTransportReady",
+  "oneShotApprovalBoundaryReady",
+  "otpRead",
+  "otpRetained",
+  "packetSha256",
+  "plaintextValuesRetained",
+  "prismaMutations",
+  "status",
+  "syntheticDataOnly",
+  "zatcaCalls",
+]);
 const OFFICIAL_SDK_VERSION = "238-R3.4.8";
 const OFFICIAL_SDK_JAR_SHA256 =
   "48ABEB828D453EF6FAFBA792FDDBBB2701DA5C7018C24BDE918853E80FF5D530";
@@ -218,6 +247,7 @@ function buildSandboxExecutionPreflight(options = {}) {
   const stageEvidence = readJsonMetadata(cwd, STAGE_EVIDENCE_PATH);
   const preflightEvidence = readJsonMetadata(cwd, PREFLIGHT_EVIDENCE_PATH);
   const lifecycleEvidence = readJsonMetadata(cwd, EVIDENCE_PATH);
+  const bindingEvidence = readJsonMetadata(cwd, BINDING_EVIDENCE_PATH);
 
   const packetSha256 = sha256(packet.value || "");
   const recordedPacketSha256 = preflightEvidence.value.packetSha256;
@@ -370,7 +400,25 @@ function buildSandboxExecutionPreflight(options = {}) {
     preflightEvidence.value.executionAllowed === false &&
     preflightEvidence.value.retainedSensitiveBodies === false &&
     !containsUnsafeMetadata(preflightEvidence.value);
-  const evidenceReady = lifecycleEvidenceReady && preflightEvidenceReady;
+  const bindingEvidenceReady =
+    bindingEvidence.ok &&
+    validateBindingEvidence(bindingEvidence.value, {
+      contractSha256,
+      packetSha256,
+    });
+  const executionBindingImplemented =
+    bindingEvidenceReady && bindingEvidence.value.executionBindingImplemented === true;
+  const executionBindingReviewed =
+    bindingEvidenceReady && bindingEvidence.value.executionBindingReviewed === true;
+  const oneShotApprovalBoundaryReady =
+    bindingEvidenceReady && bindingEvidence.value.oneShotApprovalBoundaryReady === true;
+  const officialHttpsTransportReady =
+    bindingEvidenceReady && bindingEvidence.value.officialHttpsTransportReady === true;
+  const complianceResponseParserReady =
+    bindingEvidenceReady && bindingEvidence.value.complianceResponseParserReady === true;
+  const complianceResponseCustodyReady =
+    bindingEvidenceReady && bindingEvidence.value.complianceResponseCustodyReady === true;
+  const evidenceReady = lifecycleEvidenceReady && preflightEvidenceReady && bindingEvidenceReady;
   const cleanupReady = evidenceReady && rollbackReady;
 
   const sharedStaticReady =
@@ -387,7 +435,13 @@ function buildSandboxExecutionPreflight(options = {}) {
     stageEvidenceReady &&
     rollbackReady &&
     cleanupReady &&
-    evidenceReady;
+    evidenceReady &&
+    executionBindingImplemented &&
+    executionBindingReviewed &&
+    oneShotApprovalBoundaryReady &&
+    officialHttpsTransportReady &&
+    complianceResponseParserReady &&
+    complianceResponseCustodyReady;
   const stageStaticReady = evaluateStageStaticReadiness(executionStage, {
     csrReady,
     secureOtpInputReady,
@@ -460,6 +514,13 @@ function buildSandboxExecutionPreflight(options = {}) {
   if (!preflightEvidenceReady) {
     addSafeErrorCode("ZATCA_PREFLIGHT_EVIDENCE_NOT_READY");
   }
+  if (!bindingEvidenceReady) addSafeErrorCode("ZATCA_EXECUTION_BINDING_EVIDENCE_NOT_READY");
+  if (!executionBindingImplemented) addSafeErrorCode("ZATCA_EXECUTION_BINDING_NOT_IMPLEMENTED");
+  if (!executionBindingReviewed) addSafeErrorCode("ZATCA_EXECUTION_BINDING_NOT_REVIEWED");
+  if (!oneShotApprovalBoundaryReady) addSafeErrorCode("ZATCA_ONE_SHOT_APPROVAL_BOUNDARY_NOT_READY");
+  if (!officialHttpsTransportReady) addSafeErrorCode("ZATCA_OFFICIAL_HTTPS_TRANSPORT_NOT_READY");
+  if (!complianceResponseParserReady) addSafeErrorCode("ZATCA_COMPLIANCE_RESPONSE_PARSER_NOT_READY");
+  if (!complianceResponseCustodyReady) addSafeErrorCode("ZATCA_COMPLIANCE_RESPONSE_CUSTODY_NOT_READY");
   if (!isSha256(recordedPacketSha256)) {
     addSafeErrorCode("ZATCA_EXECUTION_PACKET_HASH_MISSING");
   } else if (!recordedPacketHashMatches || !callerPacketHashMatches) {
@@ -547,6 +608,12 @@ function buildSandboxExecutionPreflight(options = {}) {
     rollbackReady,
     cleanupReady,
     evidenceReady,
+    executionBindingImplemented,
+    executionBindingReviewed,
+    oneShotApprovalBoundaryReady,
+    officialHttpsTransportReady,
+    complianceResponseParserReady,
+    complianceResponseCustodyReady,
     requestSequenceReady,
     executionAllowed,
   };
@@ -867,6 +934,41 @@ function validateStageEvidence(value, expected) {
   );
 }
 
+function validateBindingEvidence(value, expected) {
+  if (
+    !hasExactKeys(value, BINDING_EVIDENCE_KEYS) ||
+    value.arc !== "ARC-07B-07A" ||
+    value.status !== "LOCAL_LOOPBACK_PROOF_PASSED" ||
+    !timingSafeEqual(value.contractSha256, expected.contractSha256) ||
+    !timingSafeEqual(value.packetSha256, expected.packetSha256) ||
+    !isGitSha(value.baseMainSha) ||
+    value.loopbackScenarioCount < 26 ||
+    value.acceptedCasePassed !== true ||
+    value.approvalReplayRejected !== true ||
+    value.executionBindingImplemented !== true ||
+    value.executionBindingReviewed !== true ||
+    value.oneShotApprovalBoundaryReady !== true ||
+    value.officialHttpsTransportReady !== true ||
+    value.complianceResponseParserReady !== true ||
+    value.complianceResponseCustodyReady !== true ||
+    value.syntheticDataOnly !== true ||
+    value.cleanupComplete !== true ||
+    value.externalDnsLookups !== 0 ||
+    value.externalSockets !== 0 ||
+    value.networkCallsMade !== false ||
+    value.zatcaCalls !== 0 ||
+    value.otpRead !== false ||
+    value.otpRetained !== false ||
+    value.credentialBodiesRetained !== false ||
+    value.plaintextValuesRetained !== false ||
+    value.prismaMutations !== 0 ||
+    containsUnsafeMetadata(value)
+  ) {
+    return false;
+  }
+  return true;
+}
+
 function computeCredentialInspectionSha256(value) {
   const inspected = {
     evidenceProducer: value.evidenceProducer,
@@ -1022,6 +1124,10 @@ function timingSafeEqual(actual, expected) {
 
 function isSha256(value) {
   return typeof value === "string" && /^[a-f0-9]{64}$/iu.test(value);
+}
+
+function isGitSha(value) {
+  return typeof value === "string" && /^[a-f0-9]{40}$/iu.test(value);
 }
 
 function isProductionLookingTarget(value) {

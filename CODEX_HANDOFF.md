@@ -1,5 +1,12 @@
 # LedgerByte Codex Handoff
 
+## ARC-07B-07A Simulation compliance-CSID binding (2026-07-29)
+
+- Clean implementation branch: `codex/zatca-arc-07b-07a-simulation-csid-binding`, based on merged 06H main `999d10a17116708bea8e5cb46a216be47f422bbe`.
+- Added only a dedicated local operator CLI: checksum-bound preflight, external one-shot approval consumption, hidden TTY OTP boundary, one exact Simulation HTTPS attempt, strict response parsing, and sandbox DPAPI custody rollback. Normal NestJS runtime remains disabled.
+- Local proof covers 26 required synthetic cases, including approval replay, target/proxy guards, transport uncertainty, parser failures, certificate-key mismatch, custody rollback, and a second-request rejection. It records zero external DNS/sockets, ZATCA calls, OTP reads, credentials, Prisma mutation, or hosted mutation.
+- No approval artifact, real OTP, CSID, ZATCA request, compliance document, clearance, reporting, production operation, or customer data is in scope. The next potential action requires a fresh standalone owner approval bound to the final merged hash and current packet/contract hashes.
+
 ## Complete Generated Document Object Adapter Staging Approval Artifact Intake Summary (2026-06-19)
 
 - Current branch: `feature/generated-document-object-adapter-complete-staging-approval-artifacts`, from clean `origin/main` at `e01aab5e54e37f63724c81c4763e4b7384f0be90` after PR #87 merged.

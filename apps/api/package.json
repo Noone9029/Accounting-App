@@ -35,6 +35,8 @@
     "zatca:compliance-csid-custody-plan": "tsx scripts/zatca-compliance-csid-plan.ts --mode custody",
     "zatca:sandbox-otp-input": "tsx src/zatca/custody/ephemeral-otp-cli.ts",
     "zatca:sandbox-csr-sdk-oracle": "tsx scripts/zatca-sandbox-csr-sdk-oracle.ts",
+    "zatca:prepare-simulation-onboarding-identity": "tsx scripts/zatca-prepare-simulation-onboarding-identity.ts",
+    "zatca:simulation-compliance-csid": "tsx scripts/zatca-simulation-compliance-csid.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "prisma db seed"

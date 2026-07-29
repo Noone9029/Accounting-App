@@ -1,9 +1,10 @@
 import { createServer, type Server } from "node:http";
 
 const MAX_BODY_BYTES = 8 * 1024;
+const MAX_CSID_RESPONSE_BYTES = 64 * 1024;
 const allowedRoutes = new Set(["/loopback/compliance", "/loopback/clearance", "/loopback/reporting"]);
 
-export type LoopbackScenario = "ACCEPTED" | "WARNING" | "REJECTED" | "AUTH_REJECTED" | "RATE_LIMIT" | "SERVER_ERROR" | "MALFORMED" | "WRONG_CONTENT_TYPE" | "OVERSIZED" | "TRUNCATED" | "REDIRECT" | "EMPTY" | "TIMEOUT" | "RESET_AFTER_REQUEST";
+export type LoopbackScenario = "ACCEPTED" | "WARNING" | "REJECTED" | "AUTH_REJECTED" | "RATE_LIMIT" | "SERVER_ERROR" | "MALFORMED" | "WRONG_CONTENT_TYPE" | "OVERSIZED" | "TRUNCATED" | "REDIRECT" | "EMPTY" | "TIMEOUT" | "RESET_AFTER_REQUEST" | "CSID_ISSUED" | "CSID_INVALID_OTP" | "CSID_EXPIRED_OTP" | "CSID_DUPLICATE" | "CSID_BUSINESS_REJECTED" | "CSID_DUPLICATE_JSON" | "CSID_MISSING_TOKEN" | "CSID_MISSING_SECRET" | "CSID_CERTIFICATE_KEY_MISMATCH";
 export interface LoopbackEvidence { loopbackOnly: true; externalDnsLookups: 0; externalSockets: 0; redirectsFollowed: 0; requestBodiesRetained: false; responseBodiesRetained: false; requestCount: number; }
 
 export class LoopbackZatcaSandboxServer {
@@ -38,9 +39,18 @@ export class LoopbackZatcaSandboxServer {
     if (this.scenario === "TIMEOUT") return void setTimeout(() => response.end(), 1_100);
     if (this.scenario === "REDIRECT") { response.statusCode = 302; response.setHeader("location", "http://127.0.0.1/forbidden"); return response.end(); }
     if (this.scenario === "EMPTY") { response.setHeader("content-type", "application/json"); return response.end(); }
-    if (this.scenario === "MALFORMED") return response.end("{");
+    if (this.scenario === "MALFORMED") { response.setHeader("content-type", "application/json"); return response.end("{"); }
     if (this.scenario === "WRONG_CONTENT_TYPE") { response.setHeader("content-type", "text/plain"); return response.end("safe"); }
-    if (this.scenario === "OVERSIZED") { response.setHeader("content-type", "application/json"); return response.end(JSON.stringify({ code: "X".repeat(MAX_BODY_BYTES + 1) })); }
+    if (this.scenario === "OVERSIZED") { response.setHeader("content-type", "application/json"); return response.end("X".repeat(MAX_CSID_RESPONSE_BYTES + 1)); }
+    if (this.scenario === "CSID_ISSUED") { response.statusCode = 200; response.setHeader("content-type", "application/json"); return response.end(JSON.stringify({ requestID: "synthetic-request", dispositionMessage: "ISSUED", binarySecurityToken: Buffer.from("synthetic-certificate").toString("base64"), secret: "synthetic-secret" })); }
+    if (this.scenario === "CSID_DUPLICATE_JSON") { response.statusCode = 200; response.setHeader("content-type", "application/json"); return response.end('{"requestID":"synthetic-request","requestID":"duplicate","dispositionMessage":"ISSUED","binarySecurityToken":"c3ludGhldGljLWNlcnRpZmljYXRl","secret":"synthetic-secret"}'); }
+    if (this.scenario === "CSID_MISSING_TOKEN") { response.statusCode = 200; response.setHeader("content-type", "application/json"); return response.end(JSON.stringify({ requestID: "synthetic-request", dispositionMessage: "ISSUED", secret: "synthetic-secret" })); }
+    if (this.scenario === "CSID_MISSING_SECRET") { response.statusCode = 200; response.setHeader("content-type", "application/json"); return response.end(JSON.stringify({ requestID: "synthetic-request", dispositionMessage: "ISSUED", binarySecurityToken: Buffer.from("synthetic-certificate").toString("base64") })); }
+    if (this.scenario === "CSID_CERTIFICATE_KEY_MISMATCH") { response.statusCode = 200; response.setHeader("content-type", "application/json"); return response.end(JSON.stringify({ requestID: "synthetic-request", dispositionMessage: "ISSUED", binarySecurityToken: Buffer.from("synthetic-mismatched-certificate").toString("base64"), secret: "synthetic-secret" })); }
+    if (this.scenario === "CSID_INVALID_OTP") return this.respond(response, 400, "SIMULATED_INVALID_OTP");
+    if (this.scenario === "CSID_EXPIRED_OTP") return this.respond(response, 400, "SIMULATED_EXPIRED_OTP");
+    if (this.scenario === "CSID_DUPLICATE") return this.respond(response, 409, "SIMULATED_DUPLICATE");
+    if (this.scenario === "CSID_BUSINESS_REJECTED") return this.respond(response, 422, "SIMULATED_BUSINESS_REJECTED");
     const mapped: [number, string] = this.scenario === "REJECTED" ? [422, "SIMULATED_BUSINESS_REJECTED"] : this.scenario === "AUTH_REJECTED" ? [401, "SIMULATED_AUTH_REJECTED"] : this.scenario === "RATE_LIMIT" ? [429, "SIMULATED_RATE_LIMIT"] : this.scenario === "SERVER_ERROR" ? [503, "SIMULATED_SERVER_ERROR"] : [200, this.scenario === "WARNING" ? "SIMULATED_ACCEPTED_WITH_WARNING" : "SIMULATED_ACCEPTED"];
     this.respond(response, mapped[0], mapped[1]);
   }
@@ -66,6 +76,24 @@ export class LoopbackZatcaSandboxHttpClient {
     try { parsed = JSON.parse(text) as { code?: unknown }; } catch { throw new LoopbackZatcaProtocolError("SIMULATED_PROTOCOL_MALFORMED"); }
     if (typeof parsed.code !== "string" || !/^SIMULATED_[A-Z_]+$/.test(parsed.code)) throw new LoopbackZatcaProtocolError("SIMULATED_PROTOCOL_CODE");
     return { responseCode: parsed.code, warningCodes: parsed.code === "SIMULATED_ACCEPTED_WITH_WARNING" ? ["SIMULATED_WARNING"] : [], errorCodes: response.ok ? [] : [parsed.code] };
+  }
+
+  async submitRaw(route: string, body: Buffer): Promise<{ status: number; headers: Record<string, string | undefined>; body: Buffer }> {
+    if (!allowedRoutes.has(route) || body.length > MAX_BODY_BYTES) throw new LoopbackZatcaProtocolError("SIMULATED_PROTOCOL_REQUEST");
+    let response: Response;
+    try {
+      response = await fetch(new URL(route, this.baseUrl), {
+        method: "POST",
+        headers: { "content-type": "application/json", "accept-encoding": "identity" },
+        body,
+        redirect: "manual",
+        signal: AbortSignal.timeout(1_000),
+      });
+      const responseBody = Buffer.from(await response.arrayBuffer());
+      return { status: response.status, headers: { "content-type": response.headers.get("content-type") ?? undefined, location: response.headers.get("location") ?? undefined }, body: responseBody };
+    } catch {
+      throw new LoopbackZatcaProtocolError("SIMULATED_CONNECTION_UNCERTAIN");
+    } finally { body.fill(0); }
   }
 }
 
