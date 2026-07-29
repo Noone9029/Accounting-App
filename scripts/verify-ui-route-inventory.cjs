@@ -44,8 +44,22 @@ const pageHrefs = new Set(pageFiles.map(pageHref));
 const routes = routeDefinitions();
 const missingActive = routes.filter((route) => route.capabilityStatus === "active" && !pageHrefs.has(route.href));
 const missingPlanned = routes.filter((route) => route.capabilityStatus === "planned" && !pageHrefs.has(route.href));
-const expectedPageCount = 205;
-const expectedRouteCount = 96;
+const fixedAssetPageRoutes = [
+  "/fixed-assets",
+  "/fixed-assets/:id",
+  "/fixed-assets/:id/edit",
+  "/fixed-assets/:id/schedule",
+  "/fixed-assets/categories",
+  "/fixed-assets/depreciation-runs",
+  "/fixed-assets/depreciation-runs/:id",
+  "/fixed-assets/depreciation-runs/new",
+  "/fixed-assets/new",
+  "/reports/fixed-assets",
+  "/settings/fixed-assets",
+];
+const fixedAssetCanonicalRoutes = ["/fixed-assets", "/reports/fixed-assets"];
+const expectedPageCount = 216;
+const expectedRouteCount = 98;
 const expectedPlannedCount = 4;
 
 const failures = [];
@@ -53,9 +67,14 @@ if (pageFiles.length !== expectedPageCount) failures.push(`expected ${expectedPa
 if (routes.length !== expectedRouteCount) failures.push(`expected ${expectedRouteCount} route definitions, found ${routes.length}`);
 if (routes.filter((route) => route.capabilityStatus === "planned").length !== expectedPlannedCount) failures.push(`expected ${expectedPlannedCount} planned routes`);
 if (missingActive.length) failures.push(`active routes without page modules: ${missingActive.map((route) => route.href).join(", ")}`);
+const discoveredFixedAssetPages = fixedAssetPageRoutes.filter((route) => pageHrefs.has(route));
+if (discoveredFixedAssetPages.length !== fixedAssetPageRoutes.length) failures.push(`missing registered fixed-asset page modules: ${fixedAssetPageRoutes.filter((route) => !pageHrefs.has(route)).join(", ")}`);
+const activeFixedAssetCanonicalRoutes = routes.filter((route) => fixedAssetCanonicalRoutes.includes(route.href) && route.capabilityStatus === "active").map((route) => route.href).sort();
+if (JSON.stringify(activeFixedAssetCanonicalRoutes) !== JSON.stringify([...fixedAssetCanonicalRoutes].sort())) failures.push("fixed-asset canonical route registration must include active /fixed-assets and /reports/fixed-assets routes");
 
 console.log(`UI route inventory: ${pageFiles.length} page modules, ${routes.length} canonical routes (${routes.filter((route) => route.capabilityStatus === "active").length} active, ${routes.filter((route) => route.capabilityStatus === "planned").length} planned)`);
 console.log(`Planned routes without page modules: ${missingPlanned.map((route) => route.href).join(", ") || "none"}`);
+console.log(`Fixed-assets governance: ${discoveredFixedAssetPages.length} page modules (${activeFixedAssetCanonicalRoutes.length} canonical active routes, ${discoveredFixedAssetPages.length - activeFixedAssetCanonicalRoutes.length} inventory-only modules)`);
 console.log(`Signed-in page modules: ${pageFiles.filter((file) => file.includes(`${path.sep}(app)${path.sep}`)).length}`);
 console.log(`Public/auth page modules: ${pageFiles.filter((file) => !file.includes(`${path.sep}(app)${path.sep}`)).length}`);
 

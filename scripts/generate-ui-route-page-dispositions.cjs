@@ -39,6 +39,20 @@ function routeDefinitions() {
 }
 
 const routeByHref = new Map(routeDefinitions().map((route) => [route.href, route]));
+const fixedAssetPageRoutes = [
+  "/fixed-assets",
+  "/fixed-assets/:id",
+  "/fixed-assets/:id/edit",
+  "/fixed-assets/:id/schedule",
+  "/fixed-assets/categories",
+  "/fixed-assets/depreciation-runs",
+  "/fixed-assets/depreciation-runs/:id",
+  "/fixed-assets/depreciation-runs/new",
+  "/fixed-assets/new",
+  "/reports/fixed-assets",
+  "/settings/fixed-assets",
+];
+const fixedAssetCanonicalRoutes = ["/fixed-assets", "/reports/fixed-assets"];
 
 const pages = walk(appRoot)
   .filter((file) => file.endsWith(`${path.sep}page.tsx`))
@@ -71,10 +85,21 @@ const pages = walk(appRoot)
   })
   .sort((left, right) => left.pageModule.localeCompare(right.pageModule));
 
+const pagesByRoute = new Map(pages.map((page) => [page.route, page]));
+const missingFixedAssetPages = fixedAssetPageRoutes.filter((route) => !pagesByRoute.has(route));
+if (missingFixedAssetPages.length) throw new Error(`Missing fixed-asset page modules: ${missingFixedAssetPages.join(", ")}`);
+const missingFixedAssetCanonicalRoutes = fixedAssetCanonicalRoutes.filter((route) => routeByHref.get(route)?.capabilityStatus !== "active");
+if (missingFixedAssetCanonicalRoutes.length) throw new Error(`Missing active fixed-asset canonical route registrations: ${missingFixedAssetCanonicalRoutes.join(", ")}`);
+
 const payload = {
   generatedFrom: "apps/web/src/app/**/page.tsx",
   generatedAt: "stable-inventory",
   contract: "Each page row records coverage status and only claims role, viewport, locale, state, classification, disposition, and evidence for canonical active routes that are actually exercised; inventory-only modules are explicitly marked as requiring route-specific proof.",
+  fixedAssetRouteGovernance: {
+    contract: "The fixed-assets MVP contains eleven intentional page modules. Only the register and reports landing routes are canonical active-route matrix targets; the remaining operational modules stay inventory-only until route-specific proof is added.",
+    canonicalActiveRoutes: fixedAssetCanonicalRoutes,
+    inventoryOnlyRoutes: fixedAssetPageRoutes.filter((route) => !fixedAssetCanonicalRoutes.includes(route)),
+  },
   pages,
 };
 
