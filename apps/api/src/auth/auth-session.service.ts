@@ -27,6 +27,12 @@ export type TokenSessionInput = {
   jti: string;
 };
 
+export type RevokeUserSessionsInput = {
+  userId: string;
+  reason: string;
+  revokedAt?: Date;
+};
+
 @Injectable()
 export class AuthSessionService {
   constructor(
@@ -88,6 +94,18 @@ export class AuthSessionService {
     });
 
     return { revoked: true };
+  }
+
+  async revokeAllForUser(input: RevokeUserSessionsInput, client: Pick<PrismaService, "authSession"> = this.prisma): Promise<{ revokedCount: number }> {
+    const result = await client.authSession.updateMany({
+      where: { userId: input.userId, revokedAt: null },
+      data: {
+        revokedAt: input.revokedAt ?? new Date(),
+        revokedReason: input.reason,
+      },
+    });
+
+    return { revokedCount: result.count };
   }
 
   private hashJti(jti: string): string {

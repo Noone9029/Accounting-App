@@ -40,6 +40,7 @@ describe("AuthService invite and password reset flows", () => {
     const authSessionService = {
       createForJwt: jest.fn().mockResolvedValue({ jti: "jti-1", expiresAt: new Date("2026-07-11T12:00:00.000Z") }),
       revokeSession: jest.fn().mockResolvedValue({ revoked: true }),
+      revokeAllForUser: jest.fn().mockResolvedValue({ revokedCount: 1 }),
     };
     return {
       service: new AuthService(
@@ -176,14 +177,15 @@ describe("AuthService invite and password reset flows", () => {
     expect(emailService.sendPasswordReset).not.toHaveBeenCalled();
   });
 
-  it("confirms password reset and consumes token", async () => {
-    const { service, prisma, authTokenService, auditLogService } = makeService();
+  it("confirms password reset, revokes existing sessions, and consumes token atomically", async () => {
+    const { service, prisma, authTokenService, auditLogService, authSessionService } = makeService();
     authTokenService.getTokenForUse.mockResolvedValue({ id: "token-1", userId: "user-1", organizationId: "org-1" });
 
     await expect(service.confirmPasswordReset({ token: "raw-token", password: "NewPassword123!" })).resolves.toEqual({ message: "Password has been reset." });
     expect(prisma.user.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "user-1" } }));
     const passwordHash = prisma.user.update.mock.calls[0][0].data.passwordHash;
     await expect(bcrypt.compare("NewPassword123!", passwordHash)).resolves.toBe(true);
+    expect(authSessionService.revokeAllForUser).toHaveBeenCalledWith({ userId: "user-1", reason: "password-reset" }, prisma);
     expect(authTokenService.consume).toHaveBeenCalledWith("token-1", prisma);
     expect(auditLogService.log).toHaveBeenCalledWith(expect.objectContaining({ action: "AUTH_PASSWORD_RESET_COMPLETED", entityType: "User" }));
   });

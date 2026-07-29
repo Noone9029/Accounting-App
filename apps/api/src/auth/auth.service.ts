@@ -283,6 +283,13 @@ export class AuthService {
         where: { id: token.userId! },
         data: { passwordHash },
       });
+      await this.authSessionService.revokeAllForUser(
+        {
+          userId: token.userId!,
+          reason: "password-reset",
+        },
+        tx,
+      );
       await this.authTokenService.consume(token.id, tx);
     });
 

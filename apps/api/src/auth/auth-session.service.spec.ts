@@ -55,6 +55,13 @@ function makePrisma() {
       Object.assign(session, data, { updatedAt: new Date() });
       return Promise.resolve(session);
     }),
+    updateMany: jest.fn(({ where, data }) => {
+      const matches = sessions.filter((session) => session.userId === where.userId && session.revokedAt === where.revokedAt);
+      for (const session of matches) {
+        Object.assign(session, data, { updatedAt: new Date() });
+      }
+      return Promise.resolve({ count: matches.length });
+    }),
   };
 
   return { prisma: { authSession }, sessions };
@@ -124,5 +131,19 @@ describe("AuthSessionService", () => {
       revokedAt: new Date("2026-07-04T12:00:00.000Z"),
       revokedReason: "logout",
     });
+  });
+
+  it("invalidates an existing seven-day session after a password reset", async () => {
+    const { prisma, sessions } = makePrisma();
+    const service = new AuthSessionService(prisma as never, config());
+    const sevenDaySession = await service.createForJwt({
+      userId: "user-1",
+      expiresAt: new Date("2026-07-11T12:00:00.000Z"),
+    });
+
+    await expect(service.assertActiveSession({ userId: "user-1", jti: sevenDaySession.jti })).resolves.toMatchObject({ id: "session-1" });
+    await expect(service.revokeAllForUser({ userId: "user-1", reason: "password-reset" })).resolves.toEqual({ revokedCount: 1 });
+    await expect(service.assertActiveSession({ userId: "user-1", jti: sevenDaySession.jti })).rejects.toThrow(UnauthorizedException);
+    expect(sessions[0]).toMatchObject({ revokedReason: "password-reset" });
   });
 });
