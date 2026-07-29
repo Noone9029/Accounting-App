@@ -2,6 +2,8 @@
 
 Status: **READY FOR FRESH ONE-SHOT OWNER APPROVAL / NO EXECUTION**
 
+Implementation commit: `e532712ebdc6e17d9be2265deda5c7c17a031e9e`
+
 This change adds one local operator boundary for a future, synthetic-only FATOORA Simulation compliance-CSID onboarding request. It is not a ZATCA onboarding result and cannot be reached through the NestJS runtime, a customer API, Prisma, or the deprecated sandbox adapter.
 
 ## Bound sequence
