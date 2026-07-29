@@ -2,7 +2,7 @@
   "arc": "ARC-07B-06G",
   "status": "NO_SANDBOX_CREDENTIALS_OR_COMPLIANCE_DOCUMENTS",
   "contractSha256": "bf564b600700f783515b9e4af46a31f428e27a5e6b8bdae5cf07156ed77e6950",
-  "packetSha256": "7edaf1dd7852d5e9731d08cbaeb05ed8552992152c34fe95fe0dbb008042da9e",
+  "packetSha256": "a27180c0eb3333f1f0039b49caee6d0e29b79ff7bf9848d69aaa49351cc5c124",
   "evidenceProducer": "LEDGERBYTE_NO_CREDENTIALS_ASSERTION_V1",
   "credentialInspectionPerformed": false,
   "credentialInspectionSha256": null,

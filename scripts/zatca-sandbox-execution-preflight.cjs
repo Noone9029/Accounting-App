@@ -155,17 +155,23 @@ const SDK_CSR_EVIDENCE_KEYS = Object.freeze([
   "custodyPublicKeyMatchesCsr",
   "disposableCustodyMetadataEmpty",
   "jdkVersion",
+  "jdkRuntimeChecksumsVerified",
   "launcherWorkspaceRemoved",
   "networkCallsMade",
+  "networkGuardMarkersPresent",
+  "networkIsolationVerified",
   "noNetworkArgumentVerified",
   "officialSdkTier2Executed",
   "otpUsed",
+  "plaintextKeyRemovedBeforeCustodyVerification",
   "plaintextKeyFileRemoved",
   "privateKeyMatchesCsr",
   "productionExecution",
   "rawOutputRemoved",
   "requestedExtensionsVerified",
   "sdkChecksumMatch",
+  "sdkConfigChecksumMatch",
+  "sdkConfigFileRemoved",
   "sdkJarSha256",
   "sdkVersion",
   "sensitiveBodiesReturned",
@@ -662,6 +668,10 @@ function validateSdkCsrEvidence(value) {
     value.sdkVersion === OFFICIAL_SDK_VERSION &&
     value.sdkJarSha256 === OFFICIAL_SDK_JAR_SHA256 &&
     value.sdkChecksumMatch === true &&
+    value.sdkConfigChecksumMatch === true &&
+    value.jdkRuntimeChecksumsVerified === true &&
+    value.networkGuardMarkersPresent === true &&
+    value.networkIsolationVerified === true &&
     value.simulationFlagVerified === true &&
     value.noNetworkArgumentVerified === true &&
     value.argumentAllowlistVerified === true &&
@@ -676,9 +686,11 @@ function validateSdkCsrEvidence(value) {
     value.csrTemplateVerified === true &&
     value.privateKeyMatchesCsr === true &&
     value.custodyPublicKeyMatchesCsr === true &&
+    value.plaintextKeyRemovedBeforeCustodyVerification === true &&
     value.plaintextKeyFileRemoved === true &&
     value.csrFileRemoved === true &&
     value.configFileRemoved === true &&
+    value.sdkConfigFileRemoved === true &&
     value.launcherWorkspaceRemoved === true &&
     value.rawOutputRemoved === true &&
     value.disposableCustodyMetadataEmpty === true &&
