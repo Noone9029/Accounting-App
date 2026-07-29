@@ -1103,6 +1103,31 @@ async function makeRuntimeHarness(
     ZATCA_OTP: "must-not-leak",
     HTTPS_PROXY: "must-not-leak",
   };
+  const testSystemRoot = join(externalRoot, "test-windows");
+  const runtimePathInspector = jest.fn(async () => ({
+    javaHome,
+    javaBin,
+    sdkRoot: sdkRootForEnvironment,
+    sdkJarPath: sdkJar,
+    sdkConfigPath: join(sdkConfigDirectory, "config.json"),
+    systemRoot: testSystemRoot,
+    windowsDirectory: testSystemRoot,
+    comSpec: join(testSystemRoot, "System32", "cmd.exe"),
+    icacls: join(testSystemRoot, "System32", "icacls.exe"),
+    powershell: join(
+      testSystemRoot,
+      "System32",
+      "WindowsPowerShell",
+      "v1.0",
+      "powershell.exe",
+    ),
+    whoami: join(testSystemRoot, "System32", "whoami.exe"),
+    taskkill: join(testSystemRoot, "System32", "taskkill.exe"),
+    jdkComponentPaths: PINNED_SYNTHETIC_JDK_COMPONENTS.map((component) =>
+      join(javaHome, component.relativePath),
+    ),
+    pathExt: ".COM;.EXE;.BAT;.CMD",
+  }));
 
   return {
     externalRoot,
@@ -1118,6 +1143,7 @@ async function makeRuntimeHarness(
     externalKeyLink,
     externalUnexpectedSource,
     fakeSystemRoot,
+    runtimePathInspector,
     aclInvocations,
     whoamiInvocations,
     leaseInvocations,
@@ -1138,6 +1164,10 @@ async function makeRuntimeHarness(
         environment,
         currentWorkingDirectory: process.cwd(),
         temporaryRoot: externalRoot,
+        runtimePathInspector:
+          options.sdkRootViaJunction || options.fakeSystemRoot
+            ? undefined
+            : runtimePathInspector,
         spawnProcess,
         hashFile,
         fingerprintFile,
@@ -1183,12 +1213,36 @@ describe("sandbox SDK CSR concrete runtime", () => {
     expect(custodyProviderFactory).not.toHaveBeenCalled();
   });
 
+  it("fails closed on an unmocked unsupported runtime before Windows inspection or execution", async () => {
+    const spawnProcess = jest.fn() as unknown as SandboxSdkCsrRuntimeSpawn;
+    const result = await executeSandboxSdkCsrOracleRuntime(cliOptions, {
+      environment: {
+        [OFFICIAL_ZATCA_SDK_CSR_ORACLE_GATE]: "true",
+        APP_ENV: "LOCAL",
+        JAVA_HOME: "C:\\missing-jdk",
+        ZATCA_SDK_JAVA_BIN: "C:\\missing-jdk\\bin\\java.exe",
+        ZATCA_SDK_ROOT: "C:\\missing-sdk",
+        SystemRoot: "C:\\Windows",
+        WINDIR: "C:\\Windows",
+      },
+      currentWorkingDirectory: process.cwd(),
+      spawnProcess,
+    });
+
+    expect(result.status).toBe("FAILED");
+    expect(result.safeErrorCodes).toEqual([
+      "ZATCA_SDK_CSR_ORACLE_RUNTIME_INSPECTION_FAILED",
+    ]);
+    expect(spawnProcess).not.toHaveBeenCalled();
+  });
+
   it("discovers pinned external inputs, uses the no-network source launcher with exact SDK flags and a scrubbed environment, and cleans all temporary state", async () => {
     const harness = await makeRuntimeHarness();
     try {
       const result = await harness.execute();
 
       expect(result.status).toBe("PASSED");
+      expect(harness.runtimePathInspector).toHaveBeenCalledTimes(1);
       expect(harness.guardSelfTests).toHaveLength(1);
       expect(harness.sdkRequests).toHaveLength(1);
       const request = harness.sdkRequests[0]!;
@@ -1232,6 +1286,9 @@ describe("sandbox SDK CSR concrete runtime", () => {
       );
       expect(JSON.stringify(childEnvironment)).not.toMatch(
         /must-not-leak|DATABASE_URL|ZATCA_OTP|HTTPS_PROXY/u,
+      );
+      expect(JSON.stringify(childEnvironment)).not.toContain(
+        "C:\\Windows",
       );
       expect(harness.hashFile).toHaveBeenCalled();
       expect(

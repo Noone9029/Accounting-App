@@ -8,6 +8,7 @@ import {
   OFFICIAL_SDK_NO_NETWORK_LAUNCHER_SOURCE,
   OFFICIAL_ZATCA_SDK_VERSION,
   OFFICIAL_SYNTHETIC_CSR_CONFIGURATION,
+  buildSandboxSdkCsrProcessRequest,
   runSandboxSdkCsrOracle,
   type SandboxSdkCsrOracleDependencies,
   type SandboxSdkCsrOracleInput,
@@ -139,6 +140,18 @@ function allDependencyMocks(
 }
 
 describe("sandbox official-SDK CSR oracle core", () => {
+  it("uses Windows Java directory and separator semantics for the Windows Tier-2 target", () => {
+    const request = buildSandboxSdkCsrProcessRequest(
+      oracleInput(),
+      "C:\\safe-temp\\oracle",
+    );
+
+    expect(request.environment.PATH).toBe("C:\\jdk11\\bin");
+    expect(request.environment.PATH).not.toBe(".");
+    expect(request.environment.PATHEXT).toBe(".COM;.EXE;.BAT;.CMD");
+    expect(request.environment.PATHEXT).not.toContain(":");
+  });
+
   it("confines SDK file writes and deletes to the disposable workspace and self-tests the boundary", () => {
       expect(OFFICIAL_SDK_NO_NETWORK_LAUNCHER_SOURCE).toContain(
         "import java.io.FilePermission;",

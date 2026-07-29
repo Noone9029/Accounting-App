@@ -494,6 +494,10 @@ interface SandboxSdkCsrRuntimeDependencies {
   environment?: Readonly<Record<string, string | undefined>>;
   currentWorkingDirectory?: string;
   temporaryRoot?: string;
+  runtimePathInspector?: (
+    environment: Readonly<Record<string, string | undefined>>,
+    spawnProcess: SandboxSdkCsrRuntimeSpawn,
+  ) => Promise<ResolvedRuntimePathInspection>;
   spawnProcess?: SandboxSdkCsrRuntimeSpawn;
   hashFile?: (path: string) => Promise<string>;
   fingerprintFile?: (
@@ -527,6 +531,13 @@ interface ResolvedRuntimePaths {
   pathExt: string;
   userSid: string;
 }
+
+type ResolvedRuntimePathInspection = Omit<
+  ResolvedRuntimePaths,
+  "userSid"
+> & {
+  userSid?: string;
+};
 
 interface FileCleanupExpectation {
   byteLength: number;
@@ -569,7 +580,21 @@ export async function executeSandboxSdkCsrOracleRuntime(
   const spawnProcess = injected.spawnProcess ?? defaultSpawn;
   let paths: ResolvedRuntimePaths;
   try {
-    paths = await resolveRuntimePaths(environment, spawnProcess);
+    if (environment.APP_ENV?.trim().toUpperCase() !== "LOCAL") {
+      throw new Error("ZATCA SDK CSR runtime environment rejected.");
+    }
+    const resolvedPaths = await (
+      injected.runtimePathInspector ?? resolveRuntimePaths
+    )(
+      environment,
+      spawnProcess,
+    );
+    paths = {
+      ...resolvedPaths,
+      userSid:
+        resolvedPaths.userSid ??
+        (await inspectCurrentUserSid(resolvedPaths, spawnProcess)),
+    };
   } catch (error) {
     return safeRuntimeFailure(
       "ZATCA_SDK_CSR_ORACLE_RUNTIME_INSPECTION_FAILED",

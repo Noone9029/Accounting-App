@@ -1,4 +1,4 @@
-import { dirname, join } from "node:path";
+import { join, win32 } from "node:path";
 
 export const OFFICIAL_ZATCA_SDK_CSR_ORACLE_GATE =
   "ZATCA_SDK_CSR_EXECUTION_ENABLED";
@@ -528,7 +528,7 @@ export function buildSandboxSdkCsrProcessRequest(
     environment: {
       ComSpec: input.paths.comSpec,
       JAVA_HOME: input.paths.javaHome,
-      PATH: dirname(input.paths.javaBin),
+      PATH: win32.dirname(input.paths.javaBin),
       PATHEXT: input.paths.pathExt,
       SDK_CONFIG: join(workspace, STAGED_SDK_CONFIG_FILE_NAME),
       SystemRoot: input.paths.systemRoot,
