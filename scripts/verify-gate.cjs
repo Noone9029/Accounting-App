@@ -49,9 +49,12 @@ const API_SCOPED_ALLOWED_PATHS = [/^apps\/api\/.+/i];
 const WEB_SCOPED_ALLOWED_PATHS = [/^apps\/web\/.+/i];
 const PACKAGE_TEST_ONLY_ALLOWED_PATHS = [/^packages\/[A-Za-z0-9._-]+\/test\/.+/i];
 const CI_GATE_SCOPED_ALLOWED_PATHS = [
-  /^\.github\/workflows\/pr-verification\.yml$/i,
+  /^\.github\/workflows\/(?:pr-verification|main-verification|scheduled-verification)\.yml$/i,
   /^scripts\/verify-gate(?:\.test)?\.cjs$/i,
+  /^scripts\/run-bounded-node-tests\.cjs$/i,
   /^scripts\/run-web-jest-by-paths\.cjs$/i,
+  /^package\.json$/i,
+  /^packages\/(?:uae-peppol-pint-ae|zatca-core)\/package\.json$/i,
 ];
 
 const command = (bin, args = []) => ({ bin, args });
@@ -85,22 +88,21 @@ const GATES = {
     description: "Credential and user-testing cleanup-plan guard checks.",
     commands: [
       command("git", ["diff", "--check"]),
-      command("node", ["--test", "scripts/test-credential-env.test.cjs"]),
+      command("node", ["scripts/run-bounded-node-tests.cjs", "scripts/test-credential-env.test.cjs"]),
       command("corepack", ["pnpm", "test:user-testing-cleanup-plan"]),
     ],
   },
   "verify:repo": {
-    description: "Slower whole-repo local candidate gate.",
+    description: "Bounded whole-repo local candidate gate; builds are excluded because they cannot be reliably worker-constrained.",
     commands: [
       command("git", ["diff", "--check"]),
       command("corepack", ["pnpm", "typecheck"]),
       command("corepack", ["pnpm", "test"]),
-      command("corepack", ["pnpm", "build"]),
       command("git", ["diff", "--cached", "--check"]),
     ],
   },
   "verify:ci:local": {
-    description: "Local mirror of the proposed non-destructive CI gate.",
+    description: "Bounded local mirror of the non-destructive CI gate; builds are excluded because they cannot be reliably worker-constrained.",
     buildCommands: (_extraArgs, options = {}) => {
       const changedFiles = Array.isArray(options.changedFiles) ? options.changedFiles : detectChangedFilesForCiScope(options.cwd);
       if (isDocsStaticGuardPackageOnlyChange(changedFiles)) {
@@ -120,11 +122,21 @@ const GATES = {
         command("corepack", ["pnpm", "db:generate"]),
         command("corepack", ["pnpm", "typecheck"]),
         command("corepack", ["pnpm", "test"]),
-        command("corepack", ["pnpm", "build"]),
-        command("node", ["--test", "scripts/test-credential-env.test.cjs"]),
+        command("node", ["scripts/run-bounded-node-tests.cjs", "scripts/test-credential-env.test.cjs"]),
         command("corepack", ["pnpm", "test:user-testing-cleanup-plan"]),
       ];
     },
+  },
+  "verify:ci:full": {
+    description: "Bounded, non-mutating full verification for post-merge and scheduled main checks; builds are excluded because they cannot be reliably worker-constrained.",
+    commands: [
+      command("git", ["diff", "--check"]),
+      command("corepack", ["pnpm", "db:generate"]),
+      command("corepack", ["pnpm", "typecheck"]),
+      command("corepack", ["pnpm", "test"]),
+      command("node", ["scripts/run-bounded-node-tests.cjs", "scripts/test-credential-env.test.cjs"]),
+      command("corepack", ["pnpm", "test:user-testing-cleanup-plan"]),
+    ],
   },
 };
 
@@ -256,7 +268,7 @@ function buildDocsStaticGuardCiCommands(changedFiles) {
   const changedSet = new Set(changedFiles.map((file) => file.replace(/\\/g, "/")));
 
   if (changedSet.has("scripts/verify-gate.cjs") || changedSet.has("scripts/verify-gate.test.cjs")) {
-    commands.push(command("node", ["--test", "scripts/verify-gate.test.cjs"]));
+    commands.push(command("node", ["scripts/run-bounded-node-tests.cjs", "scripts/verify-gate.test.cjs"]));
   }
 
   const approvalGateTests = new Set();
@@ -275,7 +287,7 @@ function buildDocsStaticGuardCiCommands(changedFiles) {
   }
 
   for (const testPath of [...approvalGateTests].sort()) {
-    commands.push(command("node", ["--test", testPath]));
+    commands.push(command("node", ["scripts/run-bounded-node-tests.cjs", testPath]));
   }
 
   if (changedSet.has("package.json")) {
@@ -299,7 +311,7 @@ function buildApiDocsAndCiScopedCommands(changedFiles) {
   const changedPackageTestWorkspaces = getChangedPackageTestWorkspaces(changedFiles);
 
   if (hasCiGateChanges) {
-    commands.push(command("node", ["--test", "scripts/verify-gate.test.cjs"]));
+    commands.push(command("node", ["scripts/run-bounded-node-tests.cjs", "scripts/verify-gate.test.cjs"]));
   }
 
   for (const workspace of changedPackageTestWorkspaces) {
@@ -314,7 +326,6 @@ function buildApiDocsAndCiScopedCommands(changedFiles) {
         ? buildScopedApiJestCommand(changedApiTestPaths)
         : command("corepack", ["pnpm", "--filter", "@ledgerbyte/api", "test"]),
     );
-    commands.push(command("corepack", ["pnpm", "--filter", "@ledgerbyte/api", "build"]));
   }
 
   return commands;
@@ -328,7 +339,7 @@ function buildWebDocsAndCiScopedCommands(changedFiles) {
   const changedWebTestPaths = getChangedWebTestPaths(changedFiles);
 
   if (hasCiGateChanges) {
-    commands.push(command("node", ["--test", "scripts/verify-gate.test.cjs"]));
+    commands.push(command("node", ["scripts/run-bounded-node-tests.cjs", "scripts/verify-gate.test.cjs"]));
   }
 
   if (hasWebChanges) {
@@ -338,7 +349,6 @@ function buildWebDocsAndCiScopedCommands(changedFiles) {
         ? buildScopedWebJestCommand(changedWebTestPaths)
         : command("corepack", ["pnpm", "--filter", "@ledgerbyte/web", "test"]),
     );
-    commands.push(command("corepack", ["pnpm", "--filter", "@ledgerbyte/web", "build"]));
   }
 
   return commands;

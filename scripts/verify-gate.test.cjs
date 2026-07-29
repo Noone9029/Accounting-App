@@ -51,14 +51,14 @@ test("verify:local:api omits targeted tests when no extra args are passed", () =
   assertSafePlan(plan);
 });
 
-test("repo and CI local gates stay inside non-destructive verification commands", () => {
-  for (const gateName of ["verify:repo", "verify:ci:local"]) {
+test("repo and CI gates stay inside bounded non-destructive verification commands", () => {
+  for (const gateName of ["verify:repo", "verify:ci:local", "verify:ci:full"]) {
     const plan =
       gateName === "verify:ci:local"
         ? buildGatePlan(gateName, [], { changedFiles: ["apps/web/src/app/(app)/purchases/ap-dashboard/page.tsx"] })
         : buildGatePlan(gateName);
 
-    assert.ok(plan.commands.length >= 4, `${gateName} should have a substantive command plan`);
+    assert.ok(plan.commands.length >= (gateName === "verify:ci:local" ? 3 : 4), `${gateName} should have a substantive command plan`);
     assertSafePlan(plan);
   }
 });
@@ -94,7 +94,7 @@ test("CI local gate narrows to static-guard verification for docs/static-guard/p
 
   assert.deepEqual(commands, [
     "git diff --check",
-    "node --test scripts/zatca-sandbox-csid-storage-approval-gate.test.cjs",
+    "node scripts/run-bounded-node-tests.cjs scripts/zatca-sandbox-csid-storage-approval-gate.test.cjs",
     `node -e ${JSON.stringify("JSON.parse(require('fs').readFileSync('package.json','utf8')); console.log('package.json parse ok')")}`,
   ]);
   assert.ok(!commands.includes("corepack pnpm test"));
@@ -103,7 +103,7 @@ test("CI local gate narrows to static-guard verification for docs/static-guard/p
   assertSafePlan(buildGatePlan("verify:ci:local", [], { changedFiles }));
 });
 
-test("CI local gate keeps broader repo verification when changes leave the docs/static-guard lane", () => {
+test("CI local gate keeps broader bounded verification when changes leave the docs/static-guard lane", () => {
   const changedFiles = ["packages/zatca-core/src/xml.ts"];
 
   assert.equal(isDocsStaticGuardPackageOnlyChange(changedFiles), false);
@@ -111,7 +111,7 @@ test("CI local gate keeps broader repo verification when changes leave the docs/
 
   const commands = buildGatePlan("verify:ci:local", [], { changedFiles }).commands.map(formatCommand);
   assert.ok(commands.includes("corepack pnpm test"));
-  assert.ok(commands.includes("corepack pnpm build"));
+  assert.ok(!commands.includes("corepack pnpm build"));
   assert.ok(commands.includes("corepack pnpm typecheck"));
 });
 
@@ -136,7 +136,7 @@ test("CI local gate narrows web-and-docs route hardening diffs to web verificati
   ]);
   assert.match(commands[2], /^node scripts\/run-web-jest-by-paths\.cjs /);
   assert.match(commands[2], /src\/app\/\(app\)\/contacts\/page\.test\.tsx/);
-  assert.equal(commands[3], "corepack pnpm --filter @ledgerbyte/web build");
+  assert.equal(commands.length, 3);
 });
 
 test("CI local gate narrows api/docs/test-only support diffs to api verification", () => {
@@ -162,7 +162,6 @@ test("CI local gate narrows api/docs/test-only support diffs to api verification
     "corepack pnpm db:generate",
     "corepack pnpm --filter @ledgerbyte/api typecheck",
     "corepack pnpm --filter @ledgerbyte/api test -- --runTestsByPath src/bank-statements/bank-statement-import-parser.spec.ts src/bank-statements/bank-statement-match-suggestions.spec.ts",
-    "corepack pnpm --filter @ledgerbyte/api build",
   ]);
   assert.deepEqual(getChangedPackageTestWorkspaces(changedFiles), ["@ledgerbyte/zatca-core"]);
 });
@@ -183,12 +182,12 @@ test("CI local gate adds verify-gate tests when scoped CI files change with web 
 
   assert.deepEqual(commands.slice(0, 3), [
     "git diff --check",
-    "node --test scripts/verify-gate.test.cjs",
+    "node scripts/run-bounded-node-tests.cjs scripts/verify-gate.test.cjs",
     "corepack pnpm --filter @ledgerbyte/web typecheck",
   ]);
   assert.match(commands[3], /^node scripts\/run-web-jest-by-paths\.cjs /);
   assert.match(commands[3], /src\/app\/\(app\)\/documents\/page\.test\.tsx/);
-  assert.equal(commands[4], "corepack pnpm --filter @ledgerbyte/web build");
+  assert.equal(commands.length, 4);
 });
 
 test("CI local gate keeps docs-only changes lightweight in the scoped route", () => {
@@ -247,5 +246,6 @@ test("all public gates are documented in the registry", () => {
     "verify:local:guards",
     "verify:repo",
     "verify:ci:local",
+    "verify:ci:full",
   ]);
 });

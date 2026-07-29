@@ -8,7 +8,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "tsx --test test/*.test.ts",
+    "test": "node ../../scripts/run-bounded-node-tests.cjs test/*.test.ts",
     "lint": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {
