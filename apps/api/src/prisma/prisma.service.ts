@@ -54,7 +54,8 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
   }
 
   async onModuleInit(): Promise<void> {
-    await this.$connect();
+    // Prisma connects lazily on the first database operation. Do not make a
+    // database outage prevent Nest from bootstrapping its liveness endpoints.
   }
 
   async onModuleDestroy(): Promise<void> {

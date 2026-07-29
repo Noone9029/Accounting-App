@@ -1,4 +1,4 @@
-import { databaseUrlForPrismaRuntime } from "./prisma.service";
+import { PrismaService, databaseUrlForPrismaRuntime } from "./prisma.service";
 
 describe("databaseUrlForPrismaRuntime", () => {
   it("uses the Supabase transaction pooler for Vercel runtime traffic", () => {
@@ -59,5 +59,27 @@ describe("databaseUrlForPrismaRuntime", () => {
         PRISMA_CONNECTION_LIMIT: "1",
       }),
     ).toBe("not a url");
+  });
+});
+
+describe("PrismaService bootstrap", () => {
+  it("does not establish a database connection during Nest initialization", async () => {
+    const originalEnv = process.env;
+    process.env = {
+      ...originalEnv,
+      DATABASE_URL: "postgresql://postgres:secret@127.0.0.1:1/ledgerbyte",
+      PRISMA_CONNECTION_LIMIT: "1",
+    };
+    const connect = jest.spyOn(PrismaService.prototype, "$connect");
+    const service = new PrismaService();
+
+    try {
+      await expect(service.onModuleInit()).resolves.toBeUndefined();
+      expect(connect).not.toHaveBeenCalled();
+    } finally {
+      await service.$disconnect();
+      connect.mockRestore();
+      process.env = originalEnv;
+    }
   });
 });
