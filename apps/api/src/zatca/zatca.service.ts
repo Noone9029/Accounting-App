@@ -3,7 +3,7 @@ import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } fro
 import { accessSync, constants, copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
-import { BadRequestException, Inject, Injectable, NotFoundException, NotImplementedException, Optional } from "@nestjs/common";
+import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException, NotImplementedException, Optional } from "@nestjs/common";
 import { createHash } from "node:crypto";
 import {
   combineZatcaReadinessStatus,
@@ -109,6 +109,42 @@ const zatcaMetadataInclude = {
   egsUnit: { select: { id: true, name: true, environment: true, isActive: true, lastIcv: true, hashMode: true } },
   submissionLogs: { orderBy: { createdAt: "desc" as const }, take: 5 },
 };
+
+type ZatcaGenerationState = {
+  generatedAt?: Date | null;
+  xmlBase64?: string | null;
+  xmlHash?: string | null;
+  invoiceHash?: string | null;
+  icv?: number | null;
+  previousInvoiceHash?: string | null;
+  egsUnitId?: string | null;
+};
+
+const hasCompleteGeneratedInvoiceState = (metadata: ZatcaGenerationState): boolean =>
+  Boolean(
+    metadata.generatedAt &&
+      metadata.xmlBase64 &&
+      metadata.xmlHash &&
+      metadata.invoiceHash &&
+      metadata.icv !== null &&
+      metadata.icv !== undefined &&
+      metadata.previousInvoiceHash &&
+      metadata.egsUnitId,
+  );
+
+const hasAnyGeneratedInvoiceState = (metadata: ZatcaGenerationState): boolean =>
+  [
+    metadata.generatedAt,
+    metadata.xmlBase64,
+    metadata.xmlHash,
+    metadata.invoiceHash,
+    metadata.icv,
+    metadata.previousInvoiceHash,
+    metadata.egsUnitId,
+  ].some((value) => value !== null && value !== undefined);
+
+const isRetryableZatcaGenerationConflict = (error: unknown): boolean =>
+  typeof error === "object" && error !== null && "code" in error && ["P2002", "P2034"].includes(String(error.code));
 
 const safeEgsUnitSelect = {
   id: true,
@@ -4619,7 +4655,9 @@ export class ZatcaService {
   }
 
   async generateInvoiceCompliance(organizationId: string, actorUserId: string, invoiceId: string) {
-    const result = await this.prisma.$transaction(async (tx) => {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        const result = await this.prisma.$transaction(async (tx) => {
       const invoice = await tx.salesInvoice.findFirst({
         where: { id: invoiceId, organizationId },
         include: {
@@ -4666,16 +4704,15 @@ export class ZatcaService {
         },
       });
 
-      if (
-        metadata.xmlBase64 &&
-        metadata.qrCodeBase64 &&
-        metadata.invoiceHash &&
-        metadata.generatedAt
-      ) {
+      if (hasCompleteGeneratedInvoiceState(metadata)) {
         return tx.zatcaInvoiceMetadata.findUniqueOrThrow({
           where: { id: metadata.id },
           include: zatcaMetadataInclude,
         });
+      }
+
+      if (hasAnyGeneratedInvoiceState(metadata)) {
+        throw new ConflictException("ZATCA invoice generation is incomplete and requires manual review before it can be retried.");
       }
 
       const activeEgs = await tx.zatcaEgsUnit.findFirst({
@@ -4738,10 +4775,16 @@ export class ZatcaService {
       });
 
       return updatedMetadata;
-    });
+        }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
-    await this.auditLogService.log({ organizationId, actorUserId, action: "GENERATE", entityType: "ZatcaInvoiceMetadata", entityId: result.id, after: result });
-    return result;
+        await this.auditLogService.log({ organizationId, actorUserId, action: "GENERATE", entityType: "ZatcaInvoiceMetadata", entityId: result.id, after: result });
+        return result;
+      } catch (error) {
+        if (!isRetryableZatcaGenerationConflict(error) || attempt === 2) throw error;
+      }
+    }
+
+    throw new ConflictException("ZATCA invoice generation could not reserve a chain position. Retry the request.");
   }
 
   async submitInvoiceComplianceCheck(organizationId: string, actorUserId: string, invoiceId: string) {

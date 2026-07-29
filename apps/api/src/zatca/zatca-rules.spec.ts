@@ -5,6 +5,7 @@ import { BadRequestException, NotFoundException, NotImplementedException } from 
 import { plainToInstance } from "class-transformer";
 import { validate } from "class-validator";
 import {
+  Prisma,
   ZatcaCsrConfigReviewStatus,
   ZatcaInvoiceStatus,
   ZatcaInvoiceType,
@@ -406,6 +407,7 @@ describe("ZATCA service rules", () => {
     expect(tx.zatcaEgsUnit.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ lastIcv: 5, lastInvoiceHash: "official-sdk-hash" }) }));
     expect(tx.zatcaSubmissionLog.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ requestUrl: "local-generation-only" }) }));
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "GENERATE", entityType: "ZatcaInvoiceMetadata" }));
+    expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   });
 
   it("fails closed instead of persisting a raw XML digest as invoiceHash", async () => {
@@ -512,8 +514,8 @@ describe("ZATCA service rules", () => {
     expect(tx.zatcaSubmissionLog.create).not.toHaveBeenCalled();
   });
 
-  it("returns existing generated metadata without consuming another ICV", async () => {
-    const existingMetadata = makeGeneratedMetadata({ icv: 7, previousInvoiceHash: "previous-hash", invoiceHash: "existing-hash" });
+  it("returns existing generated metadata without consuming another ICV when QR is not persisted", async () => {
+    const existingMetadata = makeGeneratedMetadata({ icv: 7, previousInvoiceHash: "previous-hash", invoiceHash: "existing-hash", qrCodeBase64: null });
     const tx = makeGenerationTransactionMock({
       activeEgsLastIcv: 7,
       activeEgsLastInvoiceHash: "existing-hash",
@@ -534,6 +536,46 @@ describe("ZATCA service rules", () => {
     expect(tx.zatcaEgsUnit.update).not.toHaveBeenCalled();
     expect(tx.zatcaSubmissionLog.create).not.toHaveBeenCalled();
     expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "GENERATE", entityType: "ZatcaInvoiceMetadata" }));
+  });
+
+  it("fails closed when persisted generation state is incomplete", async () => {
+    const tx = makeGenerationTransactionMock({
+      existingMetadata: makeGeneratedMetadata({ qrCodeBase64: null, xmlHash: null }),
+    });
+    const prisma = { $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => callback(tx)) };
+    const audit = { log: jest.fn() };
+    const service = new ZatcaService(prisma as never, audit as never);
+
+    await expect(service.generateInvoiceCompliance("org-1", "user-1", "invoice-1")).rejects.toThrow("requires manual review");
+
+    expect(tx.zatcaInvoiceMetadata.update).not.toHaveBeenCalled();
+    expect(tx.zatcaEgsUnit.findFirst).not.toHaveBeenCalled();
+    expect(tx.zatcaEgsUnit.update).not.toHaveBeenCalled();
+    expect(tx.zatcaSubmissionLog.create).not.toHaveBeenCalled();
+    expect(audit.log).not.toHaveBeenCalled();
+  });
+
+  it("retries a serializable allocation conflict without duplicating the logical generation", async () => {
+    const tx = makeGenerationTransactionMock({ activeEgsHashMode: "SDK_GENERATED" });
+    let transactionAttempts = 0;
+    const prisma = {
+      $transaction: jest.fn((callback: (client: typeof tx) => Promise<unknown>) => {
+        transactionAttempts += 1;
+        if (transactionAttempts === 1) return Promise.reject({ code: "P2034" });
+        return callback(tx);
+      }),
+    };
+    const audit = { log: jest.fn() };
+    const service = new (ZatcaService as never as new (...args: unknown[]) => ZatcaService)(prisma, audit, undefined, undefined, makeSdkServiceMock({ sdkHash: "official-sdk-hash" }));
+
+    await expect(service.generateInvoiceCompliance("org-1", "user-1", "invoice-1")).resolves.toMatchObject({ icv: 1, invoiceHash: "official-sdk-hash" });
+
+    expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+    expect(prisma.$transaction).toHaveBeenLastCalledWith(expect.any(Function), { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    expect(tx.zatcaInvoiceMetadata.update).toHaveBeenCalledTimes(1);
+    expect(tx.zatcaEgsUnit.update).toHaveBeenCalledTimes(1);
+    expect(tx.zatcaSubmissionLog.create).toHaveBeenCalledTimes(1);
+    expect(audit.log).toHaveBeenCalledTimes(1);
   });
 
   it("blocks XML generation when no active EGS unit exists because ICV cannot be assigned", async () => {
