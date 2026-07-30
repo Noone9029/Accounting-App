@@ -62,8 +62,9 @@ function makeHarness() {
     generate: jest.fn().mockResolvedValue({ generatedEntityType: "SALES_INVOICE", generatedEntityId: "invoice-1", link: { generatedSalesInvoiceId: "invoice-1" } }),
   };
   const fiscalPeriodGuard = { assertPostingDateAllowed: jest.fn().mockResolvedValue(undefined) };
-  const service = new RecurringRunService(prisma as never, auditLog as never, dispatcher as never, fiscalPeriodGuard as never);
-  return { service, prisma, tx, auditLog, dispatcher, fiscalPeriodGuard, template, pendingRun };
+  const billingEntitlementService = { assertBackgroundMutationAllowed: jest.fn().mockResolvedValue(undefined) };
+  const service = new RecurringRunService(prisma as never, auditLog as never, dispatcher as never, fiscalPeriodGuard as never, billingEntitlementService as never);
+  return { service, prisma, tx, auditLog, dispatcher, fiscalPeriodGuard, billingEntitlementService, template, pendingRun };
 }
 
 describe("RecurringRunService", () => {
@@ -95,6 +96,13 @@ describe("RecurringRunService", () => {
     const { service, tx } = makeHarness();
     await expect(service.runNow("org-1", "user-1", "template-1", "")).rejects.toBeInstanceOf(BadRequestException);
     expect(tx.recurringTransactionRun.create).not.toHaveBeenCalled();
+  });
+
+  it("checks the central billing entitlement before generating a recurring mutation", async () => {
+    const { service, billingEntitlementService, dispatcher } = makeHarness();
+    billingEntitlementService.assertBackgroundMutationAllowed.mockRejectedValueOnce(new BadRequestException("subscription blocked"));
+    await expect(service.runNow("org-1", "user-1", "template-1", "billing-blocked")).rejects.toThrow("subscription blocked");
+    expect(dispatcher.generate).not.toHaveBeenCalled();
   });
 
   it("returns the existing successful manual result on retry", async () => {

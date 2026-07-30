@@ -6,6 +6,7 @@ import {
   RecurringTransactionStatus,
 } from "@prisma/client";
 import { AuditLogService } from "../audit-log/audit-log.service";
+import { BillingEntitlementService } from "../billing/billing-entitlement.service";
 import { AUDIT_ENTITY_TYPES } from "../audit-log/audit-events";
 import { FiscalPeriodGuardService } from "../fiscal-periods/fiscal-period-guard.service";
 import { PrismaService } from "../prisma/prisma.service";
@@ -55,6 +56,7 @@ export class RecurringRunService {
     private readonly auditLog: AuditLogService,
     private readonly dispatcher: RecurringGenerationDispatcher,
     private readonly fiscalPeriodGuard: FiscalPeriodGuardService,
+    private readonly billingEntitlementService: BillingEntitlementService,
   ) {}
 
   async listForTemplate(organizationId: string, templateId: string, query: { page?: number; limit?: number } = {}) {
@@ -216,6 +218,7 @@ export class RecurringRunService {
   }
 
   private async execute(run: RunWithTemplate, actorUserId: string | null) {
+    await this.billingEntitlementService.assertBackgroundMutationAllowed(run.organizationId, run.requestId ?? null);
     try {
       return await this.withSerializationRetry(() => this.prisma.$transaction(async (tx) => {
         await tx.$queryRaw(Prisma.sql`SELECT "id" FROM "RecurringTransactionRun" WHERE "id" = ${run.id}::uuid AND "organizationId" = ${run.organizationId}::uuid FOR UPDATE`);

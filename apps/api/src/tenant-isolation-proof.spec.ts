@@ -265,6 +265,7 @@ describe("tenant isolation proof: organization members and roles", () => {
       isMockProvider: true,
       sendOrganizationInvite: jest.fn(),
     };
+    const billingEntitlementService = { assertSeatInvitationAllowed: jest.fn() };
     const config = { get: jest.fn() };
     const service = new OrganizationMemberService(
       prisma as never,
@@ -272,6 +273,7 @@ describe("tenant isolation proof: organization members and roles", () => {
       authTokenService as never,
       authTokenRateLimitService as never,
       emailService as never,
+      billingEntitlementService as never,
       config as never,
     );
 

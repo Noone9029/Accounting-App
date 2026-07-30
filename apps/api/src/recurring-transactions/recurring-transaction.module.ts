@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { AccountingModule } from "../accounting/accounting.module";
 import { AuditLogModule } from "../audit-log/audit-log.module";
+import { BillingModule } from "../billing/billing.module";
 import { CashExpenseModule } from "../cash-expenses/cash-expense.module";
 import { FiscalPeriodModule } from "../fiscal-periods/fiscal-period.module";
 import { NumberSequenceModule } from "../number-sequences/number-sequence.module";
@@ -28,6 +29,7 @@ import { RecurringWorkerController } from "./recurring-worker.controller";
   imports: [
     PrismaModule,
     AuditLogModule,
+    BillingModule,
     FiscalPeriodModule,
     NumberSequenceModule,
     SalesInvoiceModule,
