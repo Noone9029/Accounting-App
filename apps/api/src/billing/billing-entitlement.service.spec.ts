@@ -42,6 +42,12 @@ describe("BillingEntitlementService", () => {
     await expect(service.evaluate("org-a", BILLING_ENTITLEMENT_KEYS.coreAccounting)).resolves.toMatchObject({ code: "DENY_BILLING_STATE" });
   });
 
+  it("honors an explicitly approved enforcement exemption", async () => {
+    const { service, prisma } = makeService("ENFORCE");
+    prisma.organizationBillingAccount.findFirst.mockResolvedValue({ enforcementExempt: true, subscriptions: [] });
+    await expect(service.evaluate("org-a", BILLING_ENTITLEMENT_KEYS.coreAccounting)).resolves.toMatchObject({ code: "ALLOW" });
+  });
+
   it("enforces seat limits using bounded active/invited membership usage", async () => {
     const { service, prisma } = makeService("ENFORCE");
     prisma.organizationBillingAccount.findFirst.mockResolvedValue(

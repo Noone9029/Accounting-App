@@ -57,6 +57,7 @@ export class BillingEntitlementService {
     const account = await client.organizationBillingAccount.findFirst({
       where: { organizationId, status: "ACTIVE" },
       select: {
+        enforcementExempt: true,
         subscriptions: {
           where: { status: { in: [BillingSubscriptionStatus.TRIALING, BillingSubscriptionStatus.ACTIVE, BillingSubscriptionStatus.GRACE, BillingSubscriptionStatus.CANCEL_AT_PERIOD_END] } },
           orderBy: { updatedAt: "desc" },
@@ -71,6 +72,7 @@ export class BillingEntitlementService {
     const subscription = account?.subscriptions[0];
     const status = subscription?.status ?? "MISSING";
     const wouldDeny = (): BillingEntitlementDecision => {
+      if (account?.enforcementExempt) return decision(organizationId, entitlementKey, "ALLOW", mode, status, correlationId, options.usage ?? null, null);
       if (!subscription) return decision(organizationId, entitlementKey, "DENY_BILLING_STATE", mode, status, correlationId, options.usage ?? null, null);
       if (!BILLING_ENTITLEMENT_REGISTRY[entitlementKey].allowsCommercialAccess || options.operationalReady === false) {
         return decision(organizationId, entitlementKey, "DENY_OPERATIONAL_READINESS", mode, status, correlationId, options.usage ?? null, null);
