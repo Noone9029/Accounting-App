@@ -8,7 +8,9 @@ import { StructuredLoggerService } from "./observability/structured-logger.servi
 import { configureOpenApi } from "./openapi";
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule);
+  // Raw bodies are captured only so provider webhook handlers can verify an
+  // untouched signature before parsing. No raw body is persisted or logged.
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   const config = app.get(ConfigService);
   const logger = app.get(StructuredLoggerService);
   app.useLogger(logger);

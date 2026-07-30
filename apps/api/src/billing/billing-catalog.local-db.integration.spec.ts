@@ -136,6 +136,25 @@ describeLocalDb("billing catalog schema local database proof", () => {
     ).rejects.toMatchObject({ code: "P2002" });
   });
 
+  it("reserves exactly one durable record for concurrent duplicate provider events", async () => {
+    const providerEventId = `${marker}-event`;
+    const createWebhook = () => prisma.billingWebhookEvent.create({
+      data: {
+        organizationId: fixture.organizationAId,
+        provider: BillingProvider.FAKE,
+        environment: BillingProviderEnvironment.LOCAL_TEST,
+        providerEventId,
+        eventType: "invoice.paid",
+        payloadHash: `${marker}-payload-hash`,
+      },
+    });
+
+    const outcomes = await Promise.allSettled([createWebhook(), createWebhook()]);
+    expect(outcomes.filter((outcome) => outcome.status === "fulfilled")).toHaveLength(1);
+    expect(outcomes.filter((outcome) => outcome.status === "rejected")).toHaveLength(1);
+    expect(await prisma.billingWebhookEvent.count({ where: { provider: BillingProvider.FAKE, environment: BillingProviderEnvironment.LOCAL_TEST, providerEventId } })).toBe(1);
+  });
+
   it("permits exactly one concurrent open subscription and keeps it tenant-scoped", async () => {
     const createSubscription = (reference: string) =>
       prisma.organizationSubscription.create({
