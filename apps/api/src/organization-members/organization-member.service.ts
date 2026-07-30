@@ -5,6 +5,7 @@ import { hasPermission, normalizePermissions, PERMISSIONS } from "@ledgerbyte/sh
 import * as bcrypt from "bcryptjs";
 import { randomBytes } from "node:crypto";
 import { AuditLogService } from "../audit-log/audit-log.service";
+import { BillingEntitlementService } from "../billing/billing-entitlement.service";
 import { AuthTokenRateLimitService, type AuthTokenDeliveryRequestMeta } from "../auth/auth-token-rate-limit.service";
 import { AuthTokenService } from "../auth/auth-token.service";
 import { EmailService } from "../email/email.service";
@@ -21,6 +22,7 @@ export class OrganizationMemberService {
     private readonly authTokenService: AuthTokenService,
     private readonly authTokenRateLimitService: AuthTokenRateLimitService,
     private readonly emailService: EmailService,
+    private readonly billingEntitlementService: BillingEntitlementService,
     private readonly config: ConfigService,
   ) {}
 
@@ -148,6 +150,7 @@ export class OrganizationMemberService {
     });
 
     const invite = await this.prisma.$transaction(async (tx) => {
+      await this.billingEntitlementService.assertSeatInvitationAllowed(organizationId, tx);
       let user = await tx.user.findUnique({
         where: { email },
         select: { id: true, email: true, name: true },
@@ -203,7 +206,7 @@ export class OrganizationMemberService {
       );
 
       return { member, rawToken };
-    });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
     const invitePreviewUrl = this.buildWebUrl(`/invite/accept?token=${encodeURIComponent(invite.rawToken)}`);
     const emailOutbox = await this.emailService.sendOrganizationInvite({

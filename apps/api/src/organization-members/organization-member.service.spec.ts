@@ -45,6 +45,7 @@ describe("OrganizationMemberService", () => {
       isMockProvider: true,
       sendOrganizationInvite: jest.fn().mockResolvedValue({ id: "email-1" }),
     };
+    const billingEntitlementService = { assertSeatInvitationAllowed: jest.fn().mockResolvedValue(undefined) };
     const config = { get: jest.fn((key: string) => (key === "APP_WEB_URL" ? "http://web.test" : undefined)) };
     return {
       service: new OrganizationMemberService(
@@ -53,6 +54,7 @@ describe("OrganizationMemberService", () => {
         authTokenService as never,
         authTokenRateLimitService as never,
         emailService as never,
+        billingEntitlementService as never,
         config as never,
       ),
       prisma,
@@ -60,6 +62,7 @@ describe("OrganizationMemberService", () => {
       authTokenService,
       authTokenRateLimitService,
       emailService,
+      billingEntitlementService,
       config,
     };
   }

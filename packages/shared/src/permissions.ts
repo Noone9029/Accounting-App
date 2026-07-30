@@ -11,6 +11,10 @@ export const PERMISSIONS = {
     invite: "users.invite",
     manage: "users.manage",
   },
+  billing: {
+    view: "billing.view",
+    manage: "billing.manage",
+  },
   roles: {
     view: "roles.view",
     manage: "roles.manage",

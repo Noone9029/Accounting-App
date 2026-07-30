@@ -149,6 +149,7 @@ describeTenantDb("tenant isolation: Prisma-backed local DB proof", () => {
       { create: jest.fn() } as never,
       { assertInviteAllowed: jest.fn() } as never,
       { isMockProvider: true, sendOrganizationInvite: jest.fn() } as never,
+      { assertSeatInvitationAllowed: jest.fn() } as never,
       { get: jest.fn((key: string) => (key === "WEB_APP_URL" ? "http://localhost:3000" : undefined)) } as never,
     );
     organizationContextGuard = new OrganizationContextGuard(prisma as unknown as PrismaService);

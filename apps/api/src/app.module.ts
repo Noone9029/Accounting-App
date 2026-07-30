@@ -13,6 +13,7 @@ import { BankReconciliationModule } from "./bank-reconciliations/bank-reconcilia
 import { BankRulesModule } from "./bank-rules/bank-rules.module";
 import { BankStatementModule } from "./bank-statements/bank-statement.module";
 import { BankTransferModule } from "./bank-transfers/bank-transfer.module";
+import { BillingModule } from "./billing/billing.module";
 import { CardSettlementModule } from "./card-settlements/card-settlement.module";
 import { ChequeModule } from "./cheques/cheque.module";
 import { BranchModule } from "./branches/branch.module";
@@ -92,6 +93,7 @@ import { validateLedgerByteConfig } from "./config/production-config";
     BankRulesModule,
     BankStatementModule,
     BankTransferModule,
+    BillingModule,
     CardSettlementModule,
     ChequeModule,
     ComplianceCoreModule,
