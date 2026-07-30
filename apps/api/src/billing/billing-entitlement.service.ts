@@ -25,7 +25,35 @@ export interface BillingEntitlementDecision {
   limit: number | null;
 }
 
+export type BillingOrganizationAccessMode = "FULL" | "READ_ONLY" | "BILLING_ONLY";
+
+export interface BillingOrganizationAccessDecision {
+  organizationId: string;
+  accessMode: BillingOrganizationAccessMode;
+  enforcementMode: BillingEnforcementMode;
+  subscriptionStatus: BillingSubscriptionStatus | "MISSING";
+}
+
 type BillingReadClient = PrismaService | Prisma.TransactionClient;
+
+const ENTITLEMENT_GRANTING_STATUSES: BillingSubscriptionStatus[] = [
+  BillingSubscriptionStatus.TRIALING,
+  BillingSubscriptionStatus.ACTIVE,
+  BillingSubscriptionStatus.GRACE,
+  BillingSubscriptionStatus.CANCEL_AT_PERIOD_END,
+];
+
+const KNOWN_ACCESS_STATUSES: BillingSubscriptionStatus[] = [
+  ...ENTITLEMENT_GRANTING_STATUSES,
+  BillingSubscriptionStatus.SUSPENDED,
+  BillingSubscriptionStatus.CANCELED,
+];
+
+const FULL_ACCESS_STATUSES: BillingSubscriptionStatus[] = [
+  BillingSubscriptionStatus.TRIALING,
+  BillingSubscriptionStatus.ACTIVE,
+  BillingSubscriptionStatus.GRACE,
+];
 
 @Injectable()
 export class BillingEntitlementService {
@@ -44,7 +72,7 @@ export class BillingEntitlementService {
   async evaluate(
     organizationId: string,
     entitlementKey: BillingEntitlementKey,
-    options: { correlationId?: string | null; usage?: number | null; operationalReady?: boolean; client?: BillingReadClient } = {},
+    options: { correlationId?: string | null; usage?: number | null; operationalReady?: boolean; client?: BillingReadClient; now?: Date } = {},
   ): Promise<BillingEntitlementDecision> {
     const mode = this.enforcementMode();
     const client = options.client ?? this.prisma;
@@ -59,11 +87,12 @@ export class BillingEntitlementService {
       select: {
         enforcementExempt: true,
         subscriptions: {
-          where: { status: { in: [BillingSubscriptionStatus.TRIALING, BillingSubscriptionStatus.ACTIVE, BillingSubscriptionStatus.GRACE, BillingSubscriptionStatus.CANCEL_AT_PERIOD_END] } },
+          where: { status: { in: KNOWN_ACCESS_STATUSES } },
           orderBy: { updatedAt: "desc" },
           take: 1,
           select: {
             status: true,
+            currentPeriodEndsAt: true,
             planVersion: { select: { entitlements: { select: { key: true, valueType: true, booleanValue: true, integerValue: true, stringValue: true } } } },
           },
         },
@@ -74,6 +103,12 @@ export class BillingEntitlementService {
     const wouldDeny = (): BillingEntitlementDecision => {
       if (account?.enforcementExempt) return decision(organizationId, entitlementKey, "ALLOW", mode, status, correlationId, options.usage ?? null, null);
       if (!subscription) return decision(organizationId, entitlementKey, "DENY_BILLING_STATE", mode, status, correlationId, options.usage ?? null, null);
+      if (subscription.status === BillingSubscriptionStatus.CANCEL_AT_PERIOD_END && (!subscription.currentPeriodEndsAt || subscription.currentPeriodEndsAt <= (options.now ?? new Date()))) {
+        return decision(organizationId, entitlementKey, "DENY_BILLING_STATE", mode, status, correlationId, options.usage ?? null, null);
+      }
+      if (!ENTITLEMENT_GRANTING_STATUSES.includes(subscription.status)) {
+        return decision(organizationId, entitlementKey, "DENY_BILLING_STATE", mode, status, correlationId, options.usage ?? null, null);
+      }
       if (!BILLING_ENTITLEMENT_REGISTRY[entitlementKey].allowsCommercialAccess || options.operationalReady === false) {
         return decision(organizationId, entitlementKey, "DENY_OPERATIONAL_READINESS", mode, status, correlationId, options.usage ?? null, null);
       }
@@ -95,6 +130,37 @@ export class BillingEntitlementService {
       return { ...result, code: "ALLOW_OBSERVE_ONLY" };
     }
     return result;
+  }
+
+  async organizationAccessMode(organizationId: string, options: { client?: BillingReadClient; now?: Date } = {}): Promise<BillingOrganizationAccessDecision> {
+    const enforcementMode = this.enforcementMode();
+    if (enforcementMode !== "ENFORCE") {
+      return { organizationId, accessMode: "FULL", enforcementMode, subscriptionStatus: "MISSING" };
+    }
+
+    const account = await (options.client ?? this.prisma).organizationBillingAccount.findFirst({
+      where: { organizationId, status: "ACTIVE" },
+      select: {
+        enforcementExempt: true,
+        subscriptions: {
+          where: { status: { in: KNOWN_ACCESS_STATUSES } },
+          orderBy: { updatedAt: "desc" },
+          take: 1,
+          select: { status: true, currentPeriodEndsAt: true },
+        },
+      },
+    });
+    const subscription = account?.subscriptions[0];
+    const subscriptionStatus = subscription?.status ?? "MISSING";
+    if (account?.enforcementExempt) return { organizationId, accessMode: "FULL", enforcementMode, subscriptionStatus };
+    if (!subscription) return { organizationId, accessMode: "BILLING_ONLY", enforcementMode, subscriptionStatus };
+    if (subscription.status === BillingSubscriptionStatus.CANCEL_AT_PERIOD_END && subscription.currentPeriodEndsAt && subscription.currentPeriodEndsAt > (options.now ?? new Date())) {
+      return { organizationId, accessMode: "FULL", enforcementMode, subscriptionStatus };
+    }
+    if (FULL_ACCESS_STATUSES.includes(subscription.status)) {
+      return { organizationId, accessMode: "FULL", enforcementMode, subscriptionStatus };
+    }
+    return { organizationId, accessMode: "READ_ONLY", enforcementMode, subscriptionStatus };
   }
 
   async assertSeatInvitationAllowed(organizationId: string, client: BillingReadClient, correlationId: string | null = null): Promise<void> {

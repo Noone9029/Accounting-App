@@ -81,4 +81,52 @@ describe("BillingEntitlementService", () => {
     prisma.organizationBillingAccount.findFirst.mockResolvedValue(null);
     await expect(service.assertBackgroundMutationAllowed("org-a", "job-1")).rejects.toThrow(ForbiddenException);
   });
+
+  it("denies suspended organizations from mutating through the server-side entitlement check", async () => {
+    const { service, prisma } = makeService("ENFORCE");
+    prisma.organizationBillingAccount.findFirst.mockResolvedValue({
+      enforcementExempt: false,
+      subscriptions: [{ status: "SUSPENDED", currentPeriodEndsAt: null, planVersion: { entitlements: [] } }],
+    });
+
+    await expect(service.assertBackgroundMutationAllowed("org-a", "suspended-job")).rejects.toThrow(ForbiddenException);
+  });
+
+  it("keeps suspended tenants in read-only mode so billing and accounting reads remain available", async () => {
+    const { service, prisma } = makeService("ENFORCE");
+    prisma.organizationBillingAccount.findFirst.mockResolvedValue({
+      enforcementExempt: false,
+      subscriptions: [{ status: "SUSPENDED", currentPeriodEndsAt: null }],
+    });
+
+    await expect(service.organizationAccessMode("org-a")).resolves.toEqual({
+      organizationId: "org-a",
+      accessMode: "READ_ONLY",
+      enforcementMode: "ENFORCE",
+      subscriptionStatus: "SUSPENDED",
+    });
+  });
+
+  it("preserves full access through cancellation period end and removes it afterwards", async () => {
+    const { service, prisma } = makeService("ENFORCE");
+    prisma.organizationBillingAccount.findFirst.mockResolvedValue({
+      enforcementExempt: false,
+      subscriptions: [{ status: "CANCEL_AT_PERIOD_END", currentPeriodEndsAt: new Date("2026-08-30T00:00:00.000Z"), planVersion: { entitlements: [{ key: BILLING_ENTITLEMENT_KEYS.coreAccounting, valueType: "BOOLEAN", booleanValue: true, integerValue: null, stringValue: null }] } }],
+    });
+
+    await expect(service.evaluate("org-a", BILLING_ENTITLEMENT_KEYS.coreAccounting, { now: new Date("2026-08-01T00:00:00.000Z") })).resolves.toMatchObject({ code: "ALLOW" });
+    await expect(service.evaluate("org-a", BILLING_ENTITLEMENT_KEYS.coreAccounting, { now: new Date("2026-09-01T00:00:00.000Z") })).resolves.toMatchObject({ code: "DENY_BILLING_STATE" });
+    await expect(service.organizationAccessMode("org-a", { now: new Date("2026-09-01T00:00:00.000Z") })).resolves.toMatchObject({ accessMode: "READ_ONLY" });
+  });
+
+  it("does not grant access from an uncertain cancellation record without a period end", async () => {
+    const { service, prisma } = makeService("ENFORCE");
+    prisma.organizationBillingAccount.findFirst.mockResolvedValue({
+      enforcementExempt: false,
+      subscriptions: [{ status: "CANCEL_AT_PERIOD_END", currentPeriodEndsAt: null, planVersion: { entitlements: [{ key: BILLING_ENTITLEMENT_KEYS.coreAccounting, valueType: "BOOLEAN", booleanValue: true, integerValue: null, stringValue: null }] } }],
+    });
+
+    await expect(service.evaluate("org-a", BILLING_ENTITLEMENT_KEYS.coreAccounting)).resolves.toMatchObject({ code: "DENY_BILLING_STATE" });
+    await expect(service.organizationAccessMode("org-a")).resolves.toMatchObject({ accessMode: "READ_ONLY" });
+  });
 });
