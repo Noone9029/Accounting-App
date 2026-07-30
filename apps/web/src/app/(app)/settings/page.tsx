@@ -9,6 +9,12 @@ import {
 
 const adminSections = [
   {
+    title: "Billing and subscription",
+    description: "Review local subscription state, lifecycle access, and future plan capability without payment collection.",
+    href: "/settings/billing",
+    status: "Local foundation",
+  },
+  {
     title: "Team and roles",
     description: "Manage memberships, role matrices, and controlled-beta access boundaries.",
     href: "/settings/team",

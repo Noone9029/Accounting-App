@@ -58,8 +58,8 @@ const fixedAssetPageRoutes = [
   "/settings/fixed-assets",
 ];
 const fixedAssetCanonicalRoutes = ["/fixed-assets", "/reports/fixed-assets"];
-const expectedPageCount = 216;
-const expectedRouteCount = 98;
+const expectedPageCount = 218;
+const expectedRouteCount = 100;
 const expectedPlannedCount = 4;
 
 const failures = [];
