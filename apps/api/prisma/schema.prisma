@@ -228,6 +228,113 @@ enum InvoicePaymentLinkStatus {
   FAILED
 }
 
+enum BillingPlanKey {
+  CONTROLLED_BETA
+  STARTER
+  GROWTH
+  KSA_COMPLIANCE
+}
+
+enum BillingPlanStatus {
+  DRAFT
+  ACTIVE
+  RETIRED
+  ARCHIVED
+}
+
+enum BillingPlanVersionStatus {
+  DRAFT
+  ACTIVE
+  RETIRED
+}
+
+enum BillingPriceInterval {
+  MONTH
+  YEAR
+}
+
+enum BillingProvider {
+  DISABLED
+  FAKE
+  STRIPE
+}
+
+enum BillingProviderEnvironment {
+  LOCAL_TEST
+  TEST
+  LIVE
+}
+
+enum BillingEntitlementValueType {
+  BOOLEAN
+  INTEGER
+  STRING
+}
+
+enum BillingAccountStatus {
+  ACTIVE
+  SUSPENDED
+  CLOSED
+}
+
+enum BillingSubscriptionStatus {
+  PENDING
+  TRIALING
+  ACTIVE
+  GRACE
+  SUSPENDED
+  CANCEL_AT_PERIOD_END
+  CANCELED
+}
+
+enum BillingScheduledChangeStatus {
+  PENDING
+  APPLIED
+  CANCELED
+  SUPERSEDED
+}
+
+enum BillingCheckoutAttemptStatus {
+  CREATED
+  DISABLED
+  READY
+  PROVIDER_PENDING
+  COMPLETED
+  FAILED
+  EXPIRED
+}
+
+enum BillingWebhookProcessingStatus {
+  RECEIVED
+  PROCESSING
+  PROCESSED
+  IGNORED_DUPLICATE
+  IGNORED_STALE
+  REJECTED
+  FAILED
+  OPERATOR_REVIEW
+}
+
+enum BillingInvoiceReferenceStatus {
+  OPEN
+  PAID
+  VOID
+  UNCOLLECTIBLE
+}
+
+enum BillingLifecycleEventType {
+  TRIAL_STARTED
+  ACTIVATED
+  PAYMENT_FAILED
+  GRACE_EXPIRED
+  CANCELLATION_SCHEDULED
+  CANCELED
+  REACTIVATED
+  PLAN_CHANGE_SCHEDULED
+  PLAN_CHANGE_APPLIED
+  WEBHOOK_RECONCILED
+}
+
 enum AuthTokenPurpose {
   ORGANIZATION_INVITE
   PASSWORD_RESET
@@ -1675,6 +1782,13 @@ model Organization {
   paymentProviderConfigs                    PaymentProviderConfig[]
   paymentProviderEvents                     PaymentProviderEvent[]
   invoicePaymentLinks                       InvoicePaymentLink[]
+  billingAccounts                             OrganizationBillingAccount[]
+  billingSubscriptions                        OrganizationSubscription[]
+  billingScheduledChanges                     SubscriptionScheduledChange[]
+  billingCheckoutAttempts                     BillingCheckoutAttempt[]
+  billingWebhookEvents                        BillingWebhookEvent[]
+  billingInvoiceReferences                    BillingInvoiceReference[]
+  billingLifecycleEvents                      BillingLifecycleEvent[]
   apiIdempotencyRecords                     ApiIdempotencyRecord[]
   webhookEndpoints                          WebhookEndpoint[]
   webhookEvents                             WebhookEvent[]
@@ -2259,6 +2373,269 @@ model InvoicePaymentLink {
   @@index([organizationId, provider])
   @@index([organizationId, status])
   @@index([createdById])
+}
+
+model BillingPlan {
+  id                  String               @id @default(uuid()) @db.Uuid
+  key                 BillingPlanKey       @unique
+  displayName         String
+  internalDescription String               @db.Text
+  status              BillingPlanStatus    @default(DRAFT)
+  publiclyVisible     Boolean              @default(false)
+  sellable            Boolean              @default(false)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  versions            BillingPlanVersion[]
+
+  @@index([status, sellable])
+  @@index([publiclyVisible])
+}
+
+model BillingPlanVersion {
+  id                  String                        @id @default(uuid()) @db.Uuid
+  billingPlanId       String                        @db.Uuid
+  version             Int
+  status              BillingPlanVersionStatus      @default(DRAFT)
+  effectiveAt         DateTime?
+  retiredAt           DateTime?
+  entitlementSnapshot Json
+  createdAt           DateTime                      @default(now())
+  updatedAt           DateTime                      @updatedAt
+  billingPlan         BillingPlan                   @relation(fields: [billingPlanId], references: [id], onDelete: Restrict)
+  entitlements        BillingPlanEntitlement[]
+  prices              BillingPrice[]
+  subscriptions       OrganizationSubscription[]
+  currentPlanChanges  SubscriptionScheduledChange[] @relation("BillingScheduledChangeCurrentPlanVersion")
+  targetPlanChanges   SubscriptionScheduledChange[] @relation("BillingScheduledChangeTargetPlanVersion")
+  checkoutAttempts    BillingCheckoutAttempt[]
+
+  @@unique([billingPlanId, version])
+  @@index([billingPlanId, status])
+  @@index([status, effectiveAt])
+}
+
+model BillingPlanEntitlement {
+  id            String                      @id @default(uuid()) @db.Uuid
+  planVersionId String                      @db.Uuid
+  key           String
+  valueType     BillingEntitlementValueType
+  booleanValue  Boolean?
+  integerValue  Int?
+  stringValue   String?
+  createdAt     DateTime                    @default(now())
+  planVersion   BillingPlanVersion          @relation(fields: [planVersionId], references: [id], onDelete: Cascade)
+
+  @@unique([planVersionId, key])
+  @@index([key])
+}
+
+model BillingPrice {
+  id                String                     @id @default(uuid()) @db.Uuid
+  planVersionId     String                     @db.Uuid
+  provider          BillingProvider
+  environment       BillingProviderEnvironment
+  interval          BillingPriceInterval
+  currency          String
+  amountMinor       BigInt                     @db.BigInt
+  providerProductId String?
+  providerPriceId   String?
+  active            Boolean                    @default(false)
+  createdAt         DateTime                   @default(now())
+  updatedAt         DateTime                   @updatedAt
+  planVersion       BillingPlanVersion         @relation(fields: [planVersionId], references: [id], onDelete: Restrict)
+  checkoutAttempts  BillingCheckoutAttempt[]
+
+  @@unique([provider, environment, providerPriceId])
+  @@index([planVersionId, active])
+  @@index([provider, environment, active])
+}
+
+model OrganizationBillingAccount {
+  id                 String                     @id @default(uuid()) @db.Uuid
+  organizationId     String                     @db.Uuid
+  provider           BillingProvider
+  billingEmailHash   String?
+  billingEmailDomain String?
+  status             BillingAccountStatus       @default(ACTIVE)
+  enforcementExempt  Boolean                    @default(false)
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+  organization       Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  providerCustomers  BillingProviderCustomer[]
+  subscriptions      OrganizationSubscription[]
+  checkoutAttempts   BillingCheckoutAttempt[]
+
+  @@unique([organizationId, provider])
+  @@index([organizationId, status])
+}
+
+model BillingProviderCustomer {
+  id                        String                     @id @default(uuid()) @db.Uuid
+  billingAccountId          String                     @db.Uuid
+  provider                  BillingProvider
+  environment               BillingProviderEnvironment
+  providerCustomerReference String
+  createdAt                 DateTime                   @default(now())
+  updatedAt                 DateTime                   @updatedAt
+  billingAccount            OrganizationBillingAccount @relation(fields: [billingAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([billingAccountId, provider, environment])
+  @@unique([provider, environment, providerCustomerReference])
+  @@index([billingAccountId])
+}
+
+model OrganizationSubscription {
+  id                            String                        @id @default(uuid()) @db.Uuid
+  organizationId                String                        @db.Uuid
+  billingAccountId              String                        @db.Uuid
+  planVersionId                 String                        @db.Uuid
+  provider                      BillingProvider
+  providerSubscriptionReference String?
+  status                        BillingSubscriptionStatus     @default(PENDING)
+  interval                      BillingPriceInterval
+  trialStartedAt                DateTime?
+  trialEndsAt                   DateTime?
+  currentPeriodStartedAt        DateTime?
+  currentPeriodEndsAt           DateTime?
+  cancelAtPeriodEnd             Boolean                       @default(false)
+  canceledAt                    DateTime?
+  graceDeadline                 DateTime?
+  suspendedAt                   DateTime?
+  providerUpdatedAt             DateTime?
+  lastReconciledAt              DateTime?
+  version                       Int                           @default(1)
+  createdAt                     DateTime                      @default(now())
+  updatedAt                     DateTime                      @updatedAt
+  organization                  Organization                  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  billingAccount                OrganizationBillingAccount    @relation(fields: [billingAccountId], references: [id], onDelete: Restrict)
+  planVersion                   BillingPlanVersion            @relation(fields: [planVersionId], references: [id], onDelete: Restrict)
+  scheduledChanges              SubscriptionScheduledChange[]
+  checkoutAttempts              BillingCheckoutAttempt[]
+  webhookEvents                 BillingWebhookEvent[]
+  invoiceReferences             BillingInvoiceReference[]
+  lifecycleEvents               BillingLifecycleEvent[]
+
+  @@unique([provider, providerSubscriptionReference])
+  @@index([organizationId, status])
+  @@index([billingAccountId, status])
+  @@index([planVersionId])
+  @@index([status, graceDeadline])
+}
+
+model SubscriptionScheduledChange {
+  id                   String                       @id @default(uuid()) @db.Uuid
+  organizationId       String                       @db.Uuid
+  subscriptionId       String                       @db.Uuid
+  currentPlanVersionId String                       @db.Uuid
+  targetPlanVersionId  String                       @db.Uuid
+  effectiveAt          DateTime
+  reasonCode           String
+  status               BillingScheduledChangeStatus @default(PENDING)
+  createdAt            DateTime                     @default(now())
+  updatedAt            DateTime                     @updatedAt
+  organization         Organization                 @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  subscription         OrganizationSubscription     @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  currentPlanVersion   BillingPlanVersion           @relation("BillingScheduledChangeCurrentPlanVersion", fields: [currentPlanVersionId], references: [id], onDelete: Restrict)
+  targetPlanVersion    BillingPlanVersion           @relation("BillingScheduledChangeTargetPlanVersion", fields: [targetPlanVersionId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, status])
+  @@index([subscriptionId, status])
+  @@index([effectiveAt, status])
+}
+
+model BillingCheckoutAttempt {
+  id                       String                       @id @default(uuid()) @db.Uuid
+  organizationId           String                       @db.Uuid
+  billingAccountId         String                       @db.Uuid
+  subscriptionId           String?                      @db.Uuid
+  planVersionId            String                       @db.Uuid
+  billingPriceId           String                       @db.Uuid
+  provider                 BillingProvider
+  idempotencyKeyHash       String
+  requestHash              String
+  returnRouteKey           String
+  providerSessionReference String?
+  status                   BillingCheckoutAttemptStatus @default(CREATED)
+  createdAt                DateTime                     @default(now())
+  updatedAt                DateTime                     @updatedAt
+  organization             Organization                 @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  billingAccount           OrganizationBillingAccount   @relation(fields: [billingAccountId], references: [id], onDelete: Restrict)
+  subscription             OrganizationSubscription?    @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  planVersion              BillingPlanVersion           @relation(fields: [planVersionId], references: [id], onDelete: Restrict)
+  billingPrice             BillingPrice                 @relation(fields: [billingPriceId], references: [id], onDelete: Restrict)
+
+  @@unique([organizationId, idempotencyKeyHash])
+  @@index([organizationId, status])
+  @@index([billingAccountId, status])
+}
+
+model BillingWebhookEvent {
+  id                            String                         @id @default(uuid()) @db.Uuid
+  organizationId                String?                        @db.Uuid
+  subscriptionId                String?                        @db.Uuid
+  provider                      BillingProvider
+  environment                   BillingProviderEnvironment
+  providerEventId               String
+  eventType                     String
+  providerCreatedAt             DateTime?
+  payloadHash                   String
+  providerCustomerReference     String?
+  providerSubscriptionReference String?
+  status                        BillingWebhookProcessingStatus @default(RECEIVED)
+  attemptCount                  Int                            @default(0)
+  processedAt                   DateTime?
+  safeErrorCode                 String?
+  createdAt                     DateTime                       @default(now())
+  updatedAt                     DateTime                       @updatedAt
+  organization                  Organization?                  @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  subscription                  OrganizationSubscription?      @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  @@unique([provider, environment, providerEventId])
+  @@index([organizationId, status])
+  @@index([subscriptionId, status])
+  @@index([status, createdAt])
+}
+
+model BillingInvoiceReference {
+  id                       String                        @id @default(uuid()) @db.Uuid
+  organizationId           String                        @db.Uuid
+  subscriptionId           String?                       @db.Uuid
+  provider                 BillingProvider
+  environment              BillingProviderEnvironment
+  providerInvoiceReference String
+  status                   BillingInvoiceReferenceStatus @default(OPEN)
+  currency                 String?
+  amountDueMinor           BigInt?                       @db.BigInt
+  amountPaidMinor          BigInt?                       @db.BigInt
+  dueAt                    DateTime?
+  paidAt                   DateTime?
+  createdAt                DateTime                      @default(now())
+  updatedAt                DateTime                      @updatedAt
+  organization             Organization                  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  subscription             OrganizationSubscription?     @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  @@unique([provider, environment, providerInvoiceReference])
+  @@index([organizationId, status])
+  @@index([subscriptionId])
+}
+
+model BillingLifecycleEvent {
+  id               String                     @id @default(uuid()) @db.Uuid
+  organizationId   String                     @db.Uuid
+  subscriptionId   String                     @db.Uuid
+  eventType        BillingLifecycleEventType
+  previousStatus   BillingSubscriptionStatus?
+  nextStatus       BillingSubscriptionStatus
+  reasonCode       String
+  correlationId    String?
+  safeMetadataJson Json?
+  createdAt        DateTime                   @default(now())
+  organization     Organization               @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  subscription     OrganizationSubscription   @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@index([subscriptionId, createdAt])
+  @@index([correlationId])
 }
 
 model ZatcaOrganizationProfile {
