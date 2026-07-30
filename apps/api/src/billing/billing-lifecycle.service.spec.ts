@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { ConflictException, NotFoundException } from "@nestjs/common";
 import { BillingSubscriptionStatus } from "@prisma/client";
 import { BillingLifecycleService } from "./billing-lifecycle.service";
@@ -60,6 +61,17 @@ describe("BillingLifecycleService", () => {
     expect(tx.organizationSubscription.updateMany).not.toHaveBeenCalled();
   });
 
+  it("returns a replay for the same immutable lifecycle request and rejects changed reuse", async () => {
+    const { service, tx } = harness(BillingSubscriptionStatus.TRIALING, 2);
+    const trialEndsAt = new Date("2026-08-01T00:00:00.000Z");
+    const requestHash = createHash("sha256").update(JSON.stringify({ transition: "START_TRIAL", trialEndsAt: trialEndsAt.toISOString(), graceDeadline: null, currentPeriodEndsAt: null })).digest("hex");
+    tx.billingLifecycleEvent.findFirst.mockResolvedValue({ id: "event-1", safeMetadataJson: { requestHash } });
+
+    await expect(service.transition({ organizationId: "org-1", subscriptionId: "sub-1", expectedVersion: 1, transition: "START_TRIAL", correlationId: "trial-1", trialEndsAt, now: new Date("2026-07-30T00:00:00.000Z") })).resolves.toMatchObject({ replay: true });
+    expect(tx.organizationSubscription.updateMany).not.toHaveBeenCalled();
+    await expect(service.transition({ organizationId: "org-1", subscriptionId: "sub-1", expectedVersion: 1, transition: "START_TRIAL", correlationId: "trial-1", trialEndsAt: new Date("2026-08-02T00:00:00.000Z"), now: new Date("2026-07-30T00:00:00.000Z") })).rejects.toBeInstanceOf(ConflictException);
+  });
+
   it("rejects stale versions and invalid terminal transitions", async () => {
     const stale = harness();
     stale.tx.organizationSubscription.updateMany.mockResolvedValue({ count: 0 });
@@ -115,11 +127,12 @@ describe("BillingLifecycleService", () => {
   });
 
   it("schedules a plan change once and records a lifecycle audit event", async () => {
-    const { service, tx, auditLog } = harness(BillingSubscriptionStatus.ACTIVE);
+    const { service, tx, auditLog, prisma } = harness(BillingSubscriptionStatus.ACTIVE);
     await service.schedulePlanChange({ organizationId: "org-1", subscriptionId: "sub-1", expectedVersion: 1, targetPlanVersionId: "plan-2", effectiveAt: new Date("2026-08-30T00:00:00.000Z"), correlationId: "change-1" });
     expect(tx.organizationSubscription.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: expect.objectContaining({ organizationId: "org-1", version: 1 }) }));
     expect(tx.billingLifecycleEvent.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ eventType: "PLAN_CHANGE_SCHEDULED" }) }));
     expect(auditLog.log).toHaveBeenCalledWith(expect.objectContaining({ action: "SCHEDULE_PLAN_CHANGE" }), tx);
+    expect(prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), expect.objectContaining({ isolationLevel: "Serializable" }));
   });
 
   it("processes due transitions sequentially and treats a competing worker as a safe skip", async () => {

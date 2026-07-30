@@ -13,9 +13,11 @@ import {
 import { BillingEntitlementService } from "./billing-entitlement.service";
 
 const describeLocalDb = process.env.LEDGERBYTE_RUN_LOCAL_DB_INTEGRATION === "true" ? describe : describe.skip;
+const runLocalDbProof = process.env.LEDGERBYTE_RUN_LOCAL_DB_INTEGRATION === "true";
 
 describeLocalDb("billing entitlement local database proof", () => {
   const prisma = new PrismaClient();
+  if (!runLocalDbProof) void prisma.$disconnect();
   const marker = `paid-saas-entitlement-${randomUUID()}`;
   const ids = {
     organization: randomUUID(), plan: randomUUID(), version: randomUUID(), entitlement: randomUUID(), account: randomUUID(), subscription: randomUUID(), role: randomUUID(),

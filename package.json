@@ -7,6 +7,8 @@
     "dev": "corepack pnpm -r --parallel --if-present dev",
     "build": "corepack pnpm --workspace-concurrency=1 -r --if-present build",
     "test": "node scripts/run-bounded-node-tests.cjs scripts/next-sharp-compatibility.test.cjs && corepack pnpm --dir apps/api exec jest --config jest.config.cjs --runInBand && corepack pnpm --dir apps/web exec jest --config jest.config.cjs --passWithNoTests --runInBand && corepack pnpm --workspace-concurrency=1 --filter @ledgerbyte/uae-peppol-pint-ae test && corepack pnpm --workspace-concurrency=1 --filter @ledgerbyte/zatca-core test",
+    "paid-saas:local-proof": "node scripts/paid-saas-local-proof.cjs",
+    "test:paid-saas-local-proof": "corepack pnpm paid-saas:local-proof -- --strict --json",
     "lint": "corepack pnpm --workspace-concurrency=1 -r --if-present lint",
     "typecheck": "corepack pnpm --workspace-concurrency=1 -r --if-present typecheck",
     "verify:diff": "node scripts/verify-gate.cjs verify:diff",

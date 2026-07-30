@@ -1980,3 +1980,9 @@ Recommended next step:
 - Added a cross-tenant fixture plan, model-by-model RLS policy readiness matrix, and runtime DB role readiness evidence.
 - Conservative review queues remain: tenant index review has 370 items and API query scope audit has 42 review-needed files. These are review inputs, not production security guarantees.
 - This does not prove hosted RLS, runtime role cutover, Data API posture, hosted tenant isolation, production hosting, provider/compliance readiness, storage/PITR proof, or paid-beta production readiness.
+
+## 2026-07-30 Paid SaaS local proof
+
+- PAID-SAAS-07 proves the subscription foundation only in a fresh disposable PostgreSQL 16 database with the deterministic fake provider.
+- Runtime defaults remain `billingProvider=DISABLED` and `billingEnforcementMode=DISABLED`; live collection, public pricing, production billing, compliance-plan sellability, Stripe execution, ZATCA, and UAE actions remain disabled.
+- This does not increase production readiness or authorize a paid SaaS launch.

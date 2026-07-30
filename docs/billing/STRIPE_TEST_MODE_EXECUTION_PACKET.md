@@ -8,12 +8,16 @@ clock, webhook endpoint, product, price, customer, or payment.
 
 ## Baseline
 
-- Exact `origin/main` baseline when this packet was prepared:
-  `f3245a3631ec65a10cf7019c15919beff45aa1ff`.
+- Exact `origin/main` baseline before PAID-SAAS-07 local proof:
+  `092c10b788559b6b1678ff332bc480840baa376e`.
+- Final merged-main SHA: `PENDING_PAID_SAAS_07_MERGE`.
 - LedgerByte billing provider default: `DISABLED`.
 - Live collection: `false`.
 - Production billing: `false`.
 - Merchant eligibility: `PENDING_OWNER_EVIDENCE`.
+- Stripe SDK version: `NOT_INSTALLED`.
+- Stripe API version: `NOT_SELECTED`.
+- Stripe test-mode approval present: `false`; network and execution allowed: `false`.
 
 ## Official-source review (2026-07-30)
 

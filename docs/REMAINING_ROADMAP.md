@@ -2432,3 +2432,9 @@ Recommended next step:
 - Completed static/source evidence expansion for tenant relationships, tenant-aware indexes, API query scope patterns, cross-tenant fixture planning, RLS policy readiness, and runtime DB role readiness.
 - Remaining security roadmap work: manually review the 370 tenant index review items and 42 API query scope review-needed files, implement disposable local/test DB cross-tenant denial fixtures, execute hosted read-only grants/default-privilege checks, generate draft RLS policies for simulation only, and create/cut over a least-privilege runtime DB role under a separate approved hosted goal.
 - Still not done: Supabase RLS, runtime role creation, migration execution, hosted tenant-isolation proof, hosted Data API/grant proof, production DB role separation, storage/PITR proof, provider/ZATCA/UAE production execution, or production compliance.
+
+# Paid SaaS local foundation follow-up - 2026-07-30
+
+- Completed: local plan/version, entitlement, lifecycle, fake webhook, checkout-reservation, tenant boundary, API/UI component, and disposable PostgreSQL proof.
+- Next paid-SaaS gate: review the test-mode packet, merchant eligibility, legal/tax/pricing ownership, provider SDK/API version, test return-route allowlist, bounded object/request plan, and secret custody; then obtain the exact standalone Stripe test-mode approval if desired.
+- Still not done: Stripe test-mode execution, real collection, public prices, subscriptions/dunning/renewals with a provider, production enforcement, production billing operations, legal/tax/support approval, ZATCA/UAE commercial readiness, or paid-SaaS launch.

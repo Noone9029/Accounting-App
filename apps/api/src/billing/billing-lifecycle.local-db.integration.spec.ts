@@ -12,9 +12,11 @@ import { AuditLogService } from "../audit-log/audit-log.service";
 import { BillingLifecycleService } from "./billing-lifecycle.service";
 
 const describeLocalDb = process.env.LEDGERBYTE_RUN_LOCAL_DB_INTEGRATION === "true" ? describe : describe.skip;
+const runLocalDbProof = process.env.LEDGERBYTE_RUN_LOCAL_DB_INTEGRATION === "true";
 
 describeLocalDb("billing lifecycle local database proof", () => {
   const prisma = new PrismaClient();
+  if (!runLocalDbProof) void prisma.$disconnect();
   const marker = `paid-saas-lifecycle-${randomUUID()}`;
   const ids = {
     organization: randomUUID(),
