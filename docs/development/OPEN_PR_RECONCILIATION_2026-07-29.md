@@ -80,3 +80,12 @@ Proposed future ticket: **UAE: source-backed PINT-AE allowances, tax categories,
 ## Stop condition
 
 This reconciliation document does not authorize PR closure. The next possible closure action remains gated by the exact standalone owner phrase `APPROVE STALE PR CLOSURE`.
+
+## Closure evidence — 2026-07-30
+
+The owner supplied the exact standalone approval phrase `APPROVE STALE PR CLOSURE`. Before any hosted mutation, all 20 legacy PR heads were re-fetched and matched the head SHAs recorded in the JSON evidence.
+
+- Closed as approved: #112, #113, #115, #116, #117, #118, #120, #121, #122, #123, #124, #125, #126, #127, #129, and #138.
+- Retained open: #50 (security/accounting review), #114, #119, and #128 (fresh-reimplementation candidates).
+- Final live open-PR count: 4.
+- No legacy PR was merged, rebased, pushed, or otherwise changed beyond its approved closure and one factual closure comment. No remote branch was deleted.
