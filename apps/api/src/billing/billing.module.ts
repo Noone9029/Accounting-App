@@ -6,11 +6,13 @@ import { BillingProviderRegistry } from "./billing-provider.registry";
 import { FakeBillingProvider } from "./fake-billing.provider";
 import { BillingWebhookService } from "./billing-webhook.service";
 import { BillingWebhookController } from "./billing-webhook.controller";
+import { BillingManagementController } from "./billing-management.controller";
+import { BillingManagementService } from "./billing-management.service";
 
 @Module({
   imports: [AuditLogModule],
-  controllers: [BillingWebhookController],
-  providers: [BillingEntitlementService, BillingLifecycleService, FakeBillingProvider, BillingProviderRegistry, BillingWebhookService],
+  controllers: [BillingWebhookController, BillingManagementController],
+  providers: [BillingEntitlementService, BillingLifecycleService, FakeBillingProvider, BillingProviderRegistry, BillingWebhookService, BillingManagementService],
   exports: [BillingEntitlementService, BillingLifecycleService, BillingProviderRegistry, BillingWebhookService],
 })
 export class BillingModule {}

@@ -2614,6 +2614,51 @@
       ]
     },
     {
+      "id": "page:/plans",
+      "pageModule": "apps/web/src/app/(app)/plans/page.tsx",
+      "route": "/plans",
+      "surface": "signed-in",
+      "coverage": "canonical-active-route",
+      "roles": [
+        "Owner",
+        "Admin",
+        "Accountant",
+        "Sales",
+        "Purchases",
+        "Viewer"
+      ],
+      "viewports": [
+        "1440x1000",
+        "1024x768",
+        "390x844"
+      ],
+      "locales": [
+        "en/LTR",
+        "ar/RTL"
+      ],
+      "stateContract": [
+        "normal",
+        "loading",
+        "empty",
+        "zero-value",
+        "large-data",
+        "long-text",
+        "validation",
+        "api-failure",
+        "denied",
+        "success",
+        "destructive"
+      ],
+      "classification": "canonical route baseline disposition",
+      "disposition": "Canonical active route included in the bounded role/viewport structural matrix; route-specific workflow findings remain linked from the product stabilization ledger.",
+      "evidence": [
+        "verify:ui:inventory",
+        "role-filtered-route-polish.visual.spec.ts",
+        "arabic-locale.visual.spec.ts",
+        "all-active-routes.visual.spec.ts"
+      ]
+    },
+    {
       "id": "page:/purchases/ap-dashboard",
       "pageModule": "apps/web/src/app/(app)/purchases/ap-dashboard/page.tsx",
       "route": "/purchases/ap-dashboard",
@@ -5245,6 +5290,51 @@
       "id": "page:/settings/banking-accounting",
       "pageModule": "apps/web/src/app/(app)/settings/banking-accounting/page.tsx",
       "route": "/settings/banking-accounting",
+      "surface": "signed-in",
+      "coverage": "canonical-active-route",
+      "roles": [
+        "Owner",
+        "Admin",
+        "Accountant",
+        "Sales",
+        "Purchases",
+        "Viewer"
+      ],
+      "viewports": [
+        "1440x1000",
+        "1024x768",
+        "390x844"
+      ],
+      "locales": [
+        "en/LTR",
+        "ar/RTL"
+      ],
+      "stateContract": [
+        "normal",
+        "loading",
+        "empty",
+        "zero-value",
+        "large-data",
+        "long-text",
+        "validation",
+        "api-failure",
+        "denied",
+        "success",
+        "destructive"
+      ],
+      "classification": "canonical route baseline disposition",
+      "disposition": "Canonical active route included in the bounded role/viewport structural matrix; route-specific workflow findings remain linked from the product stabilization ledger.",
+      "evidence": [
+        "verify:ui:inventory",
+        "role-filtered-route-polish.visual.spec.ts",
+        "arabic-locale.visual.spec.ts",
+        "all-active-routes.visual.spec.ts"
+      ]
+    },
+    {
+      "id": "page:/settings/billing",
+      "pageModule": "apps/web/src/app/(app)/settings/billing/page.tsx",
+      "route": "/settings/billing",
       "surface": "signed-in",
       "coverage": "canonical-active-route",
       "roles": [

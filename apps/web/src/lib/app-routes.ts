@@ -360,6 +360,10 @@ export const APP_ROUTES = [
   ], {
     sensitivity: ["provider"],
   }),
+  route("settings.billing", "Billing and subscription", "/settings/billing", "settings", "Local subscription lifecycle, access status, and provider-disabled billing controls.", [PERMISSIONS.billing.view], {
+    sensitivity: ["provider"],
+  }),
+  route("plans", "Plans", "/plans", "settings", "Capability-only subscription plan catalog without public prices or checkout.", [PERMISSIONS.billing.view]),
   route(
     "settings.bankIntegrations",
     "Bank integration readiness",
