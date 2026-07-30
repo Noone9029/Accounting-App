@@ -65,6 +65,9 @@ export class BillingWebhookService {
       const event = await this.prisma.billingWebhookEvent.findUniqueOrThrow({
         where: { provider_environment_providerEventId: { provider: input.provider, environment: input.environment, providerEventId: normalized.providerEventId } },
       });
+      if (event.payloadHash !== payloadHash) {
+        throw new ConflictException("Billing provider event identity was reused with a different verified payload.");
+      }
       await this.prisma.billingWebhookEvent.update({ where: { id: event.id }, data: { status: BillingWebhookProcessingStatus.IGNORED_DUPLICATE } });
       return { event: { ...event, status: BillingWebhookProcessingStatus.IGNORED_DUPLICATE }, duplicate: true };
     }

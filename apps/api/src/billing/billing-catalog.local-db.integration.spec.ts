@@ -13,8 +13,12 @@ import {
 const runLocalDbProof = process.env.LEDGERBYTE_RUN_LOCAL_DB_INTEGRATION === "true";
 const describeLocalDb = runLocalDbProof ? describe : describe.skip;
 
+// describe.skip still evaluates its callback during Jest test collection.
+// Release the unused client immediately so normal unit suites do not leak it.
+
 describeLocalDb("billing catalog schema local database proof", () => {
   const prisma = new PrismaClient();
+  if (!runLocalDbProof) void prisma.$disconnect();
   const marker = `paid-saas-catalog-${randomUUID()}`;
   const fixture = {
     organizationAId: randomUUID(),

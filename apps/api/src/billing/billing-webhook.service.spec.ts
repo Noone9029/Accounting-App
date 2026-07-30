@@ -1,4 +1,5 @@
-import { BadRequestException, ForbiddenException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException } from "@nestjs/common";
+import { createHash } from "node:crypto";
 import { BillingProvider, BillingWebhookProcessingStatus } from "@prisma/client";
 import { BillingWebhookService } from "./billing-webhook.service";
 
@@ -55,10 +56,25 @@ describe("BillingWebhookService", () => {
     prisma.billingProviderCustomer.findFirst.mockResolvedValue(null);
     prisma.organizationSubscription.findFirst.mockResolvedValue(null);
     prisma.billingWebhookEvent.create.mockRejectedValue({ code: "P2002" });
-    prisma.billingWebhookEvent.findUniqueOrThrow.mockResolvedValue({ id: "event-1", status: BillingWebhookProcessingStatus.RECEIVED });
+    prisma.billingWebhookEvent.findUniqueOrThrow.mockResolvedValue({
+      id: "event-1",
+      status: BillingWebhookProcessingStatus.RECEIVED,
+      payloadHash: createHash("sha256").update('{"safe":"body"}').digest("hex"),
+    });
 
     await expect(service.ingest(ingress())).resolves.toMatchObject({ duplicate: true, event: { status: BillingWebhookProcessingStatus.IGNORED_DUPLICATE } });
     expect(prisma.billingWebhookEvent.update).toHaveBeenCalledWith(expect.objectContaining({ data: { status: BillingWebhookProcessingStatus.IGNORED_DUPLICATE } }));
+  });
+
+  it("rejects reuse of a provider event identity when the verified payload changed", async () => {
+    const { service, prisma } = harness();
+    prisma.billingProviderCustomer.findFirst.mockResolvedValue(null);
+    prisma.organizationSubscription.findFirst.mockResolvedValue(null);
+    prisma.billingWebhookEvent.create.mockRejectedValue({ code: "P2002" });
+    prisma.billingWebhookEvent.findUniqueOrThrow.mockResolvedValue({ id: "event-1", payloadHash: "different-verified-payload" });
+
+    await expect(service.ingest(ingress(Buffer.from('{"safe":"new-body"}')))).rejects.toBeInstanceOf(ConflictException);
+    expect(prisma.billingWebhookEvent.update).not.toHaveBeenCalled();
   });
 
   it("ignores a stale verified event instead of moving local subscription state backward", async () => {

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { BillingLifecycleEventType, BillingScheduledChangeStatus, BillingSubscriptionStatus, Prisma } from "@prisma/client";
 import { AuditLogService } from "../audit-log/audit-log.service";
@@ -55,11 +56,15 @@ export class BillingLifecycleService {
       return await this.prisma.$transaction(async (tx) => {
         const subscription = await tx.organizationSubscription.findFirst({ where: { id: input.subscriptionId, organizationId: input.organizationId } });
         if (!subscription) throw new NotFoundException("Subscription not found.");
+        const requestHash = transitionRequestHash(input);
         const duplicate = await tx.billingLifecycleEvent.findFirst({
           where: { organizationId: input.organizationId, subscriptionId: subscription.id, correlationId: input.correlationId.trim() },
-          select: { id: true },
+          select: { id: true, safeMetadataJson: true },
         });
-        if (duplicate) throw new ConflictException("Lifecycle transition was already processed.");
+        if (duplicate) {
+          if (metadataRequestHash(duplicate.safeMetadataJson) !== requestHash) throw new ConflictException("Lifecycle correlation ID was reused with a different request.");
+          return { ...subscription, replay: true };
+        }
         if (!policy.from.includes(subscription.status)) throw new ConflictException("Subscription transition is not valid from its current state.");
         if (input.transition === "EXPIRE_GRACE" && (!subscription.graceDeadline || subscription.graceDeadline > now)) throw new ConflictException("Grace period has not expired.");
         if (input.transition === "CANCEL" && (!subscription.currentPeriodEndsAt || subscription.currentPeriodEndsAt > now)) throw new ConflictException("Current paid period has not ended.");
@@ -71,7 +76,7 @@ export class BillingLifecycleService {
         });
         if (claimed.count !== 1) throw new ConflictException("Subscription changed. Reload and retry.");
         const updated = await tx.organizationSubscription.findUniqueOrThrow({ where: { id: subscription.id } });
-        await tx.billingLifecycleEvent.create({ data: { organizationId: input.organizationId, subscriptionId: subscription.id, eventType: policy.event, previousStatus: subscription.status, nextStatus: updated.status, reasonCode: input.transition, correlationId: input.correlationId.trim(), safeMetadataJson: { version: updated.version } } });
+        await tx.billingLifecycleEvent.create({ data: { organizationId: input.organizationId, subscriptionId: subscription.id, eventType: policy.event, previousStatus: subscription.status, nextStatus: updated.status, reasonCode: input.transition, correlationId: input.correlationId.trim(), safeMetadataJson: { version: updated.version, requestHash } } });
         await this.auditLog.log({ organizationId: input.organizationId, actorUserId: input.actorUserId, action: input.transition, entityType: "OrganizationSubscription", entityId: subscription.id, before: { status: subscription.status, version: subscription.version }, after: { status: updated.status, version: updated.version } }, tx);
         return updated;
       }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
@@ -84,14 +89,21 @@ export class BillingLifecycleService {
   async schedulePlanChange(input: { organizationId: string; subscriptionId: string; expectedVersion: number; targetPlanVersionId: string; effectiveAt: Date; correlationId: string; actorUserId?: string }) {
     if (!input.correlationId?.trim()) throw new BadRequestException("A lifecycle correlation ID is required.");
     if (input.effectiveAt <= new Date()) throw new BadRequestException("A future plan-change effective date is required.");
-    return this.prisma.$transaction(async (tx) => {
+    try {
+      return await this.prisma.$transaction(async (tx) => {
       const subscription = await tx.organizationSubscription.findFirst({ where: { id: input.subscriptionId, organizationId: input.organizationId } });
       if (!subscription) throw new NotFoundException("Subscription not found.");
+      const requestHash = planChangeRequestHash(input);
       const duplicate = await tx.billingLifecycleEvent.findFirst({
         where: { organizationId: input.organizationId, subscriptionId: subscription.id, correlationId: input.correlationId.trim() },
-        select: { id: true },
+        select: { id: true, safeMetadataJson: true },
       });
-      if (duplicate) throw new ConflictException("Plan change was already processed.");
+      if (duplicate) {
+        if (metadataRequestHash(duplicate.safeMetadataJson) !== requestHash) throw new ConflictException("Plan-change correlation ID was reused with a different request.");
+        const existing = await tx.subscriptionScheduledChange.findFirst({ where: { subscriptionId: subscription.id, organizationId: input.organizationId, status: BillingScheduledChangeStatus.PENDING } });
+        if (!existing) throw new ConflictException("Plan change was already processed.");
+        return { ...existing, replay: true };
+      }
       if (subscription.version !== input.expectedVersion) throw new ConflictException("Subscription changed. Reload and retry.");
       if (!SCHEDULABLE_PLAN_CHANGE_STATUSES.includes(subscription.status)) {
         throw new ConflictException("Plan changes require an active commercial subscription state.");
@@ -106,7 +118,7 @@ export class BillingLifecycleService {
         data: { version: { increment: 1 } },
       });
       if (claimed.count !== 1) throw new ConflictException("Subscription changed. Reload and retry.");
-      await tx.billingLifecycleEvent.create({ data: { organizationId: input.organizationId, subscriptionId: subscription.id, eventType: BillingLifecycleEventType.PLAN_CHANGE_SCHEDULED, previousStatus: subscription.status, nextStatus: subscription.status, reasonCode: "PLAN_CHANGE", correlationId: input.correlationId.trim(), safeMetadataJson: { scheduledChangeId: change.id } } });
+      await tx.billingLifecycleEvent.create({ data: { organizationId: input.organizationId, subscriptionId: subscription.id, eventType: BillingLifecycleEventType.PLAN_CHANGE_SCHEDULED, previousStatus: subscription.status, nextStatus: subscription.status, reasonCode: "PLAN_CHANGE", correlationId: input.correlationId.trim(), safeMetadataJson: { scheduledChangeId: change.id, requestHash } } });
       await this.auditLog.log({
         organizationId: input.organizationId,
         actorUserId: input.actorUserId,
@@ -116,8 +128,12 @@ export class BillingLifecycleService {
         before: { planVersionId: subscription.planVersionId, version: subscription.version },
         after: { planVersionId: subscription.planVersionId, scheduledChangeId: change.id, version: subscription.version + 1 },
       }, tx);
-      return change;
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+        return change;
+      }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    } catch (error) {
+      if ((error as { code?: string }).code === "P2034") throw new ConflictException("Plan change conflicted. Reload and retry.");
+      throw error;
+    }
   }
 
   /**
@@ -255,6 +271,24 @@ export class BillingLifecycleService {
       throw error;
     }
   }
+}
+
+function transitionRequestHash(input: BillingTransitionInput): string {
+  return requestHash({ transition: input.transition, trialEndsAt: input.trialEndsAt?.toISOString() ?? null, graceDeadline: input.graceDeadline?.toISOString() ?? null, currentPeriodEndsAt: input.currentPeriodEndsAt?.toISOString() ?? null });
+}
+
+function planChangeRequestHash(input: { targetPlanVersionId: string; effectiveAt: Date }): string {
+  return requestHash({ targetPlanVersionId: input.targetPlanVersionId, effectiveAt: input.effectiveAt.toISOString() });
+}
+
+function requestHash(value: object): string {
+  return createHash("sha256").update(JSON.stringify(value)).digest("hex");
+}
+
+function metadataRequestHash(value: Prisma.JsonValue | null): string | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const requestHash = (value as Record<string, unknown>).requestHash;
+  return typeof requestHash === "string" ? requestHash : null;
 }
 
 function lifecycleData(input: BillingTransitionInput, status: BillingSubscriptionStatus, now: Date): Prisma.OrganizationSubscriptionUpdateManyMutationInput {
