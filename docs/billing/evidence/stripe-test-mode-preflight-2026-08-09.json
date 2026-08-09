@@ -1,0 +1,44 @@
+{
+  "evidenceTimestamp": "2026-08-09T00:00:00-04:00",
+  "mainSha": "3266b977534359ab0743972cb56ec54524a4ebdf",
+  "authorization": {
+    "phraseReceived": "APPROVE LEDGERBYTE STRIPE TEST-MODE BILLING EXECUTION",
+    "receivedOn": "2026-08-09"
+  },
+  "status": "BLOCKED_BEFORE_PROVIDER_EXECUTION",
+  "providerRequests": 0,
+  "providerObjects": 0,
+  "liveCollectionEnabled": false,
+  "productionBillingEnabled": false,
+  "billingProviderDefault": "DISABLED",
+  "sdkCandidate": {
+    "package": "stripe",
+    "version": "22.4.0",
+    "installed": false
+  },
+  "apiVersionCandidate": "2026-07-29.dahlia",
+  "preflight": {
+    "testModeIdentity": "BLOCKED_NO_TEST_CREDENTIAL",
+    "liveKeyRejection": "BLOCKED_NO_APPROVED_SECRET_MECHANISM",
+    "merchantEligibility": "PENDING_OWNER_EVIDENCE",
+    "secretCustody": "BLOCKED_NO_APPROVED_SECRET_MECHANISM",
+    "syntheticScope": "PLANNED_NOT_PROVEN",
+    "publicEndpointControl": "BLOCKED_HEALTH_AND_READINESS_HTTP_500",
+    "productionBillingCodeBoundary": "PASS_NON_NETWORKING_ADAPTER"
+  },
+  "boundedInventory": {
+    "syntheticCustomersMax": 2,
+    "productsMax": 2,
+    "pricesMax": 4,
+    "checkoutSessionsMax": 2,
+    "portalSessionsMax": 2,
+    "testClocksMax": 1,
+    "webhookDeliveriesMax": 8
+  },
+  "affectedDomains": {
+    "tenantAccountingMutations": 0,
+    "zatcaActions": 0,
+    "uaeActions": 0,
+    "hostedConfigurationMutations": 0
+  }
+}
