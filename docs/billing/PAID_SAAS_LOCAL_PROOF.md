@@ -1,6 +1,6 @@
 # Paid SaaS local lifecycle proof
 
-Status: **LOCAL PROOF COMPLETE / MERGE PENDING**
+Status: **PAID-SAAS ARC: MERGED / PROVEN LOCAL**
 
 This is a bounded, synthetic-only proof of the LedgerByte subscription
 foundation. It runs five end-to-end proof flows against a fresh disposable
@@ -47,4 +47,6 @@ defaults remain `DISABLED`.
   RTL container. Browser E2E is not claimed: this proof does not start a
   browser or a hosted/local web-server fixture.
 
-Post-merge authoritative status: **PAID-SAAS ARC: MERGED / PROVEN LOCAL**.
+The clean-main proof ran at merge commit
+`08d63565cc8ef72f89102c0fed6f1fa2e9cfac7d` and emitted
+`MERGED_PROVEN_LOCAL`.

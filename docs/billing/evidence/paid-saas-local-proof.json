@@ -1,6 +1,8 @@
 {
   "schemaVersion": 1,
   "baseSha": "092c10b788559b6b1678ff332bc480840baa376e",
+  "finalMergeSha": "08d63565cc8ef72f89102c0fed6f1fa2e9cfac7d",
+  "paidSaasArcStatus": "MERGED_PROVEN_LOCAL",
   "branch": "codex/paid-saas-07-local-proof",
   "proofTimestamp": "2026-07-30T10:00:00.000Z",
   "postgresVersion": "PostgreSQL 16.13",

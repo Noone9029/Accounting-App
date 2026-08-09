@@ -783,4 +783,4 @@ This should remain frontend-only and non-persistent. It should not add backend s
 - Local-only proof completed on the PAID-SAAS-07 branch using disposable PostgreSQL 16 and `FakeBillingProvider`; see `docs/billing/PAID_SAAS_LOCAL_PROOF.md` and metadata-only evidence.
 - The proof covers controlled beta, trial replay/conflict, fake checkout reservation race, fake webhook replay/order handling, scheduled plan change, grace/read-only suspension, tenant denials, accounting separation, UI component states, and cleanup. Existing tenant-scoped billing APIs remain provider-disabled outside the harness.
 - Runtime defaults remain disabled. No Stripe, network, hosted, accounting, ZATCA, UAE, public price, or live collection action occurred.
-- Merge remains pending. After merge, the next possible owner action is the separately supplied exact Stripe test-mode approval phrase; do not infer it from this handoff.
+- The clean-main proof passed at merge commit `08d63565cc8ef72f89102c0fed6f1fa2e9cfac7d` with `MERGED_PROVEN_LOCAL`. The next possible owner action is the separately supplied exact Stripe test-mode approval phrase; do not infer it from this handoff.

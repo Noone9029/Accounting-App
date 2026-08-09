@@ -161,15 +161,6 @@
     "db:migrate": "corepack pnpm --filter @ledgerbyte/api db:migrate",
     "db:seed": "corepack pnpm --filter @ledgerbyte/api db:seed"
   },
-  "pnpm": {
-    "overrides": {
-      "@babel/core": "7.29.6",
-      "body-parser": "2.3.0",
-      "postcss": "8.5.18",
-      "qs": "6.15.2",
-      "sharp": "0.35.3"
-    }
-  },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
     "typescript": "^5.8.3"
