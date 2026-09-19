@@ -13,6 +13,13 @@ import {
 } from "@prisma/client";
 import { PurchaseReturnService } from "./purchase-return.service";
 
+// Service rules verify source linkage and side effects here; the PostgreSQL
+// valuation suite exercises the real writer's locks, cost allocation and caps.
+jest.mock("../inventory/valued-stock-movement", () => ({
+  ...jest.requireActual("../inventory/valued-stock-movement"),
+  createValuedStockMovement: jest.fn((tx: { stockMovement: { create: (args: unknown) => Promise<unknown> } }, args: unknown) => tx.stockMovement.create(args)),
+}));
+
 describe("purchase return rules", () => {
   it("creates a draft operational return without journal, AP, inventory, debit note, or refund side effects", async () => {
     const tx = makeTransactionMock();
@@ -149,7 +156,7 @@ describe("purchase return rules", () => {
     expect(preview.safeHelperText).toContain("operational stock movement only");
   });
 
-  it("posts purchase return inventory movement once with no accounting, AP, VAT, or valuation side effects", async () => {
+  it("records purchase return stock once through valuation without automatic GL, AP, or VAT posting", async () => {
     const tx = makeInventoryReturnPrisma();
     const root = makeInventoryReturnPrisma();
     const before = makeInventoryReturnRecord();
@@ -206,6 +213,7 @@ describe("purchase return rules", () => {
           itemId: "item-1",
           warehouseId: "warehouse-1",
           type: StockMovementType.PURCHASE_RETURN_OUT,
+          valuationSourceMovementId: "receipt-movement-1",
           quantity: "2.0000",
           referenceType: "PurchaseReturn",
           referenceId: "return-1",
@@ -314,6 +322,7 @@ function makeTransactionMock(
   } = {},
 ) {
   return {
+    $queryRaw: jest.fn().mockResolvedValue([]),
     contact: {
       findFirst: jest.fn().mockResolvedValue({ id: "supplier-1", type: ContactType.SUPPLIER }),
     },
@@ -382,6 +391,7 @@ function makeInventoryReturnPrisma(
 ) {
   const record = makeInventoryReturnRecord(options);
   return {
+    $queryRaw: jest.fn().mockResolvedValue([]),
     purchaseReturn: {
       findFirst: jest.fn().mockResolvedValue(record),
       updateMany: jest.fn(),

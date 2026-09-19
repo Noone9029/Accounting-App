@@ -1,5 +1,17 @@
 import { ItemStatus, Prisma, StockMovementType, WarehouseStatus, WarehouseTransferStatus } from "@prisma/client";
 import { WarehouseTransferService } from "./warehouse-transfer.service";
+// Document lifecycle tests isolate the valued writer; real PostgreSQL tests cover
+// cost arithmetic, transaction locking, immutable snapshots and rollback.
+jest.mock("../inventory/valued-stock-movement", () => ({
+  lockInventory: jest.fn().mockResolvedValue(undefined),
+  createValuedStockMovement: jest.fn(async (tx: { stockMovement: { create: (args: unknown) => Promise<object> } }, args: { data: Record<string, unknown> }) => {
+    const { Prisma: P } = jest.requireActual("@prisma/client");
+    const created = await tx.stockMovement.create(args);
+    return { ...args.data, ...created,
+      unitCost: args.data.unitCost == null ? null : new P.Decimal(String(args.data.unitCost)),
+      totalCost: args.data.totalCost == null ? null : new P.Decimal(String(args.data.totalCost)) };
+  }),
+}));
 
 describe("WarehouseTransferService", () => {
   const item = { id: "item-1", inventoryTracking: true, status: ItemStatus.ACTIVE };
@@ -31,7 +43,10 @@ describe("WarehouseTransferService", () => {
     };
     const audit = { log: jest.fn() };
     const numbers = { next: jest.fn().mockResolvedValue("WTR-000001") };
-    return { service: new WarehouseTransferService(prisma as never, audit as never, numbers as never), prisma, audit, numbers };
+    const service = new WarehouseTransferService(prisma as never, audit as never, numbers as never);
+    const create = service.create.bind(service);
+    service.create = (org, user, dto, key = "transfer-unit-command") => create(org, user, dto, key);
+    return { service, prisma, audit, numbers };
   }
 
   function makeTx(
@@ -42,6 +57,7 @@ describe("WarehouseTransferService", () => {
     transferRecord = transfer,
   ) {
     return {
+      apiIdempotencyRecord: { findUnique: jest.fn().mockResolvedValue(null), create: jest.fn().mockResolvedValue({}) },
       item: { findFirst: jest.fn().mockResolvedValue(item) },
       warehouse: { findFirst: jest.fn().mockResolvedValueOnce(fromWarehouse).mockResolvedValueOnce(toWarehouse) },
       stockMovement: {
@@ -82,7 +98,7 @@ describe("WarehouseTransferService", () => {
       2,
       expect.objectContaining({ data: expect.objectContaining({ type: StockMovementType.TRANSFER_IN, warehouseId: toWarehouse.id }) }),
     );
-    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "CREATE", entityType: "WarehouseTransfer" }));
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "CREATE", entityType: "WarehouseTransfer" }), tx);
   });
 
   it("rejects same warehouse and insufficient source stock", async () => {

@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { createValuedStockMovement, lockInventory } from "../inventory/valued-stock-movement";
 import {
   ContactType,
   ItemStatus,
@@ -267,6 +268,7 @@ export class PurchaseReturnService {
 
   async create(organizationId: string, actorUserId: string, dto: CreatePurchaseReturnDto) {
     const created = await this.prisma.$transaction(async (tx) => {
+      await lockInventory(tx, organizationId);
       const prepared = await this.preparePurchaseReturn(organizationId, dto.supplierId, dto, undefined, tx);
       const purchaseReturnNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.PURCHASE_RETURN, tx);
 
@@ -319,6 +321,7 @@ export class PurchaseReturnService {
     };
 
     const updated = await this.prisma.$transaction(async (tx) => {
+      await lockInventory(tx, organizationId);
       const prepared = await this.preparePurchaseReturn(
         organizationId,
         nextSupplierId,
@@ -403,6 +406,7 @@ export class PurchaseReturnService {
     const before = await this.get(organizationId, id);
 
     const result = await this.prisma.$transaction(async (tx) => {
+      await lockInventory(tx, organizationId);
       const purchaseReturn = await this.loadPurchaseReturnForInventory(organizationId, id, tx);
       const preview = await this.buildInventoryReturnPreview(organizationId, purchaseReturn, tx);
       if (!preview.canPost) {
@@ -434,13 +438,14 @@ export class PurchaseReturnService {
         if (!returnLine) continue;
         const quantity = new Prisma.Decimal(line.returnQuantity);
         const unitCost = this.inventoryReturnUnitCost(returnLine);
-        const movement = await tx.stockMovement.create({
+        const movement = await createValuedStockMovement(tx, {
           data: {
             organizationId,
             itemId: line.item.id,
             warehouseId: line.warehouse.id,
             movementDate: purchaseReturn.returnDate,
             type: StockMovementType.PURCHASE_RETURN_OUT,
+            valuationSourceMovementId: returnLine.sourcePurchaseReceiptLine?.stockMovementId,
             quantity: quantity.toFixed(4),
             unitCost: unitCost?.toFixed(4) ?? null,
             totalCost: unitCost ? quantity.mul(unitCost).toFixed(4) : null,

@@ -65,6 +65,7 @@ enum EmailDeliveryStatus {
 }
 
 enum EmailTemplateType {
+  EMAIL_VERIFICATION
   ORGANIZATION_INVITE
   PASSWORD_RESET
   TEST_EMAIL
@@ -323,6 +324,7 @@ enum BillingInvoiceReferenceStatus {
 }
 
 enum BillingLifecycleEventType {
+  TRIAL_EXPIRED
   TRIAL_STARTED
   ACTIVATED
   PAYMENT_FAILED
@@ -336,6 +338,7 @@ enum BillingLifecycleEventType {
 }
 
 enum AuthTokenPurpose {
+  EMAIL_VERIFICATION
   ORGANIZATION_INVITE
   PASSWORD_RESET
 }
@@ -1483,6 +1486,8 @@ enum NumberSequenceScope {
 }
 
 model User {
+  inventoryMovementReviews InventoryMovementPosting[]
+  emailVerifiedAt DateTime?
   id                                                String                                      @id @default(uuid()) @db.Uuid
   email                                             String                                      @unique
   passwordHash                                      String
@@ -1711,6 +1716,8 @@ model Organization {
   inventoryBatches                          InventoryBatch[]
   inventorySerialNumbers                    InventorySerialNumber[]
   stockMovements                            StockMovement[]
+  inventoryValuationBalances                 InventoryValuationBalance[]
+  inventoryMovementPostings                  InventoryMovementPosting[]
   inventoryAdjustments                      InventoryAdjustment[]
   warehouseTransfers                        WarehouseTransfer[]
   inventorySettings                         InventorySettings?
@@ -2520,6 +2527,7 @@ model OrganizationSubscription {
   @@index([billingAccountId, status])
   @@index([planVersionId])
   @@index([status, graceDeadline])
+  @@index([status, trialEndsAt], map: "OrganizationSubscription_trial_expiry_idx")
 }
 
 model SubscriptionScheduledChange {
@@ -4776,6 +4784,7 @@ model Item {
   purchaseReturnLines    PurchaseReturnLine[]
   cashExpenseLines       CashExpenseLine[]
   stockMovements         StockMovement[]
+  inventoryValuationBalances InventoryValuationBalance[]
   inventoryBatches       InventoryBatch[]
   inventorySerialNumbers InventorySerialNumber[]
   inventoryAdjustments   InventoryAdjustment[]
@@ -4807,6 +4816,7 @@ model Warehouse {
   updatedAt                  DateTime              @updatedAt
   organization               Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   stockMovements             StockMovement[]
+  inventoryValuationBalances  InventoryValuationBalance[]
   binLocations               InventoryBinLocation[]
   currentSerialNumbers       InventorySerialNumber[] @relation("InventorySerialCurrentWarehouse")
   inventoryAdjustments       InventoryAdjustment[]
@@ -4821,7 +4831,39 @@ model Warehouse {
   @@index([organizationId, status])
 }
 
+model InventoryMovementPosting {
+  id             String       @id @default(uuid()) @db.Uuid
+  organizationId String       @db.Uuid
+  movementId     String       @unique @db.Uuid
+  journalEntryId String?      @unique @db.Uuid
+  reviewedById   String       @db.Uuid
+  reviewedAt     DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  movement       StockMovement @relation(fields: [movementId], references: [id])
+  journalEntry   JournalEntry? @relation(fields: [journalEntryId], references: [id])
+  reviewedBy     User         @relation(fields: [reviewedById], references: [id])
+
+  @@index([organizationId])
+}
+
+model InventoryValuationBalance {
+  id               String       @id @default(uuid()) @db.Uuid
+  organizationId   String       @db.Uuid
+  itemId           String       @db.Uuid
+  warehouseId      String       @db.Uuid
+  quantity         Decimal      @db.Decimal(20, 4)
+  value            Decimal      @db.Decimal(20, 4)
+  sequence         Int
+  lastMovementDate DateTime
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  item             Item         @relation(fields: [itemId], references: [id])
+  warehouse        Warehouse    @relation(fields: [warehouseId], references: [id])
+
+  @@unique([organizationId, itemId, warehouseId])
+}
+
 model StockMovement {
+  inventoryMovementPosting InventoryMovementPosting?
   id                        String               @id @default(uuid()) @db.Uuid
   organizationId            String               @db.Uuid
   itemId                    String               @db.Uuid
@@ -4838,6 +4880,14 @@ model StockMovement {
   totalCost                 Decimal?             @db.Decimal(20, 4)
   referenceType             String?
   referenceId               String?
+  valuationVersion          Int?
+  valuationSequence         Int?
+  valuationQuantityAfter    Decimal?             @db.Decimal(20, 4)
+  valuationValueAfter       Decimal?             @db.Decimal(20, 4)
+  valuationSourceValue      Decimal?             @db.Decimal(20, 4)
+  valuationSourceMovementId String?              @db.Uuid
+  valuationSourceMovement   StockMovement?       @relation("InventoryValuationSource", fields: [valuationSourceMovementId], references: [id])
+  valuationReturnMovements  StockMovement[]      @relation("InventoryValuationSource")
   description               String?
   createdById               String?              @db.Uuid
   createdAt                 DateTime             @default(now())
@@ -7088,6 +7138,7 @@ model SupplierRefund {
 }
 
 model JournalEntry {
+  inventoryMovementPosting InventoryMovementPosting?
   id                                    String                     @id @default(uuid()) @db.Uuid
   organizationId                        String                     @db.Uuid
   entryNumber                           String

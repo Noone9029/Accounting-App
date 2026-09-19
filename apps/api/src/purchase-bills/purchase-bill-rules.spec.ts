@@ -851,6 +851,9 @@ function makeVoidTransactionMock(options: { activePaymentCount?: number; clearin
         { accountId: "ap", debit: "0.0000", credit: "100.0000", description: "AP", currency: "SAR", exchangeRate: "1", taxRateId: null },
       ];
   return {
+    $queryRaw: jest.fn().mockResolvedValue([]),
+    purchaseReceipt: { count: jest.fn().mockResolvedValue(0) },
+    purchaseReturn: { count: jest.fn().mockResolvedValue(0) },
     purchaseBill: {
       findFirst: jest.fn().mockResolvedValue({
         id: "bill-1",

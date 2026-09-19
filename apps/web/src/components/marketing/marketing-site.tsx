@@ -587,6 +587,10 @@ export function MarketingHomePage({ locale }: { locale: MarketingLocale }) {
   );
 }
 
+export function MarketingPricingShell({ locale, children }: { locale: MarketingLocale; children: ReactNode }) {
+  return <MarketingShell locale={locale} pageKey="pricing">{children}</MarketingShell>;
+}
+
 export function MarketingDetailPage({ locale, pageKey }: { locale: MarketingLocale; pageKey: Exclude<MarketingPageKey, "home"> }) {
   const content = marketingContentForMarket(locale);
   const detail = marketingDetails[locale][pageKey];

@@ -9,12 +9,12 @@ import type { LedgerByteBillingProvider } from "./billing-provider.types";
 @Injectable()
 export class BillingProviderRegistry {
   private readonly disabled = new DisabledBillingProvider();
-  private readonly stripe = new StripeBillingProvider();
+  private readonly stripe: StripeBillingProvider;
 
   constructor(
     private readonly config: ConfigService,
     private readonly fake: FakeBillingProvider,
-  ) {}
+  ) { this.stripe = new StripeBillingProvider(undefined, config); }
 
   active(): LedgerByteBillingProvider {
     const configured = this.config.get<string>("LEDGERBYTE_BILLING_PROVIDER")?.trim().toUpperCase();

@@ -161,6 +161,14 @@ export function buildPasswordResetEmail(input: PasswordResetTemplateInput) {
   };
 }
 
+export function buildEmailVerificationEmail(verificationUrl: string) {
+  return {
+    subject: "Verify your LedgerByte email",
+    bodyText: `Verify your email to start your LedgerByte trial: ${verificationUrl}\n\nThis link expires in 1 hour. If you did not create an account, ignore this email.`,
+    bodyHtml: `<p>Verify your email to start your LedgerByte trial.</p><p><a href="${escapeHtml(verificationUrl)}">Verify email</a></p><p>This link expires in 1 hour. If you did not create an account, ignore this email.</p>`,
+  };
+}
+
 export function buildTestEmail(input: TestEmailTemplateInput) {
   const subject = "LedgerByte test email";
   const bodyText = [

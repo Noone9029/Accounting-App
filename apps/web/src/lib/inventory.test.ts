@@ -250,9 +250,10 @@ describe("inventory helpers", () => {
     expect(canShowPostCogsAction({ canPost: true, alreadyPosted: false }, true)).toBe(true);
     expect(canShowPostCogsAction({ canPost: true, alreadyPosted: false }, false)).toBe(false);
     expect(canShowPostCogsAction({ canPost: false, alreadyPosted: false }, true)).toBe(false);
-    expect(canShowReverseCogsAction({ alreadyPosted: true, alreadyReversed: false }, true)).toBe(true);
-    expect(canShowReverseCogsAction({ alreadyPosted: true, alreadyReversed: true }, true)).toBe(false);
-    expect(canShowReverseCogsAction({ alreadyPosted: true, alreadyReversed: false }, false)).toBe(false);
+    expect(canShowReverseCogsAction({ alreadyPosted: true, alreadyReversed: false, journalEntryId: "journal-1" }, true)).toBe(true);
+    expect(canShowReverseCogsAction({ alreadyPosted: true, alreadyReversed: true, journalEntryId: "journal-1" }, true)).toBe(false);
+    expect(canShowReverseCogsAction({ alreadyPosted: true, alreadyReversed: false, journalEntryId: "journal-1" }, false)).toBe(false);
+    expect(canShowReverseCogsAction({ alreadyPosted: true, alreadyReversed: false, journalEntryId: null }, true)).toBe(false);
     expect(cogsPostingFinancialReportWarning()).toBe("This creates accounting journal entries and affects financial reports.");
   });
 
@@ -263,9 +264,10 @@ describe("inventory helpers", () => {
     expect(canShowPostReceiptAssetAction({ canPost: true, alreadyPosted: false }, true)).toBe(true);
     expect(canShowPostReceiptAssetAction({ canPost: false, alreadyPosted: false }, true)).toBe(false);
     expect(canShowPostReceiptAssetAction({ canPost: true, alreadyPosted: false }, false)).toBe(false);
-    expect(canShowReverseReceiptAssetAction({ alreadyPosted: true, alreadyReversed: false }, true)).toBe(true);
-    expect(canShowReverseReceiptAssetAction({ alreadyPosted: true, alreadyReversed: true }, true)).toBe(false);
-    expect(canShowReverseReceiptAssetAction({ alreadyPosted: true, alreadyReversed: false }, false)).toBe(false);
+    expect(canShowReverseReceiptAssetAction({ alreadyPosted: true, alreadyReversed: false, journalEntryId: "journal-1" }, true)).toBe(true);
+    expect(canShowReverseReceiptAssetAction({ alreadyPosted: true, alreadyReversed: true, journalEntryId: "journal-1" }, true)).toBe(false);
+    expect(canShowReverseReceiptAssetAction({ alreadyPosted: true, alreadyReversed: false, journalEntryId: "journal-1" }, false)).toBe(false);
+    expect(canShowReverseReceiptAssetAction({ alreadyPosted: true, alreadyReversed: false, journalEntryId: null }, true)).toBe(false);
     expect(receiptAssetPostingFinancialReportWarning()).toBe(
       "This creates accounting journal entries and affects inventory asset and clearing balances.",
     );

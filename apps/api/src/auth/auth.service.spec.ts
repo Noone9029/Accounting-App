@@ -24,7 +24,7 @@ describe("AuthService invite and password reset flows", () => {
       signAsync: jest.fn((payload: { jti: string }) => Promise.resolve(`jwt-${payload.jti}`)),
       verifyAsync: jest.fn().mockResolvedValue({ sub: "user-1", email: "user@example.com", jti: "jti-1" }),
     };
-    const config = { get: jest.fn((key: string) => (key === "APP_WEB_URL" ? "http://web.test" : undefined)) };
+    const config = { get: jest.fn((key: string) => (key === "APP_WEB_URL" ? "http://web.test" : key === "LEDGERBYTE_SELF_SERVICE_ENABLED" ? "true" : key === "BILLING_ENFORCEMENT_MODE" ? "ENFORCE" : undefined)) };
     const authTokenService = {
       preview: jest.fn(),
       create: jest.fn().mockResolvedValue({ rawToken: "reset-token", authToken: { id: "token-1" } }),
@@ -60,6 +60,7 @@ describe("AuthService invite and password reset flows", () => {
       emailService,
       auditLogService,
       authSessionService,
+      config,
     };
   }
 
@@ -78,6 +79,14 @@ describe("AuthService invite and password reset flows", () => {
       { sub: "user-1", email: "new@example.com", jti: "jti-1" },
       expect.objectContaining({ expiresIn: "7d" }),
     );
+  });
+
+  it("keeps public signup closed by default before creating an account", async () => {
+    const { service, config, prisma } = makeService();
+    config.get.mockReturnValue(undefined);
+    await expect(service.register({ email: "new@example.test", name: "Synthetic", password: "Password123!" })).rejects.toThrow("not enabled");
+    expect(prisma.user.findUnique).not.toHaveBeenCalled();
+    expect(prisma.user.create).not.toHaveBeenCalled();
   });
 
   it("logs in, creates a durable auth session, and signs a JWT with jti", async () => {

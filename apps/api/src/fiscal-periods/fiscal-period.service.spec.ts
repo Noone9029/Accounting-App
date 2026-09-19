@@ -2,6 +2,9 @@ import { FiscalPeriodStatus } from "@prisma/client";
 import { FiscalPeriodGuardService } from "./fiscal-period-guard.service";
 import { FiscalPeriodService } from "./fiscal-period.service";
 
+jest.mock("../inventory/valued-stock-movement", () => ({ lockInventory: jest.fn().mockResolvedValue(undefined) }));
+jest.mock("../inventory/inventory-close-readiness", () => ({ assertInventoryReadyForPeriodClose: jest.fn().mockResolvedValue(undefined) }));
+
 describe("fiscal period management", () => {
   it("creates fiscal periods after validating range and tenant overlap", async () => {
     const prisma = {
@@ -50,6 +53,7 @@ describe("fiscal period management", () => {
           .mockResolvedValueOnce({ id: "period-1", name: "FY 2026", status: FiscalPeriodStatus.OPEN, endsOn: new Date("2026-12-31") })
           .mockResolvedValueOnce({ id: "period-1", name: "FY 2026", status: FiscalPeriodStatus.CLOSED, endsOn: new Date("2026-12-31") })
           .mockResolvedValueOnce({ id: "period-1", name: "FY 2026", status: FiscalPeriodStatus.CLOSED })
+          .mockResolvedValueOnce({ id: "period-1", name: "FY 2026", status: FiscalPeriodStatus.OPEN, endsOn: new Date("2026-12-31") })
           .mockResolvedValueOnce({ id: "period-1", name: "FY 2026", status: FiscalPeriodStatus.OPEN, endsOn: new Date("2026-12-31") })
           .mockResolvedValueOnce({ id: "period-1", name: "FY 2026", status: FiscalPeriodStatus.LOCKED, endsOn: new Date("2026-12-31") }),
         update: jest
@@ -132,6 +136,18 @@ describe("fiscal period management", () => {
     const service = new FiscalPeriodService(prisma as never, { log: jest.fn() } as never, readyFxClose() as never);
 
     await expect(service.reopen("org-1", "user-1", "period-1")).rejects.toThrow("Locked fiscal periods cannot be reopened.");
+  });
+
+  it("does not overwrite a concurrent lock after reopen read a closed period", async () => {
+    const tx = { fiscalPeriod: { updateMany: jest.fn().mockResolvedValue({ count: 0 }), findFirst: jest.fn(), update: jest.fn() } };
+    const prisma = { fiscalPeriod: { findFirst: jest.fn().mockResolvedValue({ id: "period-1", status: FiscalPeriodStatus.CLOSED }) },
+      $transaction: jest.fn((fn: (value: typeof tx) => unknown) => fn(tx)) };
+    const audit = { log: jest.fn() };
+    const service = new FiscalPeriodService(prisma as never, audit as never, readyFxClose() as never);
+    await expect(service.reopen("org-1", "user-1", "period-1")).rejects.toThrow("state changed while reopening");
+    expect(tx.fiscalPeriod.updateMany).toHaveBeenCalledWith({ where: { id: "period-1", organizationId: "org-1", status: FiscalPeriodStatus.CLOSED }, data: { status: FiscalPeriodStatus.OPEN } });
+    expect(tx.fiscalPeriod.update).not.toHaveBeenCalled();
+    expect(audit.log).not.toHaveBeenCalled();
   });
 });
 

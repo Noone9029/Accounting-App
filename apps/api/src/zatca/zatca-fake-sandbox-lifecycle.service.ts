@@ -21,10 +21,8 @@ export interface RunFakeSandboxLifecycleInput {
   };
 }
 
-/** In-process only: request and response bodies never enter state or evidence. */
+/** Fake and literal-loopback only: request and response bodies never enter state or evidence. */
 export class ZatcaFakeSandboxLifecycleService {
-  private readonly retryInProgress = new Set<string>();
-
   constructor(private readonly state: ZatcaSandboxSubmissionStateService, private readonly adapter: FakeLoopbackZatcaSandboxAdapter) {}
 
   async run(input: RunFakeSandboxLifecycleInput) {
@@ -73,27 +71,24 @@ export class ZatcaFakeSandboxLifecycleService {
   }
 
   async retryExactUncertainOverLoopbackHttp(input: RetryZatcaSandboxSubmissionInput & { correlationId: string }, client: LoopbackZatcaSandboxHttpClient) {
-    const retryKey = `${input.organizationId}:${input.submissionStateId}`;
-    if (this.retryInProgress.has(retryKey)) return { disposition: "RETRY_IN_PROGRESS" as const, stateId: input.submissionStateId };
-    this.retryInProgress.add(retryKey);
+    const claim = await this.state.claimExactUncertainRetry(input);
+    if (claim.disposition === "RETRY_IN_PROGRESS") return { disposition: "RETRY_IN_PROGRESS" as const, stateId: input.submissionStateId };
+    const { state, retryClaimToken } = claim;
+    const route = state.operation === ZatcaSandboxSubmissionOperation.CLEARANCE ? "/loopback/clearance" : state.operation === ZatcaSandboxSubmissionOperation.REPORTING ? "/loopback/reporting" : "/loopback/compliance";
+    const requestHash = hash(`retry-request:${state.id}`);
+    let response: Awaited<ReturnType<LoopbackZatcaSandboxHttpClient["submit"]>>;
     try {
-      const state = await this.state.loadExactUncertainRetry(input);
-      const route = state.operation === ZatcaSandboxSubmissionOperation.CLEARANCE ? "/loopback/clearance" : state.operation === ZatcaSandboxSubmissionOperation.REPORTING ? "/loopback/reporting" : "/loopback/compliance";
-      const requestHash = hash(`retry-request:${state.id}`);
-      try {
-        const response = await client.submit(route, { invoiceUuid: state.invoiceUuid, invoiceHash: state.canonicalInvoiceHash });
-        const attempt = { organizationId: input.organizationId, submissionStateId: state.id, requestHash, responseHash: hash(`response:${response.responseCode}`), responseCode: response.responseCode, correlationId: input.correlationId, warningCodes: response.warningCodes, errorCodes: response.errorCodes, retryClassification: ["SIMULATED_RATE_LIMIT", "SIMULATED_SERVER_ERROR"].includes(response.responseCode) ? ZatcaSandboxRetryClassification.RETRYABLE : ZatcaSandboxRetryClassification.NOT_RETRYABLE };
-        if (/^SIMULATED_ACCEPTED/.test(response.responseCode)) { await this.state.accept(attempt); return { disposition: "ACCEPTED" as const, stateId: state.id }; }
-        if (["SIMULATED_RATE_LIMIT", "SIMULATED_SERVER_ERROR"].includes(response.responseCode)) { await this.state.recordUncertain(attempt); return { disposition: "UNCERTAIN" as const, stateId: state.id }; }
-        await this.state.reject(attempt); return { disposition: "REJECTED" as const, stateId: state.id };
-      } catch (error) {
-        const responseCode = error instanceof LoopbackZatcaProtocolError ? error.safeCode : "SIMULATED_PROTOCOL_FAILURE";
-        await this.state.recordUncertain({ organizationId: input.organizationId, submissionStateId: state.id, requestHash, responseCode, correlationId: input.correlationId, errorCodes: [responseCode], retryClassification: ZatcaSandboxRetryClassification.RETRYABLE });
-        return { disposition: "UNCERTAIN" as const, stateId: state.id };
-      }
-    } finally {
-      this.retryInProgress.delete(retryKey);
+      response = await client.submit(route, { invoiceUuid: state.invoiceUuid, invoiceHash: state.canonicalInvoiceHash });
+    } catch (error) {
+      const responseCode = error instanceof LoopbackZatcaProtocolError ? error.safeCode : "SIMULATED_PROTOCOL_FAILURE";
+      await this.state.recordUncertain({ organizationId: input.organizationId, submissionStateId: state.id, retryClaimToken, requestHash, responseCode, correlationId: input.correlationId, errorCodes: [responseCode], retryClassification: ZatcaSandboxRetryClassification.RETRYABLE });
+      return { disposition: "UNCERTAIN" as const, stateId: state.id };
     }
+    // Persistence failures must leave the durable claim fenced; they are not a transport timeout.
+    const attempt = { organizationId: input.organizationId, submissionStateId: state.id, retryClaimToken, requestHash, responseHash: hash(`response:${response.responseCode}`), responseCode: response.responseCode, correlationId: input.correlationId, warningCodes: response.warningCodes, errorCodes: response.errorCodes, retryClassification: ["SIMULATED_RATE_LIMIT", "SIMULATED_SERVER_ERROR"].includes(response.responseCode) ? ZatcaSandboxRetryClassification.RETRYABLE : ZatcaSandboxRetryClassification.NOT_RETRYABLE };
+    if (/^SIMULATED_ACCEPTED/.test(response.responseCode)) { await this.state.accept(attempt); return { disposition: "ACCEPTED" as const, stateId: state.id }; }
+    if (["SIMULATED_RATE_LIMIT", "SIMULATED_SERVER_ERROR"].includes(response.responseCode)) { await this.state.recordUncertain(attempt); return { disposition: "UNCERTAIN" as const, stateId: state.id }; }
+    await this.state.reject(attempt); return { disposition: "REJECTED" as const, stateId: state.id };
   }
 
   private submit(input: RunFakeSandboxLifecycleInput, stateId: string) {

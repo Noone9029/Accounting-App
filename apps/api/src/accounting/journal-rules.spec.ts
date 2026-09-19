@@ -169,6 +169,7 @@ describe("journal accounting rules", () => {
   it("rejects duplicate service reversals cleanly when the reversal unique key is already claimed", async () => {
     const existing = makePostedJournal();
     const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([]),
       journalEntry: {
         findFirst: jest.fn().mockResolvedValue(existing),
         create: jest.fn().mockRejectedValue({ code: "P2002" }),

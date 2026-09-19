@@ -16,6 +16,27 @@ const SMTP_PRIVATE_FIXTURE = "smtp-private-fixture-value";
 const S3_PRIVATE_FIXTURE = "s3-private-fixture-value";
 
 describe("production configuration hardening", () => {
+  it.each(["local", "test", "staging", "beta", "production"])("requires billing enforcement for self-service in %s", (appEnvironment) => {
+    const config = {
+      ...validProductionConfig(),
+      APP_ENV: appEnvironment,
+      NODE_ENV: appEnvironment === "local" ? "development" : appEnvironment === "test" ? "test" : "production",
+      LEDGERBYTE_SELF_SERVICE_ENABLED: "true",
+    };
+    for (const mode of [undefined, "", "DISABLED", "OBSERVE"]) {
+      expect(() => validateLedgerByteConfig({ ...config, BILLING_ENFORCEMENT_MODE: mode }))
+        .toThrow("LEDGERBYTE_SELF_SERVICE_ENABLED=true requires BILLING_ENFORCEMENT_MODE=ENFORCE");
+    }
+    expect(buildConfigReadiness({ ...config, BILLING_ENFORCEMENT_MODE: " enforce " }).selfService)
+      .toMatchObject({ enabled: true, status: "Ready", blockers: [] });
+    expect(buildStartupConfigSummary({ ...config, BILLING_ENFORCEMENT_MODE: "DISABLED" }).categories.selfService).toBe("Blocked");
+  });
+
+  it("preserves disabled self-service compatibility without billing enforcement", () => {
+    expect(buildConfigReadiness({ ...validProductionConfig(), LEDGERBYTE_SELF_SERVICE_ENABLED: "false", BILLING_ENFORCEMENT_MODE: "DISABLED" }).selfService)
+      .toMatchObject({ enabled: false, status: "Disabled", blockers: [] });
+  });
+
   it("accepts valid local config while keeping providers disabled or local-safe", () => {
     const readiness = buildConfigReadiness({
       APP_ENV: "local",

@@ -60,21 +60,22 @@ describe("fake sandbox lifecycle", () => {
 
   it("requires the explicit unchanged-artifact retry path before a second loopback attempt", async () => {
     const uncertainState = { id: "state", ...reservation, status: "UNCERTAIN" };
-    const state = { loadExactUncertainRetry: jest.fn().mockResolvedValue(uncertainState), reserve: jest.fn(), accept: jest.fn(), reject: jest.fn(), recordUncertain: jest.fn() };
+    const state = { claimExactUncertainRetry: jest.fn().mockResolvedValue({ disposition: "CLAIMED", state: uncertainState, retryClaimToken: "sandbox-retry:owner" }), reserve: jest.fn(), accept: jest.fn(), reject: jest.fn(), recordUncertain: jest.fn() };
     const handler = { requestComplianceCsid: jest.fn(), requestProductionCsid: jest.fn(), submitComplianceCheck: jest.fn(), submitClearance: jest.fn(), submitReporting: jest.fn() };
     const server = new LoopbackZatcaSandboxServer("ACCEPTED"); const baseUrl = await server.start(true);
     try {
       const result = await new ZatcaFakeSandboxLifecycleService(state as never, new FakeLoopbackZatcaSandboxAdapter(handler as never)).retryExactUncertainOverLoopbackHttp({ organizationId: reservation.organizationId, submissionStateId: "state", sourceIdentityHash: reservation.sourceIdentityHash, payloadHash: reservation.payloadHash, canonicalInvoiceHash: reservation.canonicalInvoiceHash, invoiceUuid: reservation.invoiceUuid, invoiceType: reservation.invoiceType, previousInvoiceHash: reservation.previousInvoiceHash, operation: reservation.operation, correlationId: "retry-correlation" }, new LoopbackZatcaSandboxHttpClient(baseUrl));
       expect(result).toMatchObject({ disposition: "ACCEPTED", stateId: "state" });
-      expect(state.loadExactUncertainRetry).toHaveBeenCalledTimes(1);
+      expect(state.claimExactUncertainRetry).toHaveBeenCalledTimes(1);
       expect(state.reserve).not.toHaveBeenCalled();
       expect(state.accept).toHaveBeenCalledTimes(1);
+      expect(state.accept).toHaveBeenCalledWith(expect.objectContaining({ retryClaimToken: "sandbox-retry:owner" }));
     } finally { await server.stop(); }
   });
 
   it("permits only one concurrent exact retry to own the loopback provider call", async () => {
     const uncertainState = { id: "state", ...reservation, status: "UNCERTAIN" };
-    const state = { loadExactUncertainRetry: jest.fn().mockResolvedValue(uncertainState), reserve: jest.fn(), accept: jest.fn().mockResolvedValue(undefined), reject: jest.fn(), recordUncertain: jest.fn() };
+    const state = { claimExactUncertainRetry: jest.fn().mockResolvedValueOnce({ disposition: "CLAIMED", state: uncertainState, retryClaimToken: "sandbox-retry:owner" }).mockResolvedValue({ disposition: "RETRY_IN_PROGRESS" }), reserve: jest.fn(), accept: jest.fn().mockResolvedValue(undefined), reject: jest.fn(), recordUncertain: jest.fn() };
     const handler = { requestComplianceCsid: jest.fn(), requestProductionCsid: jest.fn(), submitComplianceCheck: jest.fn(), submitClearance: jest.fn(), submitReporting: jest.fn() };
     const server = new LoopbackZatcaSandboxServer("ACCEPTED"); const baseUrl = await server.start(true);
     const retry = { organizationId: reservation.organizationId, submissionStateId: "state", sourceIdentityHash: reservation.sourceIdentityHash, payloadHash: reservation.payloadHash, canonicalInvoiceHash: reservation.canonicalInvoiceHash, invoiceUuid: reservation.invoiceUuid, invoiceType: reservation.invoiceType, previousInvoiceHash: reservation.previousInvoiceHash, operation: reservation.operation };
@@ -82,7 +83,7 @@ describe("fake sandbox lifecycle", () => {
       const service = new ZatcaFakeSandboxLifecycleService(state as never, new FakeLoopbackZatcaSandboxAdapter(handler as never));
       const results = await Promise.all([
         service.retryExactUncertainOverLoopbackHttp({ ...retry, correlationId: "retry-one" }, new LoopbackZatcaSandboxHttpClient(baseUrl)),
-        service.retryExactUncertainOverLoopbackHttp({ ...retry, correlationId: "retry-two" }, new LoopbackZatcaSandboxHttpClient(baseUrl)),
+        new ZatcaFakeSandboxLifecycleService(state as never, new FakeLoopbackZatcaSandboxAdapter(handler as never)).retryExactUncertainOverLoopbackHttp({ ...retry, correlationId: "retry-two" }, new LoopbackZatcaSandboxHttpClient(baseUrl)),
       ]);
 
       expect(results.map((result) => result.disposition).sort()).toEqual(["ACCEPTED", "RETRY_IN_PROGRESS"]);
@@ -100,6 +101,20 @@ describe("fake sandbox lifecycle", () => {
       expect(result).toEqual({ disposition: "CONFLICT" });
       expect(server.getEvidence().requestCount).toBe(0);
     } finally { await server.stop(); }
+  });
+
+  it("leaves a retry fenced when persisting an accepted response fails", async () => {
+    const state = {
+      claimExactUncertainRetry: jest.fn().mockResolvedValue({ disposition: "CLAIMED", state: { id: "state", ...reservation }, retryClaimToken: "sandbox-retry:owner" }),
+      accept: jest.fn().mockRejectedValue(new Error("synthetic persistence failure")), recordUncertain: jest.fn(), reject: jest.fn(),
+    };
+    const client = { submit: jest.fn().mockResolvedValue({ responseCode: "SIMULATED_ACCEPTED", warningCodes: [], errorCodes: [] }) };
+    const handler = { requestComplianceCsid: jest.fn(), requestProductionCsid: jest.fn(), submitComplianceCheck: jest.fn(), submitClearance: jest.fn(), submitReporting: jest.fn() };
+    const service = new ZatcaFakeSandboxLifecycleService(state as never, new FakeLoopbackZatcaSandboxAdapter(handler as never));
+    await expect(service.retryExactUncertainOverLoopbackHttp({ ...reservation, submissionStateId: "state", correlationId: "persistence-proof" }, client as never)).rejects.toThrow("synthetic persistence failure");
+    expect(client.submit).toHaveBeenCalledTimes(1);
+    expect(state.recordUncertain).not.toHaveBeenCalled();
+    expect(state.reject).not.toHaveBeenCalled();
   });
 
   it("rejects expired, revoked, mismatched, legacy, incomplete, and production-looking credential metadata before reservation or transport", async () => {

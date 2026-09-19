@@ -19,6 +19,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { CreateJournalEntryDto } from "./dto/create-journal-entry.dto";
 import { JournalLineDto } from "./dto/journal-line.dto";
 import { UpdateJournalEntryDto } from "./dto/update-journal-entry.dto";
+import { lockInventory } from "../inventory/valued-stock-movement";
 
 const journalInclude = {
   lines: {
@@ -224,6 +225,31 @@ export class AccountingService {
     }
 
     const reversal = await this.prisma.$transaction(async (tx) => {
+      await lockInventory(tx, organizationId);
+      const linked = await tx.$queryRaw<Array<{ linked: boolean }>>(Prisma.sql`
+        SELECT EXISTS (
+          SELECT 1 FROM "InventoryMovementPosting" WHERE "organizationId" = ${organizationId}::uuid AND "journalEntryId" = ${id}::uuid
+          UNION ALL
+          SELECT 1 FROM "PurchaseReceipt" WHERE "organizationId" = ${organizationId}::uuid
+            AND ("inventoryAssetJournalEntryId" = ${id}::uuid OR "inventoryAssetReversalJournalEntryId" = ${id}::uuid)
+          UNION ALL
+          SELECT 1 FROM "SalesStockIssue" WHERE "organizationId" = ${organizationId}::uuid
+            AND ("cogsJournalEntryId" = ${id}::uuid OR "cogsReversalJournalEntryId" = ${id}::uuid)
+          UNION ALL
+          SELECT 1 FROM "PurchaseBill" b WHERE b."organizationId" = ${organizationId}::uuid
+            AND (b."journalEntryId" = ${id}::uuid OR b."reversalJournalEntryId" = ${id}::uuid)
+            AND (b."inventoryPostingMode" = 'INVENTORY_CLEARING'
+              OR EXISTS (SELECT 1 FROM "PurchaseBillLine" l JOIN "Item" i ON i.id = l."itemId" WHERE l."billId" = b.id AND i."inventoryTracking" = true)
+              OR EXISTS (SELECT 1 FROM "PurchaseReceipt" r WHERE r."purchaseBillId" = b.id))
+          UNION ALL
+          SELECT 1 FROM "SalesInvoice" s WHERE s."organizationId" = ${organizationId}::uuid
+            AND (s."journalEntryId" = ${id}::uuid OR s."reversalJournalEntryId" = ${id}::uuid)
+            AND (EXISTS (SELECT 1 FROM "SalesInvoiceLine" l JOIN "Item" i ON i.id = l."itemId" WHERE l."invoiceId" = s.id AND i."inventoryTracking" = true)
+              OR EXISTS (SELECT 1 FROM "SalesStockIssue" i WHERE i."salesInvoiceId" = s.id))
+        ) AS "linked"`);
+      if (linked[0]?.linked) {
+        throw new BadRequestException("Use the linked inventory accounting workflow or an open-period inventory correction to reverse this journal.");
+      }
       const current = await tx.journalEntry.findFirst({
         where: { id, organizationId },
         include: journalInclude,

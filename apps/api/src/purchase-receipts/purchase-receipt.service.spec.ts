@@ -16,6 +16,15 @@ import {
 } from "@prisma/client";
 import { PurchaseReceiptService } from "./purchase-receipt.service";
 
+// The PostgreSQL valuation integration suite proves locks and cost allocation.
+// These service tests retain document validation/journal assertions at that seam.
+jest.mock("../inventory/valued-stock-movement", () => ({
+  lockInventory: jest.fn().mockResolvedValue(undefined),
+  createValuedStockMovement: jest.fn(async (tx: { stockMovement: { create: (args: unknown) => Promise<Record<string, unknown>> } }, args: { data: { unitCost?: unknown } }) => ({
+    ...await tx.stockMovement.create(args), unitCost: args.data.unitCost ?? "7.0000",
+  })),
+}));
+
 describe("PurchaseReceiptService", () => {
   const item = { id: "item-1", inventoryTracking: true, status: ItemStatus.ACTIVE };
   const previewItem = { id: item.id, name: "Tracked Item", sku: "TRK", type: "PRODUCT", status: ItemStatus.ACTIVE, inventoryTracking: true };
@@ -24,12 +33,13 @@ describe("PurchaseReceiptService", () => {
   const assetAccount = { id: "asset-1", code: "130", name: "Inventory", type: AccountType.ASSET, allowPosting: true, isActive: true };
   const clearingAccount = { id: "clearing-1", code: "240", name: "Inventory Clearing", type: AccountType.LIABILITY, allowPosting: true, isActive: true };
   const poLine = { id: "po-line-1", itemId: item.id, quantity: new Prisma.Decimal("5.0000"), unitPrice: new Prisma.Decimal("7.0000"), item };
-  const billLine = { id: "bill-line-1", itemId: item.id, quantity: new Prisma.Decimal("4.0000"), unitPrice: new Prisma.Decimal("8.0000"), item };
+  const billLine = { id: "bill-line-1", itemId: item.id, quantity: new Prisma.Decimal("4.0000"), unitPrice: new Prisma.Decimal("8.0000"), taxableAmount: new Prisma.Decimal("32.0000"), item };
   const previewBillLine = {
     id: billLine.id,
     description: "Tracked bill line",
     quantity: billLine.quantity,
     unitPrice: billLine.unitPrice,
+    taxableAmount: billLine.taxableAmount,
     account: { id: "expense-1", code: "511", name: "General Expenses", type: AccountType.EXPENSE },
   };
   const receipt = {
@@ -50,7 +60,7 @@ describe("PurchaseReceiptService", () => {
     inventoryAssetReversedById: null,
     inventoryAssetJournalEntry: null,
     inventoryAssetReversalJournalEntry: null,
-    lines: [{ id: "receipt-line-1", itemId: item.id, item: previewItem, quantity: new Prisma.Decimal("2.0000"), unitCost: new Prisma.Decimal("7.0000") }],
+    lines: [{ id: "receipt-line-1", itemId: item.id, item: previewItem, quantity: new Prisma.Decimal("2.0000"), unitCost: new Prisma.Decimal("7.0000"), stockMovementId: "receipt-movement-1", stockMovement: { id: "receipt-movement-1", valuationVersion: 1, totalCost: new Prisma.Decimal("14.0000"), unitCost: new Prisma.Decimal("7.0000") } }],
   };
   const linkedClearingBill = {
     id: "bill-1",
@@ -59,6 +69,8 @@ describe("PurchaseReceiptService", () => {
     billDate: new Date("2026-05-13T00:00:00.000Z"),
     total: new Prisma.Decimal("32.0000"),
     inventoryPostingMode: PurchaseBillInventoryPostingMode.INVENTORY_CLEARING,
+    lines: [{ accountId: "expense-1", taxableAmount: new Prisma.Decimal("32.0000"), item }],
+    journalEntry: { status: JournalEntryStatus.POSTED, lines: [{ debit: new Prisma.Decimal("32.0000"), credit: new Prisma.Decimal(0), account: clearingAccount }] },
   };
   const assetJournalEntry = {
     id: "journal-asset-1",
@@ -121,8 +133,11 @@ describe("PurchaseReceiptService", () => {
       }),
     };
     const fiscal = { assertPostingDateAllowed: jest.fn() };
+    const service = new PurchaseReceiptService(prisma as never, audit as never, numbers as never, inventoryAccounting as never, fiscal as never);
+    const create = service.create.bind(service);
+    service.create = (organizationId, actorUserId, dto, key = "receipt-unit-command") => create(organizationId, actorUserId, dto, key);
     return {
-      service: new PurchaseReceiptService(prisma as never, audit as never, numbers as never, inventoryAccounting as never, fiscal as never),
+      service,
       prisma,
       audit,
       numbers,
@@ -133,6 +148,8 @@ describe("PurchaseReceiptService", () => {
 
   function makeTx(overrides: Record<string, unknown> = {}) {
     return {
+      $queryRaw: jest.fn().mockResolvedValue([]),
+      apiIdempotencyRecord: { findUnique: jest.fn().mockResolvedValue(null), create: jest.fn().mockResolvedValue({}) },
       organization: { findUnique: jest.fn().mockResolvedValue({ baseCurrency: "AED" }) },
       warehouse: { findFirst: jest.fn().mockResolvedValue(warehouse) },
       contact: { findFirst: jest.fn().mockResolvedValue(supplier) },
@@ -142,6 +159,7 @@ describe("PurchaseReceiptService", () => {
           id: "po-1",
           supplierId: supplier.id,
           status: PurchaseOrderStatus.APPROVED,
+          currency: "AED",
           lines: [poLine],
         }),
       },
@@ -151,6 +169,7 @@ describe("PurchaseReceiptService", () => {
           supplierId: supplier.id,
           status: PurchaseBillStatus.FINALIZED,
           inventoryPostingMode: PurchaseBillInventoryPostingMode.DIRECT_EXPENSE_OR_ASSET,
+          journalEntry: { status: JournalEntryStatus.POSTED },
           lines: [billLine],
         }),
       },
@@ -168,6 +187,7 @@ describe("PurchaseReceiptService", () => {
         update: jest.fn().mockResolvedValue({ id: "receipt-line-1" }),
       },
       stockMovement: {
+        count: jest.fn().mockResolvedValue(0),
         findMany: jest.fn().mockResolvedValue([{ type: StockMovementType.PURCHASE_RECEIPT_PLACEHOLDER, quantity: new Prisma.Decimal("2.0000") }]),
         create: jest.fn().mockResolvedValue({ id: "movement-1" }),
       },
@@ -199,7 +219,7 @@ describe("PurchaseReceiptService", () => {
       }),
     );
     expect(tx.journalEntry.create).not.toHaveBeenCalled();
-    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "CREATE", entityType: "PurchaseReceipt" }));
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "CREATE", entityType: "PurchaseReceipt" }), tx);
   });
 
   it("rejects purchase order receipts above remaining quantity", async () => {
@@ -220,6 +240,20 @@ describe("PurchaseReceiptService", () => {
         lines: [{ purchaseOrderLineId: poLine.id, quantity: "2.0000" }],
       }),
     ).rejects.toThrow("Receipt quantity cannot exceed the remaining source quantity.");
+  });
+
+  it("rejects foreign-currency purchase orders before transaction prices can become base costs", async () => {
+    const tx = makeTx();
+    tx.purchaseOrder.findFirst.mockResolvedValue({
+      id: "po-1", supplierId: supplier.id, status: PurchaseOrderStatus.APPROVED, currency: "USD", lines: [poLine],
+    });
+    const { service } = makeService(tx);
+    await expect(service.create("org-1", "user-1", {
+      purchaseOrderId: "po-1", warehouseId: warehouse.id, receiptDate: "2026-05-14",
+      lines: [{ purchaseOrderLineId: poLine.id, quantity: "2.0000" }],
+    })).rejects.toThrow("Receive foreign-currency purchases against a finalized purchase bill");
+    expect(tx.purchaseReceipt.create).not.toHaveBeenCalled();
+    expect(tx.stockMovement.create).not.toHaveBeenCalled();
   });
 
   it("creates purchase bill and standalone receipts", async () => {
@@ -314,7 +348,7 @@ describe("PurchaseReceiptService", () => {
     expect(prisma.journalEntry.create).not.toHaveBeenCalled();
   });
 
-  it("shows linked bill quantities and value differences in purchase receipt preview", async () => {
+  it("uses the frozen receipt share of discounted bill value in purchase receipt preview", async () => {
     const linkedReceipt = {
       ...receipt,
       purchaseBillId: "bill-1",
@@ -332,10 +366,10 @@ describe("PurchaseReceiptService", () => {
         sourceType: "purchaseBill",
         matchedQuantity: "2.0000",
         unmatchedQuantity: "0.0000",
-        valueDifference: "-2.0000",
+        valueDifference: "0.0000",
       }),
     );
-    expect(preview.matchedBillValue).toBe("16.0000");
+    expect(preview.matchedBillValue).toBe("14.0000");
     expect(preview.warnings).toEqual(expect.arrayContaining([expect.stringContaining("not inventory-related")]));
   });
 
@@ -430,7 +464,7 @@ describe("PurchaseReceiptService", () => {
       }),
     );
     expect(tx.stockMovement.create).not.toHaveBeenCalled();
-    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "POST_INVENTORY_ASSET", entityType: "PurchaseReceipt" }));
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "POST_INVENTORY_ASSET", entityType: "PurchaseReceipt" }), tx);
   });
 
   it("blocks receipt asset posting without compatible settings or unit cost", async () => {
@@ -438,7 +472,7 @@ describe("PurchaseReceiptService", () => {
       ...receipt,
       purchaseBillId: "bill-1",
       purchaseBill: linkedClearingBill,
-      lines: [{ ...receipt.lines[0], unitCost: null, purchaseBillLine: previewBillLine }],
+      lines: [{ ...receipt.lines[0], unitCost: null, stockMovement: null, purchaseBillLine: previewBillLine }],
     };
     const missingCost = makeService(makeTx({ purchaseReceipt: { findFirst: jest.fn().mockResolvedValue(clearingReceipt) } }), {
       purchaseReceipt: { findFirst: jest.fn().mockResolvedValue(clearingReceipt) },
@@ -574,6 +608,7 @@ describe("PurchaseReceiptService", () => {
             purchaseBillLineId: billLine.id,
             quantity: new Prisma.Decimal("4.0000"),
             unitCost: new Prisma.Decimal("8.0000"),
+            stockMovement: { valuationVersion: 1, totalCost: new Prisma.Decimal("32.0000") },
             receipt: { id: receipt.id, receiptNumber: receipt.receiptNumber, receiptDate: receipt.receiptDate, status: PurchaseReceiptStatus.POSTED },
           },
         ]),
@@ -610,6 +645,7 @@ describe("PurchaseReceiptService", () => {
             purchaseOrderLineId: poLine.id,
             quantity: new Prisma.Decimal("2.0000"),
             unitCost: new Prisma.Decimal("7.0000"),
+            stockMovement: { valuationVersion: 1, totalCost: new Prisma.Decimal("14.0000") },
             receipt: { id: receipt.id, receiptNumber: receipt.receiptNumber, receiptDate: receipt.receiptDate, status: PurchaseReceiptStatus.POSTED },
           },
         ]),
@@ -625,6 +661,55 @@ describe("PurchaseReceiptService", () => {
     );
   });
 
+  it("rejects a finalized source whose original bill journal has been reversed", async () => {
+    const tx = makeTx();
+    tx.purchaseBill.findFirst.mockResolvedValue({ id: "bill-1", supplierId: supplier.id, status: PurchaseBillStatus.FINALIZED,
+      inventoryPostingMode: PurchaseBillInventoryPostingMode.DIRECT_EXPENSE_OR_ASSET, journalEntry: { status: JournalEntryStatus.REVERSED }, lines: [billLine] });
+    await expect(makeService(tx).service.create("org-1", "user-1", { purchaseBillId: "bill-1", warehouseId: warehouse.id, receiptDate: "2026-05-14",
+      lines: [{ purchaseBillLineId: billLine.id, quantity: "1" }] })).rejects.toThrow("original active posted purchase bill journal");
+    expect(tx.stockMovement.create).not.toHaveBeenCalled();
+  });
+
+  it("credits the original bill clearing debit after the current clearing mapping changes", async () => {
+    const clearingReceipt = { ...receipt, purchaseBillId: linkedClearingBill.id, purchaseBill: linkedClearingBill, lines: [{ ...receipt.lines[0], purchaseBillLine: previewBillLine }] };
+    const { service, inventoryAccounting } = makeService(makeTx(), { purchaseReceipt: { findFirst: jest.fn().mockResolvedValue(clearingReceipt) } });
+    inventoryAccounting.previewReadiness.mockResolvedValue({ settings: {
+      valuationMethod: InventoryValuationMethod.MOVING_AVERAGE, enableInventoryAccounting: true, inventoryAssetAccount: assetAccount,
+      inventoryClearingAccount: { ...clearingAccount, id: "new-clearing", code: "241" }, purchaseReceiptPostingMode: InventoryPurchasePostingMode.PREVIEW_ONLY,
+    }, blockingReasons: [], warnings: [] });
+    const preview = await service.accountingPreview("org-1", receipt.id);
+    expect(preview.canPost).toBe(true);
+    expect(preview.journal.lines).toContainEqual(expect.objectContaining({ side: "CREDIT", accountId: clearingAccount.id }));
+    expect(preview.journal.lines).not.toContainEqual(expect.objectContaining({ accountId: "new-clearing" }));
+  });
+
+  it("blocks receipt accounting when the original clearing debit is ambiguous", async () => {
+    const clearingReceipt = { ...receipt, purchaseBillId: linkedClearingBill.id, purchaseBill: { ...linkedClearingBill,
+      journalEntry: { ...linkedClearingBill.journalEntry, lines: [...linkedClearingBill.journalEntry.lines,
+        { debit: new Prisma.Decimal(32), credit: new Prisma.Decimal(0), account: { ...clearingAccount, id: "ambiguous-clearing", code: "242" } }] },
+    }, lines: [{ ...receipt.lines[0], purchaseBillLine: previewBillLine }] };
+    const { service } = makeService(makeTx(), { purchaseReceipt: { findFirst: jest.fn().mockResolvedValue(clearingReceipt) } });
+    expect(await service.accountingPreview("org-1", receipt.id)).toMatchObject({ canPost: false, blockingReasons: expect.arrayContaining([expect.stringContaining("ambiguous")]) });
+  });
+
+  it("matches the frozen receipt total to discounted net bill value without multiplying rounded unit cost", async () => {
+    const { service } = makeService(makeTx(), {
+      purchaseBill: { findFirst: jest.fn().mockResolvedValue({
+        ...linkedClearingBill, total: new Prisma.Decimal("1.0000"), supplier: { id: supplier.id, name: "Supplier", displayName: null },
+        lines: [{ ...previewBillLine, item: previewItem, quantity: new Prisma.Decimal("3.0000"), unitPrice: new Prisma.Decimal("1.0000"), taxableAmount: new Prisma.Decimal("1.0000") }],
+      }) },
+      purchaseReceiptLine: { findMany: jest.fn().mockResolvedValue([{
+        purchaseBillLineId: billLine.id, quantity: new Prisma.Decimal("3.0000"), unitCost: new Prisma.Decimal("0.3333"),
+        stockMovement: { valuationVersion: 1, totalCost: new Prisma.Decimal("1.0000") },
+        receipt: { id: receipt.id, receiptNumber: receipt.receiptNumber, receiptDate: receipt.receiptDate, status: PurchaseReceiptStatus.POSTED },
+      }]) },
+    });
+    await expect(service.purchaseBillReceiptMatchingStatus("org-1", "bill-1")).resolves.toMatchObject({
+      receiptValue: "1.0000",
+      lines: [expect.objectContaining({ receivedValue: "1.0000", matchedBillValue: "1.0000", valueDifference: "0.0000" })],
+    });
+  });
+
   it("keeps receipt matching status tenant-scoped", async () => {
     const { service, prisma } = makeService(makeTx(), {
       purchaseBill: { findFirst: jest.fn().mockResolvedValue(null) },
@@ -638,7 +723,7 @@ describe("PurchaseReceiptService", () => {
   });
 
   it("blocks purchase receipt preview lines that are missing unit cost", async () => {
-    const missingCostReceipt = { ...receipt, lines: [{ ...receipt.lines[0], unitCost: null }] };
+    const missingCostReceipt = { ...receipt, lines: [{ ...receipt.lines[0], unitCost: null, stockMovement: null }] };
     const { service } = makeService(makeTx(), {
       purchaseReceipt: { findFirst: jest.fn().mockResolvedValue(missingCostReceipt) },
     });

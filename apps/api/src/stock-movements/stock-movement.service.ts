@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { createValuedStockMovement, lockInventory } from "../inventory/valued-stock-movement";
 import { InventoryBinLocationStatus, ItemStatus, ItemTrackingMode, Prisma, StockMovementType, WarehouseStatus } from "@prisma/client";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { validateBatchRequired, validateBinRequired, validateExpiryRequired, validateSerialsRequired } from "../inventory/inventory-tracking-validation";
@@ -62,6 +63,8 @@ export class StockMovementService {
   }
 
   async create(organizationId: string, actorUserId: string, dto: CreateStockMovementDto) {
+    const movement = await this.prisma.$transaction(async (tx) => {
+    await lockInventory(tx, organizationId);
     if (!STOCK_MOVEMENT_MVP_CREATE_TYPES.has(dto.type)) {
       throw new BadRequestException("Only opening balance stock movements can be created directly. Use inventory adjustments for adjustment in/out movements.");
     }
@@ -97,7 +100,7 @@ export class StockMovementService {
     const trackingReferences = await this.validateTrackingReferences(organizationId, item, warehouse.id, dto, quantity);
 
     if (dto.type === StockMovementType.OPENING_BALANCE) {
-      const openingBalanceCount = await this.prisma.stockMovement.count({
+      const openingBalanceCount = await tx.stockMovement.count({
         where: { organizationId, itemId: item.id, warehouseId: warehouse.id, type: StockMovementType.OPENING_BALANCE },
       });
       if (openingBalanceCount > 0) {
@@ -112,7 +115,7 @@ export class StockMovementService {
       }
     }
 
-    const movement = await this.prisma.stockMovement.create({
+    const created = await createValuedStockMovement(tx, {
       data: {
         organizationId,
         itemId: item.id,
@@ -128,7 +131,8 @@ export class StockMovementService {
         description: this.cleanOptional(dto.description),
         createdById: actorUserId,
       },
-      include: stockMovementInclude,
+    });
+    return tx.stockMovement.findUniqueOrThrow({ where: { id: created.id }, include: stockMovementInclude });
     });
 
     await this.auditLogService.log({

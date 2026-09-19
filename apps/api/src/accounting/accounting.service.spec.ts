@@ -71,7 +71,7 @@ describe("AccountingService journal dimensions", () => {
         create: jest.fn(),
         update: jest.fn(),
       },
-      $queryRaw: jest.fn(),
+      $queryRaw: jest.fn().mockResolvedValue([]),
       $transaction: jest.fn(),
     };
     prisma.$transaction.mockImplementation((callback: (client: typeof prisma) => Promise<unknown>) => callback(prisma));
@@ -331,7 +331,11 @@ describe("AccountingService journal dimensions", () => {
 
     await service.reverse("org-1", "user-1", "journal-1");
 
-    expect(prisma.$queryRaw).not.toHaveBeenCalled();
+    expect(prisma.$queryRaw).toHaveBeenCalledTimes(2);
+    expect(rawSqlText(prisma.$queryRaw.mock.calls[1]?.[0])).toContain("InventoryMovementPosting");
+    expect(rawSqlText(prisma.$queryRaw.mock.calls[1]?.[0])).toContain('FROM "PurchaseBill" b');
+    expect(rawSqlText(prisma.$queryRaw.mock.calls[1]?.[0])).toContain('FROM "SalesInvoice" s');
+    expect(rawSqlText(prisma.$queryRaw.mock.calls[1]?.[0])).toContain('"inventoryTracking" = true');
     expect(prisma.journalEntry.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -348,6 +352,16 @@ describe("AccountingService journal dimensions", () => {
         }),
       }),
     );
+  });
+  it("refuses generic reversal of inventory-owned journals before any accounting write", async () => {
+    const { service, prisma, sequences } = makeService();
+    prisma.journalEntry.findFirst.mockResolvedValue({ ...archivedDimensionJournal, status: JournalEntryStatus.POSTED });
+    prisma.$queryRaw.mockResolvedValueOnce([]).mockResolvedValueOnce([{ linked: true }]);
+
+    await expect(service.reverse("org-1", "user-1", "journal-1")).rejects.toThrow("linked inventory accounting workflow");
+    expect(prisma.journalEntry.create).not.toHaveBeenCalled();
+    expect(prisma.journalEntry.update).not.toHaveBeenCalled();
+    expect(sequences.next).not.toHaveBeenCalled();
   });
 });
 

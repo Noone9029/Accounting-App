@@ -43,6 +43,8 @@ import { CreatePurchaseBillDto } from "./dto/create-purchase-bill.dto";
 import { PurchaseBillLineDto } from "./dto/purchase-bill-line.dto";
 import { UpdatePurchaseBillDto } from "./dto/update-purchase-bill.dto";
 import { buildPurchaseBillJournalLines, PurchaseBillPostingLine } from "./purchase-bill-accounting";
+import { lockInventory } from "../inventory/valued-stock-movement";
+import { assertInventorySourceCanVoid } from "../inventory/inventory-source-void-guard";
 
 const accountPreviewSelect = {
   id: true,
@@ -904,6 +906,7 @@ export class PurchaseBillService {
     }
 
     const voided = await this.prisma.$transaction(async (tx) => {
+      await lockInventory(tx, organizationId);
       const bill = await tx.purchaseBill.findFirst({ where: { id, organizationId } });
       if (!bill) {
         throw new NotFoundException("Purchase bill not found.");
@@ -921,6 +924,7 @@ export class PurchaseBillService {
       if (bill.status !== PurchaseBillStatus.FINALIZED) {
         throw new BadRequestException("Only draft or finalized purchase bills can be voided.");
       }
+      await assertInventorySourceCanVoid(organizationId, "PURCHASE_BILL", id, tx);
       await this.fxCarryingBalanceService?.assertSupplierMutationAllowed(organizationId, id, tx);
       if (!bill.journalEntryId) {
         throw new BadRequestException("Finalized purchase bill is missing its journal entry.");

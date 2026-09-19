@@ -6,6 +6,7 @@ import { BillingWebhookService } from "./billing-webhook.service";
 describe("BillingWebhookService", () => {
   function harness() {
     const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([]),
       billingWebhookEvent: { findUniqueOrThrow: jest.fn(), update: jest.fn() },
       organizationSubscription: { findFirst: jest.fn(), update: jest.fn() },
       billingLifecycleEvent: { create: jest.fn() },
@@ -51,7 +52,7 @@ describe("BillingWebhookService", () => {
     expect(prisma.billingWebhookEvent.create).not.toHaveBeenCalled();
   });
 
-  it("records a duplicate provider event once and marks its replay as ignored", async () => {
+  it("retains pending work when a verified provider event is replayed", async () => {
     const { service, prisma } = harness();
     prisma.billingProviderCustomer.findFirst.mockResolvedValue(null);
     prisma.organizationSubscription.findFirst.mockResolvedValue(null);
@@ -62,8 +63,8 @@ describe("BillingWebhookService", () => {
       payloadHash: createHash("sha256").update('{"safe":"body"}').digest("hex"),
     });
 
-    await expect(service.ingest(ingress())).resolves.toMatchObject({ duplicate: true, event: { status: BillingWebhookProcessingStatus.IGNORED_DUPLICATE } });
-    expect(prisma.billingWebhookEvent.update).toHaveBeenCalledWith(expect.objectContaining({ data: { status: BillingWebhookProcessingStatus.IGNORED_DUPLICATE } }));
+    await expect(service.ingest(ingress())).resolves.toMatchObject({ duplicate: true, event: { status: BillingWebhookProcessingStatus.RECEIVED } });
+    expect(prisma.billingWebhookEvent.update).not.toHaveBeenCalled();
   });
 
   it("rejects reuse of a provider event identity when the verified payload changed", async () => {
@@ -87,5 +88,23 @@ describe("BillingWebhookService", () => {
     await expect(service.reconcile("event-1")).resolves.toEqual({ status: BillingWebhookProcessingStatus.IGNORED_STALE });
     expect(tx.organizationSubscription.update).not.toHaveBeenCalled();
     expect(tx.billingWebhookEvent.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: BillingWebhookProcessingStatus.IGNORED_STALE }) }));
+  });
+
+  it("rejects a slower older canonical read after another provider read updated the subscription", async () => {
+    const { service, tx } = harness();
+    tx.organizationSubscription.findFirst.mockResolvedValue({ id: "sub-1", organizationId: "org-1", provider: BillingProvider.STRIPE, providerSubscriptionReference: "sub_provider", version: 5 });
+    await expect(service.applyVerifiedSnapshot("org-1", "sub-1", { provider: BillingProvider.STRIPE, providerSubscriptionReference: "sub_provider", providerCustomerReference: "cus_1", providerUpdatedAt: new Date("2030-01-01"), status: "ACTIVE" } as never, 4)).rejects.toThrow("changed during the provider read");
+    expect(tx.organizationSubscription.update).not.toHaveBeenCalled();
+  });
+
+  it("does not bind or shorten a local trial when the first Stripe payment is incomplete", async () => {
+    const { service, prisma, provider } = harness();
+    prisma.billingWebhookEvent.findUnique.mockResolvedValue({ id: "event-1", organizationId: "org-1", subscriptionId: null, environment: "TEST", provider: "STRIPE", providerSubscriptionReference: "sub_unpaid" });
+    prisma.organizationSubscription.findFirst.mockResolvedValue({ id: "sub-1", organizationId: "org-1", billingAccountId: "account-1", status: "TRIALING", providerSubscriptionReference: null, currentPeriodStartedAt: null });
+    prisma.billingProviderCustomer.findFirst.mockResolvedValue({ id: "customer-1" });
+    provider.reconcileSubscription.mockResolvedValue({ provider: "STRIPE", providerSubscriptionReference: "sub_unpaid", providerCustomerReference: "cus_1", localSubscriptionId: "sub-1", initialPaymentIncomplete: true, status: "PENDING", trialEndsAt: null });
+    await expect(service.reconcile("event-1")).resolves.toMatchObject({ status: "PROCESSED" });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(prisma.billingWebhookEvent.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "PROCESSED" }) }));
   });
 });

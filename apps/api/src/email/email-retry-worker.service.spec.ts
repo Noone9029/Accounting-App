@@ -47,6 +47,7 @@ describe("EmailRetryWorkerService", () => {
   } = {}) {
     const prisma = {
       emailOutbox: {
+        fields: { maxAttempts: { name: "maxAttempts" } },
         findMany: jest.fn().mockResolvedValue([{ ...row, ...options.rowOverrides }]),
         updateMany: jest.fn().mockResolvedValueOnce({ count: options.claimCount ?? 1 }).mockResolvedValue({ count: 1 }),
       },
@@ -83,6 +84,14 @@ describe("EmailRetryWorkerService", () => {
       attachments: [{ filename: row.attachmentFilename, mimeType: row.attachmentMimeType, content: Buffer.from("%PDF test"), contentHash: row.attachmentContentHash }],
     }));
     expect(documentDelivery.readAttachmentForWorker).toHaveBeenCalledWith("org-1", "delivery-1");
+  });
+
+  it("filters exhausted rows before the batch limit so they cannot starve pending deliveries", async () => {
+    const { service, prisma } = makeService();
+    await service.process("org-1", undefined, 1);
+    expect(prisma.emailOutbox.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      take: 1, where: expect.objectContaining({ attemptCount: { lt: prisma.emailOutbox.fields.maxAttempts } }),
+    }));
   });
 
   it("claims and sends a verified customer-statement attachment through the same worker path", async () => {

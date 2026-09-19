@@ -27,6 +27,7 @@ export interface ConfigReadinessSummary {
   jwt: ConfigReadinessItem;
   cookieSecurity: ConfigReadinessItem;
   cors: ConfigReadinessItem;
+  selfService: ConfigReadinessItem & { enabled: boolean };
   providers: {
     ocr: ConfigReadinessItem & { mode: string };
     payment: ConfigReadinessItem & { mode: string };
@@ -96,6 +97,7 @@ export function buildStartupConfigSummary(config: EnvSource): StartupConfigSumma
       jwt: readiness.jwt.status,
       cookieSecurity: readiness.cookieSecurity.status,
       cors: readiness.cors.status,
+      selfService: readiness.selfService.status,
       ocrProvider: readiness.providers.ocr.status,
       paymentProvider: readiness.providers.payment.status,
       objectStorage: readiness.providers.objectStorage.status,
@@ -122,6 +124,7 @@ export function buildConfigReadiness(config: EnvSource): ConfigReadinessSummary 
   const jwt = jwtReadiness(config, productionLike);
   const cookieSecurity = cookieReadiness(config, productionLike);
   const cors = corsReadiness(config, productionLike);
+  const selfService = selfServiceReadiness(config);
   const ocr = providerReadiness("ocr", normalizeProvider(config.LEDGERBYTE_DOCUMENT_EXTRACTION_PROVIDER, "NONE"), productionLike);
   const payment = paymentReadiness(config, productionLike);
   const objectStorage = objectStorageReadiness(config, productionLike);
@@ -142,6 +145,7 @@ export function buildConfigReadiness(config: EnvSource): ConfigReadinessSummary 
     ...jwt.blockers,
     ...cookieSecurity.blockers,
     ...cors.blockers,
+    ...selfService.blockers,
     ...ocr.blockers,
     ...payment.blockers,
     ...objectStorage.blockers,
@@ -163,6 +167,7 @@ export function buildConfigReadiness(config: EnvSource): ConfigReadinessSummary 
     jwt,
     cookieSecurity,
     cors,
+    selfService,
     providers: {
       ocr,
       payment,
@@ -250,6 +255,14 @@ function corsReadiness(config: EnvSource, productionLike: boolean): ConfigReadin
     blockers.push("CORS_ORIGIN must be explicit and must not include wildcards in production-like modes.");
   }
   return readiness(origins.length > 0, blockers, origins.length > 0 ? "Ready" : "Needs Configuration");
+}
+
+function selfServiceReadiness(config: EnvSource): ConfigReadinessSummary["selfService"] {
+  const enabled = config.LEDGERBYTE_SELF_SERVICE_ENABLED === "true";
+  const blockers = enabled && clean(config.BILLING_ENFORCEMENT_MODE).toUpperCase() !== "ENFORCE"
+    ? ["LEDGERBYTE_SELF_SERVICE_ENABLED=true requires BILLING_ENFORCEMENT_MODE=ENFORCE."]
+    : [];
+  return readiness(enabled, blockers, enabled ? "Ready" : "Disabled", [], { enabled });
 }
 
 function providerReadiness(kind: "ocr", mode: string, productionLike: boolean): ConfigReadinessItem & { mode: string } {

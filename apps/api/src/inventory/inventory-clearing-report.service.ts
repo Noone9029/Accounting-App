@@ -33,6 +33,7 @@ const billInclude = {
         include: {
           item: { select: itemSelect },
           purchaseBillLine: { select: { id: true, description: true } },
+          stockMovement: { select: { totalCost: true, valuationVersion: true } },
         },
       },
     },
@@ -61,6 +62,7 @@ const receiptInclude = {
     include: {
       item: { select: itemSelect },
       purchaseBillLine: { select: { id: true, description: true, taxableAmount: true, quantity: true, unitPrice: true } },
+      stockMovement: { select: { totalCost: true, valuationVersion: true } },
     },
   },
 } satisfies Prisma.PurchaseReceiptInclude;
@@ -382,8 +384,8 @@ export class InventoryClearingReportService {
           }
           const quantity = new Prisma.Decimal(line.quantity);
           lineSummary.receivedQuantity = lineSummary.receivedQuantity.plus(quantity);
-          if (summary.assetPostingStatus === "POSTED" && line.unitCost !== null) {
-            lineSummary.postedReceiptValue = lineSummary.postedReceiptValue.plus(quantity.mul(line.unitCost));
+          if (summary.assetPostingStatus === "POSTED" && line.stockMovement?.totalCost !== null && line.stockMovement?.totalCost !== undefined) {
+            lineSummary.postedReceiptValue = lineSummary.postedReceiptValue.plus(line.stockMovement.totalCost);
           }
         }
       }
@@ -689,10 +691,10 @@ export class InventoryClearingReportService {
       if (trackedLineIds && (!line.purchaseBillLineId || !trackedLineIds.has(line.purchaseBillLineId))) {
         return sum;
       }
-      if (line.unitCost === null) {
+      if (line.stockMovement?.totalCost === null || line.stockMovement?.totalCost === undefined) {
         return sum;
       }
-      return sum.plus(new Prisma.Decimal(line.quantity).mul(line.unitCost));
+      return sum.plus(line.stockMovement.totalCost);
     }, new Prisma.Decimal(0));
   }
 

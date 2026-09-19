@@ -94,11 +94,16 @@ export class OrganizationMemberService {
       }
     }
 
-    const updated = await this.prisma.organizationMember.update({
-      where: { id },
-      data: { status: dto.status },
-      select: MEMBER_SELECT,
-    });
+    const updated = await this.prisma.$transaction(async (tx) => {
+      if (dto.status === MembershipStatus.ACTIVE) {
+        const current = await tx.organizationMember.findFirst({ where: { id, organizationId }, select: { status: true } });
+        if (!current) throw new NotFoundException("Organization member not found.");
+        if (current.status !== MembershipStatus.ACTIVE && current.status !== MembershipStatus.INVITED) {
+          await this.billingEntitlementService.assertSeatInvitationAllowed(organizationId, tx);
+        }
+      }
+      return tx.organizationMember.update({ where: { id }, data: { status: dto.status }, select: MEMBER_SELECT });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 
     await this.auditLogService.log({
       organizationId,

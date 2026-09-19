@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
+import { completeInventoryCommandKey, inventoryCommandKey } from "@/lib/inventory-command-key";
 import { formatInventoryQuantity, hasRemainingInventoryQuantity, inventoryOperationalWarning, validateSalesStockIssueInput } from "@/lib/inventory";
 import type { SalesInvoice, SalesInvoiceStockIssueStatus, SalesStockIssue, SalesStockIssueStatusLine, Warehouse } from "@/lib/types";
 
@@ -129,8 +130,10 @@ export default function NewSalesStockIssuePage() {
     setSubmitting(true);
     const formData = new FormData(event.currentTarget);
     try {
+      const commandKey = await inventoryCommandKey(`${organizationId}:sales-stock-issues`, { salesInvoiceId, warehouseId, issueDate: formData.get("issueDate"), notes: formData.get("notes"), lines });
       const issue = await apiRequest<SalesStockIssue>("/sales-stock-issues", {
         method: "POST",
+        headers: { "Idempotency-Key": commandKey },
         body: {
           salesInvoiceId,
           warehouseId,
@@ -139,6 +142,7 @@ export default function NewSalesStockIssuePage() {
           lines,
         },
       });
+      completeInventoryCommandKey(commandKey);
       router.push(`/inventory/sales-stock-issues/${issue.id}`);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to create sales stock issue.");

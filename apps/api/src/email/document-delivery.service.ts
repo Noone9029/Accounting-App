@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException, Optional } from "@nestjs/common";
+import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException, Optional } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { DocumentType, EmailDeliveryStatus, EmailTemplateType, Prisma } from "@prisma/client";
 import { createHash } from "node:crypto";
@@ -8,7 +8,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { GeneratedDocumentService } from "../generated-documents/generated-document.service";
 import { salesInvoiceDeliveryStatusLabel } from "./email-delivery-status";
 import { maskEmailAddress } from "./email-redaction";
-import type { EmailProvider } from "./email-provider";
+import { EMAIL_PROVIDER, type EmailProvider } from "./email-provider";
 
 export interface DocumentAttachmentMetadata {
   id: string;
@@ -98,7 +98,7 @@ const DEFAULT_MAX_ATTEMPTS = 3;
 export class DocumentDeliveryService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly provider: EmailProvider,
+    @Inject(EMAIL_PROVIDER) private readonly provider: EmailProvider,
     @Optional() private readonly auditLogService?: AuditLogService,
     @Optional() private readonly generatedDocumentService?: GeneratedDocumentService,
     @Optional() private readonly config?: ConfigService,

@@ -129,6 +129,7 @@ export default function StockMovementsPage() {
         description="Operational stock ledger entries from opening balances, approvals, transfers, returns, and voids."
         actions={
           <>
+            {can(PERMISSIONS.inventory.view) && can(PERMISSIONS.journals.view) ? <LedgerButton href="/inventory/accounting-review">Review financial postings</LedgerButton> : null}
             {canViewFifoPreview ? <LedgerButton href={inventoryFifoPreviewUrl({ itemId: filters.itemId || null, warehouseId: filters.warehouseId || null })}>FIFO preview</LedgerButton> : null}
             {canCreate ? <LedgerButton href="/inventory/stock-movements/new" variant="primary">New movement</LedgerButton> : null}
           </>

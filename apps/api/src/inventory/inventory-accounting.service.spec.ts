@@ -289,17 +289,17 @@ describe("InventoryAccountingService", () => {
     expect(prisma.inventorySettings.create).not.toHaveBeenCalled();
   });
 
-  it("calculates moving-average unit cost from costed inbound operational movements", async () => {
+  it("reads the latest persisted quantity and value after issues have reduced carrying cost", async () => {
     const { service, prisma } = makeService();
     prisma.stockMovement.findMany.mockResolvedValue([
-      movement(StockMovementType.OPENING_BALANCE, "10.0000", "4.0000", "40.0000"),
-      movement(StockMovementType.PURCHASE_RECEIPT_PLACEHOLDER, "5.0000", "7.0000", "35.0000"),
-      movement(StockMovementType.SALES_ISSUE_PLACEHOLDER, "3.0000"),
+      { valuationVersion: 1, valuationSequence: 3, valuationQuantityAfter: new Prisma.Decimal(12), valuationValueAfter: new Prisma.Decimal(220) },
+      { valuationVersion: 1, valuationSequence: 2, valuationQuantityAfter: new Prisma.Decimal(2), valuationValueAfter: new Prisma.Decimal(20) },
+      { valuationVersion: 1, valuationSequence: 1, valuationQuantityAfter: new Prisma.Decimal(10), valuationValueAfter: new Prisma.Decimal(100) },
     ]);
 
     const result = await service.movingAverageUnitCost("org-1", "item-1", "warehouse-1", new Date("2026-05-14T00:00:00.000Z"));
 
-    expect(result.averageUnitCost?.toFixed(4)).toBe("5.0000");
+    expect(result.averageUnitCost?.toFixed(4)).toBe("18.3333");
     expect(result.missingCostData).toBe(false);
   });
 

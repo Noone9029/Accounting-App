@@ -37,7 +37,7 @@ import type {
   PurchaseReceiptPostingReadiness,
 } from "@/lib/types";
 
-const valuationMethods: InventoryValuationMethod[] = ["MOVING_AVERAGE", "FIFO_PLACEHOLDER"];
+const valuationMethods: InventoryValuationMethod[] = ["MOVING_AVERAGE"];
 const purchaseReceiptPostingModes: InventoryPurchasePostingMode[] = ["DISABLED", "PREVIEW_ONLY"];
 
 export default function InventorySettingsPage() {
@@ -101,8 +101,8 @@ export default function InventorySettingsPage() {
         setPurchaseReceiptReadiness(readinessResult);
         setAccounts(accountResult);
         setForm({
-          valuationMethod: accountingResult.valuationMethod,
-          allowNegativeStock: inventoryResult.allowNegativeStock,
+          valuationMethod: "MOVING_AVERAGE",
+          allowNegativeStock: false,
           trackInventoryValue: inventoryResult.trackInventoryValue,
           enableInventoryAccounting: accountingResult.enableInventoryAccounting,
           inventoryAssetAccountId: accountingResult.inventoryAssetAccountId ?? "",
@@ -179,7 +179,8 @@ export default function InventorySettingsPage() {
       <LedgerPageHeader
         eyebrow="Inventory"
         title="Inventory settings"
-        description="Operational valuation policy and preview-only inventory accounting controls."
+        description="Perpetual moving-average valuation and reviewed inventory accounting controls."
+        actions={<LedgerButton href="/inventory/accounting-review">Review inventory accounting</LedgerButton>}
       />
 
       <LedgerPageBody>
@@ -212,13 +213,13 @@ export default function InventorySettingsPage() {
                 </LedgerSelect>
               </LedgerFieldLabel>
               <CheckControl
-                label="Allow negative stock"
+                label="Negative stock is blocked"
                 checked={form.allowNegativeStock}
-                disabled={!canManage}
+                disabled
                 onChange={(checked) => setForm((current) => ({ ...current, allowNegativeStock: checked }))}
               />
               <CheckControl
-                label="Track inventory value estimates"
+                label="Show inventory valuation"
                 checked={form.trackInventoryValue}
                 disabled={!canManage}
                 onChange={(checked) => setForm((current) => ({ ...current, trackInventoryValue: checked }))}

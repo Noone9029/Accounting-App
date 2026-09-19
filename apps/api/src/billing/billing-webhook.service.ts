@@ -4,6 +4,7 @@ import { BillingLifecycleEventType, BillingProvider, BillingProviderEnvironment,
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { BillingProviderRegistry } from "./billing-provider.registry";
+import type { BillingSubscriptionSnapshot } from "./billing-provider.types";
 
 const MAX_WEBHOOK_BODY_BYTES = 64 * 1024;
 
@@ -68,23 +69,46 @@ export class BillingWebhookService {
       if (event.payloadHash !== payloadHash) {
         throw new ConflictException("Billing provider event identity was reused with a different verified payload.");
       }
-      await this.prisma.billingWebhookEvent.update({ where: { id: event.id }, data: { status: BillingWebhookProcessingStatus.IGNORED_DUPLICATE } });
-      return { event: { ...event, status: BillingWebhookProcessingStatus.IGNORED_DUPLICATE }, duplicate: true };
+      // A replay must not remove unprocessed work or overwrite successful evidence.
+      return { event, duplicate: true };
     }
   }
 
   async reconcile(eventId: string) {
-    const event = await this.prisma.billingWebhookEvent.findUnique({ where: { id: eventId } });
+    let event = await this.prisma.billingWebhookEvent.findUnique({ where: { id: eventId } });
     if (!event) throw new NotFoundException("Billing webhook event not found.");
+    if (event.status === "PROCESSED" || event.status === "IGNORED_STALE") return { status: event.status };
+    if (!event.subscriptionId && event.providerSubscriptionReference && event.organizationId && event.provider === BillingProvider.STRIPE) {
+      const snapshot = await this.providers.forProvider(event.provider).reconcileSubscription(event.providerSubscriptionReference);
+      if (!snapshot?.localSubscriptionId) return this.markOperatorReview(event.id, "UNMAPPED_PROVIDER_REFERENCE");
+      const subscription = await this.prisma.organizationSubscription.findFirst({ where: { id: snapshot.localSubscriptionId, organizationId: event.organizationId, provider: event.provider } });
+      const customer = subscription && await this.prisma.billingProviderCustomer.findFirst({ where: { billingAccountId: subscription.billingAccountId, provider: event.provider, environment: event.environment, providerCustomerReference: snapshot.providerCustomerReference } });
+      if (!subscription || !customer || (subscription.providerSubscriptionReference && subscription.providerSubscriptionReference !== snapshot.providerSubscriptionReference)) return this.markOperatorReview(event.id, "CANONICAL_REFERENCE_MISMATCH");
+      if (snapshot.initialPaymentIncomplete && !subscription.currentPeriodStartedAt) {
+        // Opening or abandoning payment cannot consume a no-card local trial.
+        await this.prisma.billingWebhookEvent.update({ where: { id: event.id }, data: { status: "PROCESSED", processedAt: new Date(), attemptCount: { increment: 1 } } });
+        return { status: BillingWebhookProcessingStatus.PROCESSED };
+      }
+      await this.prisma.organizationSubscription.updateMany({ where: { id: subscription.id, organizationId: event.organizationId, providerSubscriptionReference: null }, data: { providerSubscriptionReference: snapshot.providerSubscriptionReference, version: { increment: 1 } } });
+      event = await this.prisma.billingWebhookEvent.update({ where: { id: event.id }, data: { subscriptionId: subscription.id } });
+    }
     if (!event.subscriptionId || !event.organizationId || !event.providerSubscriptionReference) {
       return this.markOperatorReview(event.id, "UNMAPPED_PROVIDER_REFERENCE");
     }
 
     const provider = this.providers.forProvider(event.provider);
+    const beforeFetch = event.provider === BillingProvider.STRIPE ? await this.prisma.organizationSubscription.findFirst({ where: { id: event.subscriptionId, organizationId: event.organizationId }, select: { version: true } }) : null;
     const snapshot = await provider.reconcileSubscription(event.providerSubscriptionReference);
     if (!snapshot) return this.markOperatorReview(event.id, "CANONICAL_SUBSCRIPTION_UNAVAILABLE");
     if (snapshot.provider !== event.provider || snapshot.providerSubscriptionReference !== event.providerSubscriptionReference) {
       return this.markOperatorReview(event.id, "CANONICAL_REFERENCE_MISMATCH");
+    }
+
+    if (event.provider === BillingProvider.STRIPE) {
+      if (!beforeFetch) return this.markOperatorReview(event.id, "SUBSCRIPTION_TENANT_MISMATCH");
+      const subscription = await this.applyVerifiedSnapshot(event.organizationId, event.subscriptionId, snapshot, beforeFetch.version);
+      await this.prisma.billingWebhookEvent.update({ where: { id: event.id }, data: { status: "PROCESSED", processedAt: new Date(), attemptCount: { increment: 1 }, safeErrorCode: null } });
+      return { status: BillingWebhookProcessingStatus.PROCESSED, subscription };
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -138,6 +162,35 @@ export class BillingWebhookService {
     if (input.provider !== BillingProvider.FAKE && input.provider !== BillingProvider.STRIPE) throw new BadRequestException("Billing webhook provider is not supported.");
     if (!input.contentType?.toLowerCase().startsWith("application/json")) throw new BadRequestException("Billing webhook content type must be application/json.");
     if (!Buffer.isBuffer(input.rawBody) || input.rawBody.length === 0 || input.rawBody.length > MAX_WEBHOOK_BODY_BYTES) throw new BadRequestException("Billing webhook body is invalid or exceeds the safe limit.");
+  }
+
+  async processPending(input: { batchSize?: number } = {}) {
+    const pending = await this.prisma.billingWebhookEvent.findMany({ where: { status: { in: ["RECEIVED", "FAILED"] }, attemptCount: { lt: 5 } }, orderBy: { createdAt: "asc" }, take: Math.min(50, Math.max(1, input.batchSize ?? 25)), select: { id: true } });
+    let processed = 0;
+    for (const event of pending) {
+      try { await this.reconcile(event.id); processed++; }
+      catch { await this.prisma.billingWebhookEvent.updateMany({ where: { id: event.id, status: { in: ["RECEIVED", "FAILED", "PROCESSING"] } }, data: { status: "FAILED", attemptCount: { increment: 1 }, safeErrorCode: "CANONICAL_RECONCILIATION_FAILED" } }); }
+    }
+    return { processed, pending: pending.length };
+  }
+
+  async applyVerifiedSnapshot(organizationId: string, subscriptionId: string, snapshot: BillingSubscriptionSnapshot, expectedVersion: number) {
+    return this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "OrganizationSubscription" WHERE id = ${subscriptionId}::uuid AND "organizationId" = ${organizationId}::uuid FOR UPDATE`;
+      const subscription = await tx.organizationSubscription.findFirst({ where: { id: subscriptionId, organizationId, provider: snapshot.provider, providerSubscriptionReference: snapshot.providerSubscriptionReference } });
+      if (!subscription) throw new ConflictException("Verified billing subscription does not belong to this organization.");
+      if (subscription.version !== expectedVersion) throw new ConflictException("Subscription changed during the provider read. Fetch canonical state again.");
+      if (snapshot.initialPaymentIncomplete && !subscription.currentPeriodStartedAt) return subscription;
+      const customer = await tx.billingProviderCustomer.findFirst({ where: { billingAccountId: subscription.billingAccountId, provider: snapshot.provider, environment: "TEST", providerCustomerReference: snapshot.providerCustomerReference } });
+      const price = snapshot.providerPriceReference && await tx.billingPrice.findFirst({ where: { provider: snapshot.provider, environment: "TEST", providerPriceId: snapshot.providerPriceReference, active: true, currency: "SAR", interval: "MONTH" }, include: { planVersion: { include: { billingPlan: true } } } });
+      if (!customer || !price || !["STARTER", "GROWTH"].includes(price.planVersion.billingPlan.key)) throw new ConflictException("Verified provider price or customer mapping is unavailable.");
+      const updated = await tx.organizationSubscription.update({ where: { id: subscription.id }, data: { planVersionId: price.planVersionId, status: snapshot.status, currentPeriodStartedAt: snapshot.currentPeriodStartedAt, currentPeriodEndsAt: snapshot.currentPeriodEndsAt, trialEndsAt: snapshot.trialEndsAt, graceDeadline: snapshot.graceDeadline, cancelAtPeriodEnd: snapshot.cancelAtPeriodEnd, providerUpdatedAt: snapshot.providerUpdatedAt, lastReconciledAt: new Date(), version: { increment: 1 } } });
+      await tx.subscriptionScheduledChange.updateMany({ where: { subscriptionId, organizationId, status: "PENDING", targetPlanVersionId: price.planVersionId }, data: { status: "APPLIED" } });
+      await tx.billingCheckoutAttempt.updateMany({ where: { subscriptionId, organizationId, status: { in: ["PROVIDER_PENDING", "READY"] } }, data: { status: "COMPLETED" } });
+      await tx.billingLifecycleEvent.create({ data: { organizationId, subscriptionId, eventType: "WEBHOOK_RECONCILED", previousStatus: subscription.status, nextStatus: updated.status, reasonCode: "VERIFIED_STRIPE_TEST_SNAPSHOT", safeMetadataJson: { planKey: price.planVersion.billingPlan.key } } });
+      await this.auditLog.log({ organizationId, action: "BILLING_CANONICAL_RECONCILIATION", entityType: "OrganizationSubscription", entityId: subscriptionId, before: { status: subscription.status }, after: { status: updated.status, planKey: price.planVersion.billingPlan.key } }, tx);
+      return updated;
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   }
 
   private async resolveOwnership(provider: BillingProvider, environment: BillingProviderEnvironment, customerReference: string | null, subscriptionReference: string | null) {

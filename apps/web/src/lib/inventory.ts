@@ -248,10 +248,10 @@ export function canShowPostCogsAction(
 }
 
 export function canShowReverseCogsAction(
-  preview: Pick<SalesStockIssueAccountingPreview, "alreadyPosted" | "alreadyReversed">,
+  preview: Pick<SalesStockIssueAccountingPreview, "alreadyPosted" | "alreadyReversed" | "journalEntryId">,
   hasPermission: boolean,
 ): boolean {
-  return hasPermission && preview.alreadyPosted === true && preview.alreadyReversed !== true;
+  return hasPermission && preview.alreadyPosted === true && preview.alreadyReversed !== true && Boolean(preview.journalEntryId);
 }
 
 export function cogsPostingFinancialReportWarning(): string {
@@ -274,10 +274,10 @@ export function canShowPostReceiptAssetAction(
 }
 
 export function canShowReverseReceiptAssetAction(
-  preview: Pick<PurchaseReceiptAccountingPreview, "alreadyPosted" | "alreadyReversed">,
+  preview: Pick<PurchaseReceiptAccountingPreview, "alreadyPosted" | "alreadyReversed" | "journalEntryId">,
   hasPermission: boolean,
 ): boolean {
-  return hasPermission && preview.alreadyPosted === true && preview.alreadyReversed !== true;
+  return hasPermission && preview.alreadyPosted === true && preview.alreadyReversed !== true && Boolean(preview.journalEntryId);
 }
 
 export function receiptAssetPostingFinancialReportWarning(): string {
@@ -303,10 +303,10 @@ export function inventorySettingsLabel(settings: Pick<InventorySettings, "valuat
 export function inventorySettingsWarnings(settings: Pick<InventorySettings, "valuationMethod" | "allowNegativeStock">): string[] {
   const warnings = [inventoryOperationalWarning()];
   if (settings.valuationMethod === "FIFO_PLACEHOLDER") {
-    warnings.push("FIFO can be saved as a placeholder, but reports still use moving-average estimates.");
+    warnings.push("The legacy FIFO preference is unsupported; save perpetual moving average before accounting posting.");
   }
   if (settings.allowNegativeStock) {
-    warnings.push("Allowing negative stock is risky and should be reviewed before enabling.");
+    warnings.push("The legacy negative-stock preference is unsupported; valued inventory rejects negative stock.");
   }
   return warnings;
 }

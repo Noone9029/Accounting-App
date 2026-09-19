@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { createValuedStockMovement, lockInventory } from "../inventory/valued-stock-movement";
 import {
   ContactType,
   CreditNoteStatus,
@@ -247,6 +248,7 @@ export class SalesInventoryReturnService {
 
   async create(organizationId: string, actorUserId: string, dto: CreateSalesInventoryReturnDto) {
     const created = await this.prisma.$transaction(async (tx) => {
+      await lockInventory(tx, organizationId);
       const prepared = await this.prepareSalesInventoryReturn(organizationId, dto.customerId, dto, undefined, tx);
       const salesReturnNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.SALES_INVENTORY_RETURN, tx);
 
@@ -300,6 +302,7 @@ export class SalesInventoryReturnService {
     };
 
     const updated = await this.prisma.$transaction(async (tx) => {
+      await lockInventory(tx, organizationId);
       const prepared = await this.prepareSalesInventoryReturn(
         organizationId,
         nextCustomerId,
@@ -396,6 +399,7 @@ export class SalesInventoryReturnService {
     const before = await this.get(organizationId, id);
 
     const result = await this.prisma.$transaction(async (tx) => {
+      await lockInventory(tx, organizationId);
       const salesReturn = await this.loadSalesInventoryReturnForInventory(organizationId, id, tx);
       const preview = await this.buildInventoryReturnPreview(organizationId, salesReturn, tx);
       if (!preview.canPost) {
@@ -427,13 +431,14 @@ export class SalesInventoryReturnService {
         if (!returnLine) continue;
         const quantity = new Prisma.Decimal(line.returnQuantity);
         const unitCost = this.inventoryReturnUnitCost(returnLine);
-        const movement = await tx.stockMovement.create({
+        const movement = await createValuedStockMovement(tx, {
           data: {
             organizationId,
             itemId: line.item.id,
             warehouseId: line.warehouse.id,
             movementDate: salesReturn.returnDate,
             type: StockMovementType.SALES_RETURN_IN,
+            valuationSourceMovementId: returnLine.sourceSalesStockIssueLine?.stockMovementId,
             quantity: quantity.toFixed(4),
             unitCost: unitCost?.toFixed(4) ?? null,
             totalCost: unitCost ? quantity.mul(unitCost).toFixed(4) : null,

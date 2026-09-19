@@ -13,6 +13,7 @@ const CSRF_EXEMPT_AUTH_PATHS = new Set([
   "/auth/register",
   "/auth/password-reset/request",
   "/auth/password-reset/confirm",
+  "/auth/email-verification/confirm",
 ]);
 
 type SameSite = "lax" | "strict" | "none";

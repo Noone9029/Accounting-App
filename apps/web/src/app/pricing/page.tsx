@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { MarketingDetailPage, marketingMetadata } from "@/components/marketing/marketing-site";
+import { MarketingPricingShell, marketingMetadata } from "@/components/marketing/marketing-site";
+import { PublicPricingCatalog } from "@/components/marketing/public-pricing-catalog";
 
 export const metadata: Metadata = marketingMetadata("en", "pricing");
 
 export default function PricingPage() {
-  return <MarketingDetailPage locale="en" pageKey="pricing" />;
+  return <MarketingPricingShell locale="en"><PublicPricingCatalog locale="en" /></MarketingPricingShell>;
 }

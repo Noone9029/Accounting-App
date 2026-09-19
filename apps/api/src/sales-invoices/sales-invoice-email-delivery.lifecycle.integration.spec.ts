@@ -27,6 +27,7 @@ describe("sales invoice email delivery mock-only lifecycle", () => {
       salesInvoice: { findFirst: jest.fn().mockResolvedValue(invoice) },
       emailSuppression: { findFirst: jest.fn().mockResolvedValue(null) },
       emailOutbox: {
+        fields: { maxAttempts: { name: "maxAttempts" } },
         findFirst: jest.fn(({ where }: { where: Record<string, any> }) => Promise.resolve(rows.find((row) =>
           where.idempotencyKeyHash ? row.organizationId === where.organizationId && row.idempotencyKeyHash === where.idempotencyKeyHash : row.organizationId === where.organizationId && row.id === where.id) ?? null)),
         findMany: jest.fn(({ where }: { where: Record<string, any> }) => Promise.resolve(rows.filter((row) => row.organizationId === where.organizationId && (!where.sourceType || row.sourceType === where.sourceType) && (!where.sourceId || row.sourceId === where.sourceId)).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()))),

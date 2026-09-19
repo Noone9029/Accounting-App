@@ -4,6 +4,8 @@ import { BillingSubscriptionStatus } from "@prisma/client";
 import { BillingLifecycleService } from "./billing-lifecycle.service";
 
 describe("BillingLifecycleService", () => {
+  beforeEach(() => jest.useFakeTimers().setSystemTime(new Date("2026-07-30T00:00:00.000Z")));
+  afterEach(() => jest.useRealTimers());
   function harness(
     status: BillingSubscriptionStatus = BillingSubscriptionStatus.PENDING,
     version = 1,
@@ -19,6 +21,7 @@ describe("BillingLifecycleService", () => {
       graceDeadline: dates.graceDeadline ?? null,
     };
     const tx = {
+      $queryRaw: jest.fn().mockResolvedValue([]),
       organizationSubscription: {
         findFirst: jest.fn().mockResolvedValue(subscription),
         updateMany: jest.fn().mockResolvedValue({ count: 1 }),
@@ -110,6 +113,14 @@ describe("BillingLifecycleService", () => {
     expect(afterExpiry.tx.organizationSubscription.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "SUSPENDED" }) }));
   });
 
+  it("expires a local no-card Stripe trial without any provider call", async () => {
+    const { service, tx } = harness(BillingSubscriptionStatus.TRIALING);
+    tx.organizationSubscription.findFirst.mockResolvedValue({ id: "sub-1", organizationId: "org-1", provider: "STRIPE", status: "TRIALING", version: 1, trialEndsAt: new Date("2026-07-29") } as never);
+    await service.transition({ organizationId: "org-1", subscriptionId: "sub-1", expectedVersion: 1, transition: "EXPIRE_TRIAL", correlationId: "expired" });
+    expect(tx.organizationSubscription.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "SUSPENDED" }) }));
+    expect(tx.billingLifecycleEvent.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ eventType: "TRIAL_EXPIRED" }) }));
+  });
+
   it("reactivates only before cancellation becomes final", async () => {
     const periodEnd = new Date("2026-08-30T00:00:00.000Z");
     const reactivated = harness(BillingSubscriptionStatus.CANCEL_AT_PERIOD_END, 2, { currentPeriodEndsAt: periodEnd });
@@ -183,6 +194,15 @@ describe("BillingLifecycleService", () => {
 
     await expect(service.processDuePlanChanges({ now: new Date("2026-08-01T00:00:00.000Z") })).resolves.toEqual({ processed: 0, skipped: 1 });
     expect(tx.subscriptionScheduledChange.updateMany).toHaveBeenCalledWith(expect.objectContaining({ data: { status: "SUPERSEDED" } }));
+    expect(tx.organizationSubscription.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("does not apply a Stripe scheduled plan from the clock before canonical confirmation", async () => {
+    const { service, prisma, tx } = harness(BillingSubscriptionStatus.ACTIVE);
+    prisma.subscriptionScheduledChange.findMany.mockResolvedValue([{ id: "change-1" }]);
+    tx.subscriptionScheduledChange.findFirst.mockResolvedValue({ id: "change-1", subscriptionId: "sub-1", organizationId: "org-1", currentPlanVersionId: "plan-1", targetPlanVersionId: "plan-2" });
+    tx.organizationSubscription.findFirst.mockResolvedValue({ id: "sub-1", organizationId: "org-1", provider: "STRIPE", status: "ACTIVE", version: 1, planVersionId: "plan-1" } as never);
+    await expect(service.processDuePlanChanges()).resolves.toEqual({ processed: 0, skipped: 1 });
     expect(tx.organizationSubscription.updateMany).not.toHaveBeenCalled();
   });
 });

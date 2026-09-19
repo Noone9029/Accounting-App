@@ -20,15 +20,15 @@ describeLocalDb("billing entitlement local database proof", () => {
   if (!runLocalDbProof) void prisma.$disconnect();
   const marker = `paid-saas-entitlement-${randomUUID()}`;
   const ids = {
-    organization: randomUUID(), plan: randomUUID(), version: randomUUID(), entitlement: randomUUID(), account: randomUUID(), subscription: randomUUID(), role: randomUUID(),
+    organization: randomUUID(), plan: randomUUID() as string, version: randomUUID(), entitlement: randomUUID(), account: randomUUID(), subscription: randomUUID(), role: randomUUID(),
     users: [randomUUID(), randomUUID()], members: [randomUUID(), randomUUID()],
   };
   const service = new BillingEntitlementService(prisma as never, { get: () => "ENFORCE" } as never);
 
   beforeAll(async () => {
     await prisma.organization.create({ data: { id: ids.organization, name: marker } });
-    await prisma.billingPlan.create({ data: { id: ids.plan, key: "STARTER", displayName: marker, internalDescription: marker, status: BillingPlanStatus.ACTIVE } });
-    await prisma.billingPlanVersion.create({ data: { id: ids.version, billingPlanId: ids.plan, version: 1, status: BillingPlanVersionStatus.DRAFT, entitlementSnapshot: { active_member_seats: 1 } } });
+    ids.plan = (await prisma.billingPlan.upsert({ where: { key: "STARTER" }, create: { id: ids.plan, key: "STARTER", displayName: marker, internalDescription: marker, status: BillingPlanStatus.ACTIVE }, update: {} })).id;
+    await prisma.billingPlanVersion.create({ data: { id: ids.version, billingPlanId: ids.plan, version: 9101, status: BillingPlanVersionStatus.DRAFT, entitlementSnapshot: { active_member_seats: 1 } } });
     await prisma.billingPlanEntitlement.create({ data: { id: ids.entitlement, planVersionId: ids.version, key: "active_member_seats", valueType: BillingEntitlementValueType.INTEGER, integerValue: 1 } });
     await prisma.billingPlanVersion.update({ where: { id: ids.version }, data: { status: BillingPlanVersionStatus.ACTIVE } });
     await prisma.organizationBillingAccount.create({ data: { id: ids.account, organizationId: ids.organization, provider: BillingProvider.FAKE } });
@@ -46,7 +46,7 @@ describeLocalDb("billing entitlement local database proof", () => {
     await prisma.billingPlanVersion.update({ where: { id: ids.version }, data: { status: BillingPlanVersionStatus.RETIRED } });
     await prisma.billingPlanEntitlement.deleteMany({ where: { id: ids.entitlement } });
     await prisma.billingPlanVersion.deleteMany({ where: { id: ids.version } });
-    await prisma.billingPlan.deleteMany({ where: { id: ids.plan } });
+    await prisma.billingPlan.deleteMany({ where: { id: ids.plan, internalDescription: marker } });
     await prisma.organization.deleteMany({ where: { id: ids.organization } });
     await prisma.$disconnect();
   });

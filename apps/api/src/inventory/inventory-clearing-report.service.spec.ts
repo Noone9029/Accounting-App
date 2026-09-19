@@ -164,9 +164,9 @@ describe("InventoryClearingReportService", () => {
     );
   });
 
-  it("calculates variance amount from receipt unit-cost differences", async () => {
+  it("calculates variance from the frozen receipt value rather than a mutable unit-cost field", async () => {
     const bill = clearingBill({
-      purchaseReceipts: [receipt({ lines: [receiptLine({ unitCost: "3.0000" })] })],
+      purchaseReceipts: [receipt({ lines: [receiptLine({ unitCost: "999.0000", stockMovement: { valuationVersion: 1, totalCost: new Prisma.Decimal("6.0000") } })] })],
     });
     const { service } = makeService({
       purchaseBill: { findMany: jest.fn().mockResolvedValue([bill]) },
@@ -272,6 +272,7 @@ describe("InventoryClearingReportService", () => {
       purchaseBillLineId: "bill-line-1",
       quantity: new Prisma.Decimal("2.0000"),
       unitCost: new Prisma.Decimal("4.0000"),
+      stockMovement: { valuationVersion: 1, totalCost: new Prisma.Decimal("8.0000") },
       item,
       purchaseBillLine: { id: "bill-line-1", description: "Tracked item" },
       ...overrides,

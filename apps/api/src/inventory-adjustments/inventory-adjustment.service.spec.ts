@@ -1,5 +1,17 @@
 import { InventoryAdjustmentStatus, InventoryAdjustmentType, ItemStatus, Prisma, StockMovementType, WarehouseStatus } from "@prisma/client";
 import { InventoryAdjustmentService } from "./inventory-adjustment.service";
+// Document lifecycle tests isolate the valued writer; real PostgreSQL tests cover
+// cost arithmetic, transaction locking, immutable snapshots and rollback.
+jest.mock("../inventory/valued-stock-movement", () => ({
+  lockInventory: jest.fn().mockResolvedValue(undefined),
+  createValuedStockMovement: jest.fn(async (tx: { stockMovement: { create: (args: unknown) => Promise<object> } }, args: { data: Record<string, unknown> }) => {
+    const { Prisma: P } = jest.requireActual("@prisma/client");
+    const created = await tx.stockMovement.create(args);
+    return { ...args.data, ...created,
+      unitCost: args.data.unitCost == null ? null : new P.Decimal(String(args.data.unitCost)),
+      totalCost: args.data.totalCost == null ? null : new P.Decimal(String(args.data.totalCost)) };
+  }),
+}));
 
 describe("InventoryAdjustmentService", () => {
   const item = { id: "item-1", inventoryTracking: true, status: ItemStatus.ACTIVE };

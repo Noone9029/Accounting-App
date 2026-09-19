@@ -60,7 +60,7 @@ export class EmailRetryWorkerService {
     @Optional() private readonly auditLogService?: AuditLogService,
   ) {}
 
-  async process(organizationId: string, actorUserId: string, limit = DEFAULT_LIMIT): Promise<EmailRetryWorkerResult> {
+  async process(organizationId: string, actorUserId: string | undefined, limit = DEFAULT_LIMIT): Promise<EmailRetryWorkerResult> {
     const readiness = this.provider.readiness();
     if (readiness.provider === "invalid" || readiness.provider === "smtp-disabled" || !readiness.ready) {
       return {
@@ -83,6 +83,7 @@ export class EmailRetryWorkerService {
       where: {
         organizationId,
         status: { in: [EmailDeliveryStatus.QUEUED, EmailDeliveryStatus.FAILED] },
+        attemptCount: { lt: this.prisma.emailOutbox.fields.maxAttempts },
         bouncedAt: null,
         complainedAt: null,
         OR: [{ nextAttemptAt: null }, { nextAttemptAt: { lte: now } }],
@@ -106,7 +107,7 @@ export class EmailRetryWorkerService {
         skippedClaimCount += 1;
         continue;
       }
-      const lockedBy = `email-retry:${actorUserId}:${email.id}:${Date.now()}`;
+      const lockedBy = `email-retry:${actorUserId ?? "system-worker"}:${email.id}:${Date.now()}`;
       const claimed = await this.prisma.emailOutbox.updateMany({
         where: {
           id: email.id,

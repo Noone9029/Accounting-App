@@ -4,7 +4,7 @@ import { BillingLifecycleEventType, BillingScheduledChangeStatus, BillingSubscri
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { PrismaService } from "../prisma/prisma.service";
 
-export type BillingTransition = "START_TRIAL" | "ACTIVATE" | "PAYMENT_FAILED" | "EXPIRE_GRACE" | "SCHEDULE_CANCELLATION" | "CANCEL" | "REACTIVATE";
+export type BillingTransition = "START_TRIAL" | "EXPIRE_TRIAL" | "ACTIVATE" | "PAYMENT_FAILED" | "EXPIRE_GRACE" | "SCHEDULE_CANCELLATION" | "CANCEL" | "REACTIVATE";
 
 export interface BillingTransitionInput {
   organizationId: string;
@@ -26,6 +26,7 @@ export interface BillingLifecycleWorkerResult {
 
 const TRANSITIONS: Record<BillingTransition, { from: readonly BillingSubscriptionStatus[]; to: BillingSubscriptionStatus; event: BillingLifecycleEventType }> = {
   START_TRIAL: { from: [BillingSubscriptionStatus.PENDING], to: BillingSubscriptionStatus.TRIALING, event: BillingLifecycleEventType.TRIAL_STARTED },
+  EXPIRE_TRIAL: { from: [BillingSubscriptionStatus.TRIALING], to: BillingSubscriptionStatus.SUSPENDED, event: BillingLifecycleEventType.TRIAL_EXPIRED },
   ACTIVATE: { from: [BillingSubscriptionStatus.PENDING, BillingSubscriptionStatus.TRIALING], to: BillingSubscriptionStatus.ACTIVE, event: BillingLifecycleEventType.ACTIVATED },
   PAYMENT_FAILED: { from: [BillingSubscriptionStatus.ACTIVE, BillingSubscriptionStatus.TRIALING], to: BillingSubscriptionStatus.GRACE, event: BillingLifecycleEventType.PAYMENT_FAILED },
   EXPIRE_GRACE: { from: [BillingSubscriptionStatus.GRACE], to: BillingSubscriptionStatus.SUSPENDED, event: BillingLifecycleEventType.GRACE_EXPIRED },
@@ -67,6 +68,7 @@ export class BillingLifecycleService {
         }
         if (!policy.from.includes(subscription.status)) throw new ConflictException("Subscription transition is not valid from its current state.");
         if (input.transition === "EXPIRE_GRACE" && (!subscription.graceDeadline || subscription.graceDeadline > now)) throw new ConflictException("Grace period has not expired.");
+        if (input.transition === "EXPIRE_TRIAL" && (!subscription.trialEndsAt || subscription.trialEndsAt > now)) throw new ConflictException("Trial has not expired.");
         if (input.transition === "CANCEL" && (!subscription.currentPeriodEndsAt || subscription.currentPeriodEndsAt > now)) throw new ConflictException("Current paid period has not ended.");
         if (input.transition === "REACTIVATE" && (!subscription.currentPeriodEndsAt || subscription.currentPeriodEndsAt <= now)) throw new ConflictException("Subscription can no longer be reactivated after its period end.");
 
@@ -91,6 +93,7 @@ export class BillingLifecycleService {
     if (input.effectiveAt <= new Date()) throw new BadRequestException("A future plan-change effective date is required.");
     try {
       return await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "Organization" WHERE id = ${input.organizationId}::uuid FOR UPDATE`;
       const subscription = await tx.organizationSubscription.findFirst({ where: { id: input.subscriptionId, organizationId: input.organizationId } });
       if (!subscription) throw new NotFoundException("Subscription not found.");
       const requestHash = planChangeRequestHash(input);
@@ -111,6 +114,11 @@ export class BillingLifecycleService {
       if (subscription.planVersionId === input.targetPlanVersionId) throw new BadRequestException("Target plan must differ from the current plan.");
       const target = await tx.billingPlanVersion.findFirst({ where: { id: input.targetPlanVersionId, status: "ACTIVE" } });
       if (!target) throw new BadRequestException("Target plan version is not active.");
+      if (subscription.provider === "STRIPE") {
+        const seats = await tx.billingPlanEntitlement.findFirst({ where: { planVersionId: target.id, key: "active_member_seats" }, select: { integerValue: true } });
+        const usage = await tx.organizationMember.count({ where: { organizationId: input.organizationId, status: { in: ["ACTIVE", "INVITED"] } } });
+        if (seats?.integerValue == null || usage > seats.integerValue) throw new ConflictException("Remove excess active members and invitations before changing plans.");
+      }
       await tx.subscriptionScheduledChange.updateMany({ where: { subscriptionId: subscription.id, status: BillingScheduledChangeStatus.PENDING }, data: { status: BillingScheduledChangeStatus.SUPERSEDED } });
       const change = await tx.subscriptionScheduledChange.create({ data: { organizationId: input.organizationId, subscriptionId: subscription.id, currentPlanVersionId: subscription.planVersionId, targetPlanVersionId: target.id, effectiveAt: input.effectiveAt, reasonCode: "PLAN_CHANGE", status: BillingScheduledChangeStatus.PENDING } });
       const claimed = await tx.organizationSubscription.updateMany({
@@ -148,6 +156,7 @@ export class BillingLifecycleService {
     const due = await this.prisma.organizationSubscription.findMany({
       where: {
         OR: [
+          { status: BillingSubscriptionStatus.TRIALING, trialEndsAt: { lte: now } },
           { status: BillingSubscriptionStatus.GRACE, graceDeadline: { lte: now } },
           { status: BillingSubscriptionStatus.CANCEL_AT_PERIOD_END, currentPeriodEndsAt: { lte: now } },
         ],
@@ -160,7 +169,7 @@ export class BillingLifecycleService {
     let processed = 0;
     let skipped = 0;
     for (const subscription of due) {
-      const transition = subscription.status === BillingSubscriptionStatus.GRACE ? "EXPIRE_GRACE" : "CANCEL";
+      const transition = subscription.status === BillingSubscriptionStatus.TRIALING ? "EXPIRE_TRIAL" : subscription.status === BillingSubscriptionStatus.GRACE ? "EXPIRE_GRACE" : "CANCEL";
       try {
         await this.transition({
           organizationId: subscription.organizationId,
@@ -220,6 +229,8 @@ export class BillingLifecycleService {
         if (!change) return false;
         const subscription = await tx.organizationSubscription.findFirst({ where: { id: change.subscriptionId, organizationId: change.organizationId } });
         if (!subscription) throw new NotFoundException("Subscription not found.");
+        // Provider plans change only after canonical provider reconciliation.
+        if (subscription.provider === "STRIPE") return false;
         if (subscription.planVersionId !== change.currentPlanVersionId) {
           await tx.subscriptionScheduledChange.updateMany({
             where: { id: change.id, status: BillingScheduledChangeStatus.PENDING },
@@ -298,6 +309,7 @@ function lifecycleData(input: BillingTransitionInput, status: BillingSubscriptio
     case "ACTIVATE": return { ...common, graceDeadline: null, suspendedAt: null };
     case "PAYMENT_FAILED": return { ...common, graceDeadline: input.graceDeadline! };
     case "EXPIRE_GRACE": return { ...common, suspendedAt: now };
+    case "EXPIRE_TRIAL": return { ...common, suspendedAt: now };
     case "SCHEDULE_CANCELLATION": return { ...common, cancelAtPeriodEnd: true, currentPeriodEndsAt: input.currentPeriodEndsAt! };
     case "CANCEL": return { ...common, canceledAt: now };
     case "REACTIVATE": return { ...common, cancelAtPeriodEnd: false, canceledAt: null, suspendedAt: null, graceDeadline: null };

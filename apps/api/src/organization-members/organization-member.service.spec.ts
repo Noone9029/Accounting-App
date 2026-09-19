@@ -89,6 +89,14 @@ describe("OrganizationMemberService", () => {
     );
   });
 
+  it("checks reserved billing seats before reactivating a suspended member", async () => {
+    const { service, prisma, billingEntitlementService } = makeService();
+    prisma.organizationMember.findFirst.mockResolvedValue({ ...member, status: MembershipStatus.SUSPENDED });
+    billingEntitlementService.assertSeatInvitationAllowed.mockRejectedValue(new ForbiddenException("Scheduled plan seat limit"));
+    await expect(service.updateStatus("org-1", "owner-2", "member-1", { status: MembershipStatus.ACTIVE })).rejects.toThrow("Scheduled plan seat limit");
+    expect(prisma.organizationMember.update).not.toHaveBeenCalled();
+  });
+
   it("rejects demoting the last full-access member", async () => {
     const { service, prisma } = makeService();
     prisma.organizationMember.findFirst.mockResolvedValue(member);

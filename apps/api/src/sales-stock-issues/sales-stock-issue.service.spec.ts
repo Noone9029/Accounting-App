@@ -12,6 +12,15 @@ import {
 } from "@prisma/client";
 import { SalesStockIssueService } from "./sales-stock-issue.service";
 
+// The PostgreSQL valuation integration suite proves locks and cost allocation.
+// These service tests retain document validation/journal assertions at that seam.
+jest.mock("../inventory/valued-stock-movement", () => ({
+  lockInventory: jest.fn().mockResolvedValue(undefined),
+  createValuedStockMovement: jest.fn(async (tx: { stockMovement: { create: (args: unknown) => Promise<Record<string, unknown>> } }, args: { data: { unitCost?: unknown } }) => ({
+    ...await tx.stockMovement.create(args), unitCost: args.data.unitCost ?? "5.2500",
+  })),
+}));
+
 describe("SalesStockIssueService", () => {
   const item = { id: "item-1", inventoryTracking: true, status: ItemStatus.ACTIVE };
   const serviceItem = { id: "service-1", inventoryTracking: false, status: ItemStatus.ACTIVE };
@@ -38,7 +47,7 @@ describe("SalesStockIssueService", () => {
     cogsReversedById: null,
     cogsJournalEntry: null,
     cogsReversalJournalEntry: null,
-    lines: [{ id: "issue-line-1", itemId: item.id, item: previewItem, salesInvoiceLineId: invoiceLine.id, quantity: new Prisma.Decimal("2.0000"), unitCost: null }],
+    lines: [{ id: "issue-line-1", itemId: item.id, item: previewItem, salesInvoiceLineId: invoiceLine.id, quantity: new Prisma.Decimal("2.0000"), unitCost: new Prisma.Decimal("5.2500"), stockMovementId: "issue-movement-1", stockMovement: { id: "issue-movement-1", valuationVersion: 1, totalCost: new Prisma.Decimal("10.5000"), unitCost: new Prisma.Decimal("5.2500") } }],
   };
   const cogsJournalEntry = {
     id: "journal-1",
@@ -103,8 +112,11 @@ describe("SalesStockIssueService", () => {
       }),
     };
     const fiscal = { assertPostingDateAllowed: jest.fn() };
+    const service = new SalesStockIssueService(prisma as never, audit as never, numbers as never, inventoryAccounting as never, fiscal as never);
+    const create = service.create.bind(service);
+    service.create = (organizationId, actorUserId, dto, key = "issue-unit-command") => create(organizationId, actorUserId, dto, key);
     return {
-      service: new SalesStockIssueService(prisma as never, audit as never, numbers as never, inventoryAccounting as never, fiscal as never),
+      service,
       prisma,
       audit,
       numbers,
@@ -115,6 +127,8 @@ describe("SalesStockIssueService", () => {
 
   function makeTx(overrides: Record<string, unknown> = {}) {
     return {
+      $queryRaw: jest.fn().mockResolvedValue([]),
+      apiIdempotencyRecord: { findUnique: jest.fn().mockResolvedValue(null), create: jest.fn().mockResolvedValue({}) },
       organization: { findUnique: jest.fn().mockResolvedValue({ baseCurrency: "SAR" }) },
       warehouse: { findFirst: jest.fn().mockResolvedValue(warehouse) },
       salesInvoice: {
@@ -122,6 +136,7 @@ describe("SalesStockIssueService", () => {
           id: "invoice-1",
           customerId: "customer-1",
           status: SalesInvoiceStatus.FINALIZED,
+          journalEntry: { status: JournalEntryStatus.POSTED },
           lines: [invoiceLine],
         }),
       },
@@ -138,6 +153,7 @@ describe("SalesStockIssueService", () => {
         update: jest.fn().mockResolvedValue({ id: "issue-line-1" }),
       },
       stockMovement: {
+        count: jest.fn().mockResolvedValue(0),
         findMany: jest.fn().mockResolvedValue([{ type: StockMovementType.PURCHASE_RECEIPT_PLACEHOLDER, quantity: new Prisma.Decimal("5.0000") }]),
         create: jest.fn().mockResolvedValue({ id: "movement-1" }),
       },
@@ -186,7 +202,7 @@ describe("SalesStockIssueService", () => {
       }),
     );
     expect(tx.journalEntry.create).not.toHaveBeenCalled();
-    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "CREATE", entityType: "SalesStockIssue" }));
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "CREATE", entityType: "SalesStockIssue" }), tx);
   });
 
   it("rejects service invoice lines without creating stock movement or COGS journal", async () => {
@@ -196,6 +212,7 @@ describe("SalesStockIssueService", () => {
           id: "invoice-1",
           customerId: "customer-1",
           status: SalesInvoiceStatus.FINALIZED,
+          journalEntry: { status: JournalEntryStatus.POSTED },
           lines: [serviceInvoiceLine],
         }),
       },
@@ -296,14 +313,15 @@ describe("SalesStockIssueService", () => {
     expect(prisma.salesStockIssue.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: issue.id, organizationId: "other-org" } }));
   });
 
-  it("returns moving-average COGS preview with Dr COGS and Cr inventory asset without creating a journal entry", async () => {
+  it("returns frozen movement COGS with Dr COGS and Cr inventory asset without repricing or creating a journal entry", async () => {
     const { service, prisma, inventoryAccounting } = makeService(makeTx(), {
       salesStockIssue: { findFirst: jest.fn().mockResolvedValue(issue) },
     });
+    inventoryAccounting.movingAverageUnitCost.mockResolvedValue({ averageUnitCost: new Prisma.Decimal("99.0000"), missingCostData: false });
 
     const preview = await service.accountingPreview("org-1", issue.id);
 
-    expect(inventoryAccounting.movingAverageUnitCost).toHaveBeenCalledWith("org-1", item.id, warehouse.id, issue.issueDate, prisma);
+    expect(inventoryAccounting.movingAverageUnitCost).not.toHaveBeenCalled();
     expect(preview).toEqual(
       expect.objectContaining({
         previewOnly: true,
@@ -311,7 +329,7 @@ describe("SalesStockIssueService", () => {
         alreadyPosted: false,
         warnings: expect.arrayContaining([
           "This creates accounting journal entries and affects financial reports.",
-          "Average cost is operational estimate and requires accountant review.",
+          "COGS uses the immutable cost recorded when stock was issued. Review the journal before posting.",
         ]),
       }),
     );
@@ -324,6 +342,24 @@ describe("SalesStockIssueService", () => {
       ]),
     );
     expect(prisma.journalEntry.create).not.toHaveBeenCalled();
+  });
+
+  it("rejects stock creation when a finalized invoice's original journal is reversed", async () => {
+    const tx = makeTx({ salesInvoice: { findFirst: jest.fn().mockResolvedValue({ id: "invoice-1", customerId: "customer-1", status: SalesInvoiceStatus.FINALIZED,
+      journalEntry: { status: JournalEntryStatus.REVERSED }, lines: [invoiceLine] }) } });
+    await expect(makeService(tx).service.create("org-1", "user-1", { salesInvoiceId: "invoice-1", warehouseId: warehouse.id,
+      issueDate: "2026-05-14", lines: [{ salesInvoiceLineId: invoiceLine.id, quantity: "1" }] })).rejects.toThrow("original active posted sales invoice journal");
+    expect(tx.stockMovement.create).not.toHaveBeenCalled();
+  });
+
+  it("blocks COGS for legacy lines without a valued movement rather than substituting today's average", async () => {
+    const { service, inventoryAccounting } = makeService(makeTx(), {
+      salesStockIssue: { findFirst: jest.fn().mockResolvedValue({ ...issue, lines: [{ ...issue.lines[0], stockMovement: null }] }) },
+    });
+    const preview = await service.accountingPreview("org-1", issue.id);
+    expect(preview.canPost).toBe(false);
+    expect(preview.blockingReasons).toContain("The stock issue requires immutable valued movement costs before COGS posting.");
+    expect(inventoryAccounting.movingAverageUnitCost).not.toHaveBeenCalled();
   });
 
   it("requires enabled inventory accounting and mapped accounts before COGS posting", async () => {
@@ -411,7 +447,7 @@ describe("SalesStockIssueService", () => {
       }),
     );
     expect(tx.stockMovement.create).not.toHaveBeenCalled();
-    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "POST_COGS", entityType: "SalesStockIssue" }));
+    expect(audit.log).toHaveBeenCalledWith(expect.objectContaining({ action: "POST_COGS", entityType: "SalesStockIssue" }), tx);
   });
 
   it("rejects double COGS posting and tenant-mismatched posting", async () => {

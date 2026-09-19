@@ -17,7 +17,7 @@ test("Next image optimizer remains compatible with the audited Sharp override", 
   const sharp = nextRequire("sharp");
   const { detectContentType, optimizeImage } = webRequire("next/dist/server/image-optimizer");
 
-  assert.equal(sharp.versions.sharp, "0.35.3");
+  assert.equal(sharp.versions.sharp, "0.35.4");
   const optimized = await optimizeImage({
     buffer: ONE_PIXEL_PNG,
     contentType: "image/png",

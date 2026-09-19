@@ -8,6 +8,9 @@ import { AuthenticatedUser } from "./auth.types";
 import { AuthService } from "./auth.service";
 import { CurrentOrganizationId } from "./decorators/current-organization.decorator";
 import { RequirePermissions } from "./decorators/require-permissions.decorator";
+import { IsString, Length } from "class-validator";
+
+class VerifyEmailDto { @IsString() @Length(32, 256) token!: string; }
 import { AcceptInvitationDto } from "./dto/accept-invitation.dto";
 import { LoginDto } from "./dto/login.dto";
 import { PasswordResetConfirmDto } from "./dto/password-reset-confirm.dto";
@@ -27,7 +30,12 @@ export class AuthController {
   ) {}
 
   @Post("register")
-  async register(@Body() dto: RegisterDto, @Res({ passthrough: true }) response: Response) {
+  async register(@Body() dto: RegisterDto, @Req() request: Request, @Res({ passthrough: true }) response: Response) {
+    const throttle = await this.loginThrottleService.reserveRegistration({ email: dto.email, ipAddress: getLoginClientIp(request, readTrustProxyHeaders(this.config)) });
+    if (!throttle.allowed) {
+      response.setHeader("Retry-After", String(throttle.retryAfterSeconds));
+      throw new HttpException("Too many registration attempts. Please try again later.", HttpStatus.TOO_MANY_REQUESTS);
+    }
     const result = await this.authService.register(dto);
     setAuthCookies(response, this.config, result.accessToken);
     return result;
@@ -61,6 +69,17 @@ export class AuthController {
   @Get("invitations/:token/preview")
   previewInvitation(@Param("token") token: string) {
     return this.authService.previewInvitation(token);
+  }
+
+  @Post("email-verification/request")
+  @UseGuards(JwtAuthGuard)
+  requestEmailVerification(@CurrentUser() user: AuthenticatedUser, @Req() request: Request) {
+    return this.authService.requestEmailVerification(user.id, getRequestMeta(request));
+  }
+
+  @Post("email-verification/confirm")
+  confirmEmailVerification(@Body() dto: VerifyEmailDto) {
+    return this.authService.confirmEmailVerification(dto.token);
   }
 
   @Post("invitations/:token/accept")

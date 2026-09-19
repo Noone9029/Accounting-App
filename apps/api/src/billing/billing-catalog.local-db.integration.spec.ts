@@ -23,7 +23,7 @@ describeLocalDb("billing catalog schema local database proof", () => {
   const fixture = {
     organizationAId: randomUUID(),
     organizationBId: randomUUID(),
-    planId: randomUUID(),
+    planId: randomUUID() as string,
     planVersionId: randomUUID(),
     planVersionTwoId: randomUUID(),
     entitlementId: randomUUID(),
@@ -39,20 +39,20 @@ describeLocalDb("billing catalog schema local database proof", () => {
         { id: fixture.organizationBId, name: `${marker}-b` },
       ],
     });
-    await prisma.billingPlan.create({
-      data: {
+    fixture.planId = (await prisma.billingPlan.upsert({
+      where: { key: "STARTER" }, update: {}, create: {
         id: fixture.planId,
         key: "STARTER",
         displayName: "Synthetic starter",
         internalDescription: marker,
         status: BillingPlanStatus.ACTIVE,
       },
-    });
+    })).id;
     await prisma.billingPlanVersion.create({
       data: {
         id: fixture.planVersionId,
         billingPlanId: fixture.planId,
-        version: 1,
+        version: 9103,
         status: BillingPlanVersionStatus.DRAFT,
         effectiveAt: new Date("2026-07-30T00:00:00.000Z"),
         entitlementSnapshot: { core_accounting: true, active_member_seats: 3 },
@@ -105,7 +105,7 @@ describeLocalDb("billing catalog schema local database proof", () => {
     });
     await prisma.billingPlanEntitlement.deleteMany({ where: { planVersionId: { in: [fixture.planVersionId, fixture.planVersionTwoId] } } });
     await prisma.billingPlanVersion.deleteMany({ where: { id: { in: [fixture.planVersionId, fixture.planVersionTwoId] } } });
-    await prisma.billingPlan.deleteMany({ where: { id: fixture.planId } });
+    await prisma.billingPlan.deleteMany({ where: { id: fixture.planId, internalDescription: marker } });
     await prisma.organization.deleteMany({ where: { id: { in: [fixture.organizationAId, fixture.organizationBId] } } });
     await prisma.$disconnect();
   });

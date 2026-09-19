@@ -7,12 +7,11 @@ export default function OrganizationSetupPage() {
       <LedgerPageHeader
         eyebrow="Workspace foundation"
         title="Organization setup"
-        description="Creates tenant foundation data: owner role, default branch, chart of accounts, tax rates, fiscal year, and sequences."
+        description="Add your company details to prepare your accounting workspace."
       />
       <LedgerPageBody>
         <LedgerSummaryBand tone="info">
-          This setup creates the first organization workspace. It does not submit tax-authority data, connect production
-          compliance providers, or create records outside the tenant foundation.
+          Verify your email, create your organization, then choose a plan to start your 14-day trial.
         </LedgerSummaryBand>
         <LedgerPanel>
           <OrganizationSetupForm />
