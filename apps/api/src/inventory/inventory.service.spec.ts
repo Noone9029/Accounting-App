@@ -46,34 +46,23 @@ describe("InventoryService", () => {
     expect(prisma.inventorySettings.create).toHaveBeenCalledWith({ data: { organizationId: "org-1" } });
   });
 
-  it("patches settings and returns operational warnings", async () => {
+  it("rejects unsupported FIFO and negative-stock settings", async () => {
     const { service, prisma } = makeService();
-    prisma.inventorySettings.update.mockResolvedValue({
-      ...settings,
+    await expect(service.updateSettings("org-1", {
       valuationMethod: InventoryValuationMethod.FIFO_PLACEHOLDER,
-      allowNegativeStock: true,
-    });
-
-    const result = await service.updateSettings("org-1", {
-      valuationMethod: InventoryValuationMethod.FIFO_PLACEHOLDER,
-      allowNegativeStock: true,
-    });
-
-    expect(prisma.inventorySettings.update).toHaveBeenCalledWith({
-      where: { organizationId: "org-1" },
-      data: { valuationMethod: InventoryValuationMethod.FIFO_PLACEHOLDER, allowNegativeStock: true, trackInventoryValue: undefined },
-    });
-    expect(result.warnings).toEqual(expect.arrayContaining([expect.stringContaining("FIFO"), expect.stringContaining("Negative stock")]));
+    })).rejects.toThrow();
+    await expect(service.updateSettings("org-1", { allowNegativeStock: true })).rejects.toThrow();
+    expect(prisma.inventorySettings.update).not.toHaveBeenCalled();
   });
 
   it("calculates quantity on hand by item and warehouse", async () => {
     const { service, prisma } = makeService();
     prisma.stockMovement.findMany.mockResolvedValue([
-      movement(StockMovementType.OPENING_BALANCE, "10.0000", "5.0000", "50.0000"),
-      movement(StockMovementType.ADJUSTMENT_IN, "2.0000", "6.0000", "12.0000"),
-      movement(StockMovementType.ADJUSTMENT_OUT, "3.0000"),
-      movement(StockMovementType.TRANSFER_IN, "4.0000", "5.5000", "22.0000"),
-      movement(StockMovementType.TRANSFER_OUT, "1.0000"),
+      valued(movement(StockMovementType.OPENING_BALANCE, "10", "5", "50"), 1, "10", "50"),
+      valued(movement(StockMovementType.ADJUSTMENT_IN, "2", "6", "12"), 2, "12", "62"),
+      valued(movement(StockMovementType.ADJUSTMENT_OUT, "3", "5.1667", "15.5"), 3, "9", "46.5"),
+      valued(movement(StockMovementType.TRANSFER_IN, "4", "5.5", "22"), 4, "13", "68.5"),
+      valued(movement(StockMovementType.TRANSFER_OUT, "1", "5.2692", "5.2692"), 5, "12", "63.2308"),
     ]);
 
     await expect(service.balances("org-1", {})).resolves.toEqual([
@@ -81,18 +70,18 @@ describe("InventoryService", () => {
         item,
         warehouse,
         quantityOnHand: "12.0000",
-        averageUnitCost: "5.2500",
-        inventoryValue: "63.0000",
+        averageUnitCost: "5.2692",
+        inventoryValue: "63.2308",
       }),
     ]);
   });
 
-  it("uses moving average from inbound costs for stock valuation", async () => {
+  it("uses immutable movement snapshots for stock valuation", async () => {
     const { service, prisma } = makeService();
     prisma.stockMovement.findMany.mockResolvedValue([
-      movement(StockMovementType.OPENING_BALANCE, "10.0000", "5.0000", "50.0000"),
-      movement(StockMovementType.ADJUSTMENT_IN, "2.0000", "6.0000", "12.0000"),
-      movement(StockMovementType.ADJUSTMENT_OUT, "3.0000"),
+      valued(movement(StockMovementType.OPENING_BALANCE, "10", "5", "50"), 1, "10", "50"),
+      valued(movement(StockMovementType.ADJUSTMENT_IN, "2", "6", "12"), 2, "12", "62"),
+      valued(movement(StockMovementType.ADJUSTMENT_OUT, "3", "5.1667", "15.5"), 3, "9", "46.5"),
     ]);
 
     const report = await service.stockValuationReport("org-1");
@@ -118,7 +107,7 @@ describe("InventoryService", () => {
       expect.objectContaining({
         averageUnitCost: null,
         estimatedValue: null,
-        warnings: ["Missing unit cost data."],
+        warnings: ["Inventory contains legacy or unvalued movements; accountant-reviewed valuation cutover is required."],
       }),
     );
   });
@@ -190,6 +179,10 @@ describe("InventoryService", () => {
       throw new Error("Expected value to be present.");
     }
     return value;
+  }
+
+  function valued(record: ReturnType<typeof movement>, sequence: number, quantity: string, value: string) {
+    return { ...record, valuationVersion: 1, valuationSequence: sequence, valuationQuantityAfter: new Prisma.Decimal(quantity), valuationValueAfter: new Prisma.Decimal(value) };
   }
 
   function movement(type: StockMovementType, quantity: string, unitCost?: string | null, totalCost?: string | null, movementDate?: string) {

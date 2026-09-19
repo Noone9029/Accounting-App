@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { ApiError, apiRequest, getActiveOrganizationId, setActiveOrganizationId, subscribeToOrganizationChange } from "@/lib/api";
 import { hasAllPermissions, hasAnyPermission, hasPermission, type Permission } from "@/lib/permissions";
 import type { MeResponse } from "@/lib/types";
@@ -24,6 +24,11 @@ export function PermissionProvider({ children }: Readonly<{ children: React.Reac
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [reloadCounter, setReloadCounter] = useState(0);
+  const reload = useCallback(() => {
+    // Hide permission-gated children immediately while memberships are refreshed.
+    setLoading(true);
+    setReloadCounter((counter) => counter + 1);
+  }, []);
 
   useEffect(() => {
     function syncOrganizationId() {
@@ -100,9 +105,9 @@ export function PermissionProvider({ children }: Readonly<{ children: React.Reac
       can: (permission) => hasPermission(activeMembership, permission),
       canAny: (...permissions) => hasAnyPermission(activeMembership, ...permissions),
       canAll: (...permissions) => hasAllPermissions(activeMembership, ...permissions),
-      reload: () => setReloadCounter((counter) => counter + 1),
+      reload,
     }),
-    [activeMembership, error, loading, user],
+    [activeMembership, error, loading, reload, user],
   );
 
   return <PermissionContext.Provider value={value}>{children}</PermissionContext.Provider>;

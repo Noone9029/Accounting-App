@@ -20,7 +20,7 @@ describeLocalDb("billing lifecycle local database proof", () => {
   const marker = `paid-saas-lifecycle-${randomUUID()}`;
   const ids = {
     organization: randomUUID(),
-    plan: randomUUID(),
+    plan: randomUUID() as string,
     version: randomUUID(),
     entitlement: randomUUID(),
     account: randomUUID(),
@@ -31,8 +31,8 @@ describeLocalDb("billing lifecycle local database proof", () => {
 
   beforeAll(async () => {
     await prisma.organization.create({ data: { id: ids.organization, name: marker } });
-    await prisma.billingPlan.create({ data: { id: ids.plan, key: "STARTER", displayName: marker, internalDescription: marker, status: BillingPlanStatus.ACTIVE } });
-    await prisma.billingPlanVersion.create({ data: { id: ids.version, billingPlanId: ids.plan, version: 1, status: BillingPlanVersionStatus.DRAFT, entitlementSnapshot: { core_accounting: true } } });
+    ids.plan = (await prisma.billingPlan.upsert({ where: { key: "STARTER" }, create: { id: ids.plan, key: "STARTER", displayName: marker, internalDescription: marker, status: BillingPlanStatus.ACTIVE }, update: {} })).id;
+    await prisma.billingPlanVersion.create({ data: { id: ids.version, billingPlanId: ids.plan, version: 9102, status: BillingPlanVersionStatus.DRAFT, entitlementSnapshot: { core_accounting: true } } });
     await prisma.billingPlanEntitlement.create({ data: { id: ids.entitlement, planVersionId: ids.version, key: "core_accounting", valueType: BillingEntitlementValueType.BOOLEAN, booleanValue: true } });
     await prisma.billingPlanVersion.update({ where: { id: ids.version }, data: { status: BillingPlanVersionStatus.ACTIVE } });
     await prisma.organizationBillingAccount.create({ data: { id: ids.account, organizationId: ids.organization, provider: BillingProvider.FAKE } });
@@ -58,7 +58,7 @@ describeLocalDb("billing lifecycle local database proof", () => {
     await prisma.billingPlanVersion.update({ where: { id: ids.version }, data: { status: BillingPlanVersionStatus.RETIRED } });
     await prisma.billingPlanEntitlement.deleteMany({ where: { id: ids.entitlement } });
     await prisma.billingPlanVersion.deleteMany({ where: { id: ids.version } });
-    await prisma.billingPlan.deleteMany({ where: { id: ids.plan } });
+    await prisma.billingPlan.deleteMany({ where: { id: ids.plan, internalDescription: marker } });
     await prisma.organization.deleteMany({ where: { id: ids.organization } });
     await prisma.$disconnect();
   });

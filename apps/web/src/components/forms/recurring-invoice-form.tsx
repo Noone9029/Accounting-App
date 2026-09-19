@@ -7,10 +7,10 @@ import { useAppLocale } from "@/components/app-locale-provider";
 import { StatusMessage } from "@/components/common/status-message";
 import { useActiveOrganization } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { formatAppDate, formatAppMoney } from "@/lib/app-i18n";
+import { formatAppMoney } from "@/lib/app-i18n";
 import { calculateInvoicePreview } from "@/lib/money";
 import { safeReturnToFromSearch } from "@/lib/parties";
-import { buildRecurringSchedulePreview, recurringInvoiceFrequencyLabel } from "@/lib/recurring-invoices";
+import { buildRecurringSchedulePreview, formatRecurringScheduleDate, recurringInvoiceFrequencyLabel } from "@/lib/recurring-invoices";
 import type {
   Account,
   AccountType,
@@ -428,18 +428,18 @@ export function RecurringInvoiceForm({ initialTemplate, initialCustomerId = "" }
           </div>
         ) : null}
         <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
-          <Summary label={tc("Next invoice date")} value={formatAppDate(schedulePreview.nextInvoiceDate, locale, "-")} />
-          <Summary label={tc("Due date")} value={formatAppDate(schedulePreview.dueDate, locale, "-")} />
+          <Summary label={tc("Next invoice date")} value={formatRecurringScheduleDate(schedulePreview.nextInvoiceDate, locale, "-")} />
+          <Summary label={tc("Due date")} value={formatRecurringScheduleDate(schedulePreview.dueDate, locale, "-")} />
           <Summary
             label={tc("Period covered")}
-            value={schedulePreview.periodStart && schedulePreview.periodEnd ? tc("{start} to {end}", { start: formatAppDate(schedulePreview.periodStart, locale, "-"), end: formatAppDate(schedulePreview.periodEnd, locale, "-") }) : "-"}
+            value={schedulePreview.periodStart && schedulePreview.periodEnd ? tc("{start} to {end}", { start: formatRecurringScheduleDate(schedulePreview.periodStart, locale, "-"), end: formatRecurringScheduleDate(schedulePreview.periodEnd, locale, "-") }) : "-"}
           />
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           {schedulePreview.nextOccurrences.length ? (
             schedulePreview.nextOccurrences.map((date) => (
               <span key={date} className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
-                {formatAppDate(date, locale, "-")}
+                {formatRecurringScheduleDate(date, locale, "-")}
               </span>
             ))
           ) : (

@@ -11,6 +11,7 @@ export interface AuthTokenDeliveryRequestMeta {
 }
 
 interface PasswordResetAttemptInput extends AuthTokenDeliveryRequestMeta {
+  purpose?: AuthTokenPurpose;
   organizationId?: string | null;
   email: string;
 }
@@ -25,6 +26,7 @@ export class AuthTokenRateLimitService {
   constructor(private readonly prisma: PrismaService) {}
 
   async registerPasswordResetAttempt(input: PasswordResetAttemptInput) {
+    const purpose = input.purpose ?? AuthTokenPurpose.PASSWORD_RESET;
     const email = normalizeEmail(input.email);
     const since = new Date(Date.now() - HOUR_MS);
     const blockingReasons: string[] = [];
@@ -33,7 +35,7 @@ export class AuthTokenRateLimitService {
       this.prisma.authTokenRateLimitEvent.count({
         where: {
           email,
-          purpose: AuthTokenPurpose.PASSWORD_RESET,
+          purpose,
           createdAt: { gte: since },
         },
       }),
@@ -41,7 +43,7 @@ export class AuthTokenRateLimitService {
         ? this.prisma.authTokenRateLimitEvent.count({
             where: {
               ipAddress: input.ipAddress,
-              purpose: AuthTokenPurpose.PASSWORD_RESET,
+              purpose,
               createdAt: { gte: since },
             },
           })
@@ -62,7 +64,7 @@ export class AuthTokenRateLimitService {
     await this.createEvent({
       organizationId: input.organizationId ?? null,
       email,
-      purpose: AuthTokenPurpose.PASSWORD_RESET,
+      purpose,
       ipAddress: input.ipAddress ?? null,
       userAgent: input.userAgent ?? null,
     });

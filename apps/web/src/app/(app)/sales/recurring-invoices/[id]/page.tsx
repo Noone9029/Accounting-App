@@ -8,9 +8,9 @@ import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { formatAppDate, formatAppMoney } from "@/lib/app-i18n";
+import { formatAppMoney } from "@/lib/app-i18n";
 import { PERMISSIONS } from "@/lib/permissions";
-import { recurringInvoiceFrequencyLabel, recurringInvoiceStatusBadgeClass, recurringInvoiceStatusLabel } from "@/lib/recurring-invoices";
+import { formatRecurringScheduleDate, recurringInvoiceFrequencyLabel, recurringInvoiceStatusBadgeClass, recurringInvoiceStatusLabel } from "@/lib/recurring-invoices";
 import type { RecurringInvoiceGenerationResponse, RecurringInvoicePreview, RecurringInvoiceTemplate } from "@/lib/types";
 
 type TemplateAction = "activate" | "pause" | "resume" | "end" | "cancel";
@@ -138,10 +138,10 @@ export default function RecurringInvoiceDetailPage() {
                   <div className="mt-2 grid grid-cols-1 gap-2 text-sm text-steel md:grid-cols-2">
                     <Summary label={tc("Customer")} value={template.customer?.displayName ?? template.customer?.name ?? "-"} />
                     <Summary label={tc("Frequency")} value={frequencyLabel(template.frequency, template.interval, tc)} />
-                    <Summary label={tc("Start date")} value={formatAppDate(template.startDate, locale, "-")} />
-                    <Summary label={tc("Next run")} value={formatAppDate(template.nextRunDate, locale, "-")} />
-                    <Summary label={tc("Last run")} value={formatAppDate(template.lastRunDate, locale, "No runs yet")} />
-                    <Summary label={tc("End date")} value={formatAppDate(template.endDate, locale, "-")} />
+                    <Summary label={tc("Start date")} value={formatRecurringScheduleDate(template.startDate, locale, "-")} />
+                    <Summary label={tc("Next run")} value={formatRecurringScheduleDate(template.nextRunDate, locale, "-")} />
+                    <Summary label={tc("Last run")} value={formatRecurringScheduleDate(template.lastRunDate, locale, "No runs yet")} />
+                    <Summary label={tc("End date")} value={formatRecurringScheduleDate(template.endDate, locale, "-")} />
                     <Summary label={tc("Payment terms")} value={tc("{count} days", { count: template.paymentTermsDays })} />
                   </div>
                 </div>
@@ -183,14 +183,14 @@ export default function RecurringInvoiceDetailPage() {
               </div>
             ) : null}
             <div className="mt-3 grid gap-3 text-sm md:grid-cols-3">
-              <Summary label={tc("Next invoice date")} value={formatAppDate(preview?.nextInvoiceDate, locale, "-")} />
-              <Summary label={tc("Due date")} value={formatAppDate(preview?.dueDate, locale, "-")} />
-              <Summary label={tc("Period covered")} value={preview ? tc("{start} to {end}", { start: formatAppDate(preview.periodCovered.startDate, locale, "-"), end: formatAppDate(preview.periodCovered.endDate, locale, "-") }) : "-"} />
+              <Summary label={tc("Next invoice date")} value={formatRecurringScheduleDate(preview?.nextInvoiceDate, locale, "-")} />
+              <Summary label={tc("Due date")} value={formatRecurringScheduleDate(preview?.dueDate, locale, "-")} />
+              <Summary label={tc("Period covered")} value={preview ? tc("{start} to {end}", { start: formatRecurringScheduleDate(preview.periodCovered.startDate, locale, "-"), end: formatRecurringScheduleDate(preview.periodCovered.endDate, locale, "-") }) : "-"} />
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
               {(preview?.nextOccurrences ?? []).map((date) => (
                 <span key={date} className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
-                  {formatAppDate(date, locale, "-")}
+                  {formatRecurringScheduleDate(date, locale, "-")}
                 </span>
               ))}
             </div>
@@ -234,8 +234,8 @@ export default function RecurringInvoiceDetailPage() {
                 {(template.runs ?? []).map((run) => (
                   <div key={run.id} className="flex flex-col gap-2 rounded-md border border-slate-100 bg-slate-50 p-3 text-sm md:flex-row md:items-center md:justify-between">
                     <div>
-                      <div className="font-medium text-ink">{tc("Run date {date}", { date: formatAppDate(run.runDate, locale, "-") })}</div>
-                      <div className="text-xs text-steel">{tc("Period {start} to {end}", { start: formatAppDate(run.periodStart, locale, "-"), end: formatAppDate(run.periodEnd, locale, "-") })}</div>
+                      <div className="font-medium text-ink">{tc("Run date {date}", { date: formatRecurringScheduleDate(run.runDate, locale, "-") })}</div>
+                      <div className="text-xs text-steel">{tc("Period {start} to {end}", { start: formatRecurringScheduleDate(run.periodStart, locale, "-"), end: formatRecurringScheduleDate(run.periodEnd, locale, "-") })}</div>
                     </div>
                     {run.generatedInvoice ? (
                       <Link href={`/sales/invoices/${run.generatedInvoice.id}`} className="rounded-md border border-palm px-3 py-2 text-sm font-medium text-palm hover:bg-teal-50">

@@ -4,6 +4,8 @@ import { FiscalPeriodModule } from "../fiscal-periods/fiscal-period.module";
 import { NumberSequenceModule } from "../number-sequences/number-sequence.module";
 import { PrismaModule } from "../prisma/prisma.module";
 import { InventoryAccountingService } from "./inventory-accounting.service";
+import { InventoryMovementAccountingService } from "./inventory-movement-accounting.service";
+import { InventoryMovementAccountingController } from "./inventory-movement-accounting.controller";
 import { InventoryClearingReportService } from "./inventory-clearing-report.service";
 import { InventoryController } from "./inventory.controller";
 import { InventoryService } from "./inventory.service";
@@ -21,6 +23,7 @@ import { InventoryVarianceProposalService } from "./inventory-variance-proposal.
 @Module({
   imports: [PrismaModule, AuditLogModule, NumberSequenceModule, FiscalPeriodModule],
   controllers: [
+    InventoryMovementAccountingController,
     InventoryController,
     InventoryFifoPreviewController,
     InventoryLandedCostPreviewController,
@@ -29,6 +32,7 @@ import { InventoryVarianceProposalService } from "./inventory-variance-proposal.
     InventoryVarianceProposalController,
   ],
   providers: [
+    InventoryMovementAccountingService,
     InventoryService,
     InventoryAccountingService,
     InventoryClearingReportService,

@@ -11,6 +11,7 @@ describe("supplier document email delivery lifecycle", () => {
     let row: any = null;
     const prisma = {
       emailOutbox: {
+        fields: { maxAttempts: { name: "maxAttempts" } },
         findFirst: jest.fn().mockImplementation(() => Promise.resolve(row)),
         create: jest.fn().mockImplementation(async ({ data }: { data: Record<string, unknown> }) => {
           row = { ...data, id: "delivery-1", createdAt: new Date("2026-07-16T00:00:00.000Z"), requestedBy: null, bouncedAt: null, complainedAt: null, lastAttemptAt: null };

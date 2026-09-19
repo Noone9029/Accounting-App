@@ -8,10 +8,10 @@ import { InventoryBalanceQueryDto } from "./dto/inventory-balance-query.dto";
 import { InventoryReportQueryDto } from "./dto/inventory-report-query.dto";
 import { UpdateInventorySettingsDto } from "./dto/update-inventory-settings.dto";
 
-const MISSING_COST_WARNING = "Missing unit cost data.";
-const FIFO_PLACEHOLDER_WARNING = "FIFO is saved as a placeholder; stock valuation reports use moving-average estimates only.";
-const NEGATIVE_STOCK_WARNING = "Negative stock is risky and remains operational-only; accounting posting is not enabled.";
-const OPERATIONAL_ONLY_WARNING = "Operational estimate only; no inventory asset, COGS, VAT, or financial statement posting is created.";
+const MISSING_COST_WARNING = "Inventory contains legacy or unvalued movements; accountant-reviewed valuation cutover is required.";
+const FIFO_PLACEHOLDER_WARNING = "The saved legacy FIFO preference is unsupported; valued inventory uses perpetual moving average. Save moving average before posting accounting.";
+const NEGATIVE_STOCK_WARNING = "The saved legacy negative-stock preference is unsupported; valued inventory rejects negative stock.";
+const OPERATIONAL_ONLY_WARNING = "Inventory values come from immutable movement costs. Financial journals require separate review and posting; reconcile pending postings before closing.";
 
 type InventorySettingsRecord = {
   id: string;
@@ -31,6 +31,10 @@ type MovementForSummary = {
   quantity: Prisma.Decimal.Value;
   unitCost: Prisma.Decimal.Value | null;
   totalCost: Prisma.Decimal.Value | null;
+  valuationVersion?: number | null;
+  valuationSequence?: number | null;
+  valuationQuantityAfter?: Prisma.Decimal.Value | null;
+  valuationValueAfter?: Prisma.Decimal.Value | null;
 };
 
 type InventoryScopeQuery = {
@@ -47,6 +51,10 @@ export class InventoryService {
   }
 
   async updateSettings(organizationId: string, dto: UpdateInventorySettingsDto) {
+    if (dto.valuationMethod !== undefined && dto.valuationMethod !== InventoryValuationMethod.MOVING_AVERAGE) {
+      throw new BadRequestException("Perpetual moving average is the supported inventory valuation method.");
+    }
+    if (dto.allowNegativeStock === true) throw new BadRequestException("Valued inventory does not allow negative stock.");
     await this.ensureSettings(organizationId);
     const settings = await this.prisma.inventorySettings.update({
       where: { organizationId },
@@ -71,7 +79,7 @@ export class InventoryService {
         itemId: { in: items.map((item) => item.id) },
         warehouseId: { in: warehouses.map((warehouse) => warehouse.id) },
       },
-      select: { itemId: true, warehouseId: true, type: true, quantity: true, unitCost: true, totalCost: true },
+      select: { itemId: true, warehouseId: true, type: true, quantity: true, unitCost: true, totalCost: true, valuationVersion: true, valuationSequence: true, valuationQuantityAfter: true, valuationValueAfter: true },
     });
     const grouped = this.groupByItemWarehouse(movements);
 
@@ -100,8 +108,9 @@ export class InventoryService {
               organizationId,
               itemId: { in: items.map((item) => item.id) },
               warehouseId: { in: warehouses.map((warehouse) => warehouse.id) },
+              ...(query.to ? { movementDate: { lte: new Date(`${query.to.slice(0, 10)}T23:59:59.999Z`) } } : {}),
             },
-            select: { itemId: true, warehouseId: true, type: true, quantity: true, unitCost: true, totalCost: true },
+            select: { itemId: true, warehouseId: true, type: true, quantity: true, unitCost: true, totalCost: true, valuationVersion: true, valuationSequence: true, valuationQuantityAfter: true, valuationValueAfter: true },
           });
     const grouped = this.groupByItemWarehouse(movements);
     const totalsByItem = new Map<
@@ -467,11 +476,14 @@ export class InventoryService {
       quantity: Prisma.Decimal.Value;
       unitCost: Prisma.Decimal.Value | null;
       totalCost: Prisma.Decimal.Value | null;
+      valuationVersion?: number | null;
+      valuationSequence?: number | null;
+      valuationQuantityAfter?: Prisma.Decimal.Value | null;
+      valuationValueAfter?: Prisma.Decimal.Value | null;
     }>,
   ): { quantityOnHand: Prisma.Decimal; averageUnitCost: Prisma.Decimal | null; inventoryValue: Prisma.Decimal | null; missingCostData: boolean } {
     let quantityOnHand = new Prisma.Decimal(0);
-    let costedInQuantity = new Prisma.Decimal(0);
-    let costedInValue = new Prisma.Decimal(0);
+    let latest: (typeof movements)[number] | undefined;
     let missingCostData = false;
 
     for (const movement of movements) {
@@ -482,22 +494,17 @@ export class InventoryService {
         quantityOnHand = quantityOnHand.minus(quantity);
       }
 
-      if (STOCK_MOVEMENT_IN_TYPES.has(movement.type)) {
-        const totalCost = this.movementTotalCost(quantity, movement.unitCost, movement.totalCost);
-        if (quantity.gt(0) && totalCost?.gt(0)) {
-          costedInQuantity = costedInQuantity.plus(quantity);
-          costedInValue = costedInValue.plus(totalCost);
-        } else if (quantity.gt(0)) {
-          missingCostData = true;
-        }
-      }
+      if (movement.valuationVersion !== 1 || movement.valuationQuantityAfter == null || movement.valuationValueAfter == null) missingCostData = true;
+      if (!latest || (movement.valuationSequence ?? 0) > (latest.valuationSequence ?? 0)) latest = movement;
     }
 
-    const averageUnitCost = costedInQuantity.gt(0) ? costedInValue.div(costedInQuantity) : null;
+    const inventoryValue = movements.length === 0 ? new Prisma.Decimal(0)
+      : !missingCostData && latest?.valuationValueAfter != null ? new Prisma.Decimal(latest.valuationValueAfter) : null;
+    const averageUnitCost = inventoryValue !== null && quantityOnHand.gt(0) ? inventoryValue.div(quantityOnHand) : null;
     return {
       quantityOnHand,
       averageUnitCost,
-      inventoryValue: averageUnitCost ? averageUnitCost.mul(quantityOnHand) : null,
+      inventoryValue,
       missingCostData,
     };
   }

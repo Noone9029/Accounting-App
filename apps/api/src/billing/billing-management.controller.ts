@@ -9,6 +9,9 @@ import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { OrganizationContextGuard } from "../auth/guards/organization-context.guard";
 import { PermissionGuard } from "../auth/guards/permission.guard";
 import { BillingManagementService } from "./billing-management.service";
+import { SelfServiceBillingService } from "./self-service-billing.service";
+
+class TrialDto { @IsIn(["STARTER", "GROWTH"]) planKey!: "STARTER" | "GROWTH"; }
 
 class CheckoutDto { @IsUUID() planVersionId!: string; @IsIn(["billing", "plans"]) returnRouteKey!: "billing" | "plans"; }
 class MutationDto { @IsInt() @Min(1) expectedVersion!: number; @IsString() correlationId!: string; }
@@ -17,7 +20,8 @@ class PlanChangeDto extends MutationDto { @IsUUID() targetPlanVersionId!: string
 @Controller("billing")
 @UseGuards(JwtAuthGuard, OrganizationContextGuard, PermissionGuard)
 export class BillingManagementController {
-  constructor(private readonly billing: BillingManagementService) {}
+  constructor(private readonly billing: BillingManagementService, private readonly selfService: SelfServiceBillingService) {}
+  @Post("trial") @RequirePermissions(PERMISSIONS.billing.manage) trial(@CurrentOrganizationId() id: string, @CurrentUser() user: AuthenticatedUser, @Body() dto: TrialDto) { return this.selfService.startTrial(id, user.id, dto.planKey); }
   @Get("status") @RequirePermissions(PERMISSIONS.billing.view) status(@CurrentOrganizationId() id: string) { return this.billing.status(id); }
   @Get("entitlements") @RequirePermissions(PERMISSIONS.billing.view) entitlements(@CurrentOrganizationId() id: string) { return this.billing.entitlements(id); }
   @Get("plans") @RequirePermissions(PERMISSIONS.billing.view) plans() { return this.billing.availablePlans(); }

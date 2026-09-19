@@ -44,6 +44,8 @@ import { CreateSalesInvoiceDto } from "./dto/create-sales-invoice.dto";
 import { SalesInvoiceLineDto } from "./dto/sales-invoice-line.dto";
 import { UpdateSalesInvoiceDto } from "./dto/update-sales-invoice.dto";
 import { buildSalesInvoiceJournalLines } from "./sales-invoice-accounting";
+import { lockInventory } from "../inventory/valued-stock-movement";
+import { assertInventorySourceCanVoid } from "../inventory/inventory-source-void-guard";
 
 const salesInvoiceInclude = {
   customer: { select: { id: true, name: true, displayName: true, email: true, type: true, taxNumber: true } },
@@ -814,6 +816,7 @@ export class SalesInvoiceService {
     }
 
     const voided = await this.prisma.$transaction(async (tx) => {
+      await lockInventory(tx, organizationId);
       const invoice = await tx.salesInvoice.findFirst({
         where: { id, organizationId },
       });
@@ -841,6 +844,7 @@ export class SalesInvoiceService {
       if (invoice.status !== SalesInvoiceStatus.FINALIZED) {
         throw new BadRequestException("Only draft or finalized invoices can be voided.");
       }
+      await assertInventorySourceCanVoid(organizationId, "SALES_INVOICE", id, tx);
       await this.fxCarryingBalanceService?.assertCustomerMutationAllowed(organizationId, id, tx);
       if (!invoice.journalEntryId) {
         throw new BadRequestException("Finalized invoice is missing its journal entry.");

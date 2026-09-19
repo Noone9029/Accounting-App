@@ -27,6 +27,13 @@ export interface BillingEntitlementDecision {
 
 export type BillingOrganizationAccessMode = "FULL" | "READ_ONLY" | "BILLING_ONLY";
 
+/** Enforce time boundaries on every request even if the expiry worker is unavailable. */
+export function billingDeadlineExpired(subscription: { status: BillingSubscriptionStatus; trialEndsAt?: Date | null; graceDeadline?: Date | null }, now: Date): boolean {
+  if (subscription.status === BillingSubscriptionStatus.TRIALING) return !subscription.trialEndsAt || subscription.trialEndsAt <= now;
+  if (subscription.status === BillingSubscriptionStatus.GRACE) return !subscription.graceDeadline || subscription.graceDeadline <= now;
+  return false;
+}
+
 export interface BillingOrganizationAccessDecision {
   organizationId: string;
   accessMode: BillingOrganizationAccessMode;
@@ -93,6 +100,8 @@ export class BillingEntitlementService {
           select: {
             status: true,
             currentPeriodEndsAt: true,
+            trialEndsAt: true,
+            graceDeadline: true,
             planVersion: { select: { entitlements: { select: { key: true, valueType: true, booleanValue: true, integerValue: true, stringValue: true } } } },
           },
         },
@@ -103,6 +112,7 @@ export class BillingEntitlementService {
     const wouldDeny = (): BillingEntitlementDecision => {
       if (account?.enforcementExempt) return decision(organizationId, entitlementKey, "ALLOW", mode, status, correlationId, options.usage ?? null, null);
       if (!subscription) return decision(organizationId, entitlementKey, "DENY_BILLING_STATE", mode, status, correlationId, options.usage ?? null, null);
+      if (billingDeadlineExpired(subscription, options.now ?? new Date())) return decision(organizationId, entitlementKey, "DENY_BILLING_STATE", mode, status, correlationId, options.usage ?? null, null);
       if (subscription.status === BillingSubscriptionStatus.CANCEL_AT_PERIOD_END && (!subscription.currentPeriodEndsAt || subscription.currentPeriodEndsAt <= (options.now ?? new Date()))) {
         return decision(organizationId, entitlementKey, "DENY_BILLING_STATE", mode, status, correlationId, options.usage ?? null, null);
       }
@@ -146,7 +156,7 @@ export class BillingEntitlementService {
           where: { status: { in: KNOWN_ACCESS_STATUSES } },
           orderBy: { updatedAt: "desc" },
           take: 1,
-          select: { status: true, currentPeriodEndsAt: true },
+          select: { status: true, currentPeriodEndsAt: true, trialEndsAt: true, graceDeadline: true },
         },
       },
     });
@@ -154,6 +164,7 @@ export class BillingEntitlementService {
     const subscriptionStatus = subscription?.status ?? "MISSING";
     if (account?.enforcementExempt) return { organizationId, accessMode: "FULL", enforcementMode, subscriptionStatus };
     if (!subscription) return { organizationId, accessMode: "BILLING_ONLY", enforcementMode, subscriptionStatus };
+    if (billingDeadlineExpired(subscription, options.now ?? new Date())) return { organizationId, accessMode: "READ_ONLY", enforcementMode, subscriptionStatus };
     if (subscription.status === BillingSubscriptionStatus.CANCEL_AT_PERIOD_END && subscription.currentPeriodEndsAt && subscription.currentPeriodEndsAt > (options.now ?? new Date())) {
       return { organizationId, accessMode: "FULL", enforcementMode, subscriptionStatus };
     }
@@ -164,12 +175,30 @@ export class BillingEntitlementService {
   }
 
   async assertSeatInvitationAllowed(organizationId: string, client: BillingReadClient, correlationId: string | null = null): Promise<void> {
+    if (this.enforcementMode() !== "DISABLED") {
+      // Share the tenant lock with scheduling and trial activation: a downgrade
+      // reserves its smaller limit immediately, including outstanding invites.
+      await client.$queryRaw`SELECT id FROM "Organization" WHERE id = ${organizationId}::uuid FOR UPDATE`;
+    }
     const usage = await client.organizationMember.count({
       where: { organizationId, status: { in: [MembershipStatus.ACTIVE, MembershipStatus.INVITED] } },
     });
     const result = await this.evaluate(organizationId, BILLING_ENTITLEMENT_KEYS.activeMemberSeats, { client, correlationId, usage });
     if (result.code === "DENY_LIMIT" || result.code === "DENY_BILLING_STATE" || result.code === "DENY_PLAN") {
       throw new ForbiddenException("Your organization subscription does not allow another member invitation.");
+    }
+    if (this.enforcementMode() === "ENFORCE") {
+      const changes = await client.subscriptionScheduledChange.findMany({
+        where: { organizationId, status: "PENDING" },
+        select: { targetPlanVersion: { select: { entitlements: { where: { key: BILLING_ENTITLEMENT_KEYS.activeMemberSeats }, select: { integerValue: true } } } } },
+      });
+      const limits = changes.flatMap((change) => change.targetPlanVersion.entitlements.map((entitlement) => entitlement.integerValue)).filter((limit): limit is number => limit !== null);
+      const checkouts = await client.billingCheckoutAttempt.findMany({
+        where: { organizationId, status: { in: ["PROVIDER_PENDING", "READY"] } },
+        select: { planVersion: { select: { entitlements: { where: { key: BILLING_ENTITLEMENT_KEYS.activeMemberSeats }, select: { integerValue: true } } } } },
+      });
+      limits.push(...checkouts.flatMap((checkout) => checkout.planVersion.entitlements.map((entitlement) => entitlement.integerValue)).filter((limit): limit is number => limit !== null));
+      if (limits.some((limit) => usage >= limit)) throw new ForbiddenException("The scheduled plan reserves fewer seats. Remove a member or cancel the plan change before adding another.");
     }
   }
 

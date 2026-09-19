@@ -79,13 +79,23 @@ function makePrisma() {
   return {
     records,
     prisma: {
-      $transaction: jest.fn((callback: (tx: { loginRateLimit: typeof table }) => unknown) => callback({ loginRateLimit: table })),
+      $transaction: jest.fn((callback: (tx: { loginRateLimit: typeof table; $queryRaw: jest.Mock }) => unknown) => callback({ loginRateLimit: table, $queryRaw: jest.fn().mockResolvedValue([{ locked: 1 }]) })),
       loginRateLimit: table,
     },
   };
 }
 
 describe("LoginThrottleService", () => {
+  it("limits registration reservations before work and keeps signup counters separate from login", async () => {
+    const { prisma, records } = makePrisma();
+    const service = new LoginThrottleService(prisma as never, config());
+    const input = { email: "signup@example.test", ipAddress: "203.0.113.4" };
+    for (let index = 0; index < 3; index++) await expect(service.reserveRegistration(input)).resolves.toEqual({ allowed: true });
+    await expect(service.reserveRegistration(input)).resolves.toMatchObject({ allowed: false });
+    await expect(service.assertLoginAllowed(input)).resolves.toEqual({ allowed: true });
+    expect(JSON.stringify(records)).not.toContain(input.email);
+    expect(records.every((record) => record.attempts === 3)).toBe(true);
+  });
   beforeEach(() => {
     jest.useFakeTimers().setSystemTime(new Date("2026-07-04T10:00:00.000Z"));
   });

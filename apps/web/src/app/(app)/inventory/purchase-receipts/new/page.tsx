@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
+import { completeInventoryCommandKey, inventoryCommandKey } from "@/lib/inventory-command-key";
 import {
   formatInventoryQuantity,
   hasRemainingInventoryQuantity,
@@ -165,8 +166,10 @@ export default function NewPurchaseReceiptPage() {
     setSubmitting(true);
     const formData = new FormData(event.currentTarget);
     try {
+      const commandKey = await inventoryCommandKey(`${organizationId}:purchase-receipts`, { sourceType, sourceId, supplierId, warehouseId, receiptDate: formData.get("receiptDate"), notes: formData.get("notes"), lines });
       const receipt = await apiRequest<PurchaseReceipt>("/purchase-receipts", {
         method: "POST",
+        headers: { "Idempotency-Key": commandKey },
         body: {
           ...(sourceType === "purchaseOrder" ? { purchaseOrderId: sourceId } : {}),
           ...(sourceType === "purchaseBill" ? { purchaseBillId: sourceId } : {}),
@@ -177,6 +180,7 @@ export default function NewPurchaseReceiptPage() {
           lines,
         },
       });
+      completeInventoryCommandKey(commandKey);
       router.push(returnTo || `/inventory/purchase-receipts/${receipt.id}`);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to create purchase receipt.");

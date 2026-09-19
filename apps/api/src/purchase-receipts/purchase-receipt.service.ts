@@ -1,4 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { createValuedStockMovement, lockInventory } from "../inventory/valued-stock-movement";
+import { allocateInventorySourceCost } from "../inventory/inventory-valuation";
+import { completeInventoryCommand, inventoryCommandIdentity, readInventoryCommand } from "../inventory/inventory-command";
 import { createReversalLines, getJournalTotals, JournalLineInput } from "@ledgerbyte/accounting-core";
 import {
   AccountType,
@@ -32,7 +35,11 @@ const purchaseReceiptInclude = {
   supplier: { select: { id: true, name: true, displayName: true, type: true, taxNumber: true } },
   warehouse: { select: { id: true, code: true, name: true, status: true, isDefault: true } },
   purchaseOrder: { select: { id: true, purchaseOrderNumber: true, status: true, orderDate: true, total: true } },
-  purchaseBill: { select: { id: true, billNumber: true, status: true, billDate: true, total: true, inventoryPostingMode: true } },
+  purchaseBill: { select: { id: true, billNumber: true, status: true, billDate: true, total: true, inventoryPostingMode: true,
+    lines: { select: { accountId: true, taxableAmount: true, item: { select: { inventoryTracking: true } } } },
+    journalEntry: { select: { status: true, lines: { select: { debit: true, credit: true,
+      account: { select: { id: true, code: true, name: true, type: true, isActive: true, allowPosting: true } } } } } },
+  } },
   createdBy: { select: { id: true, name: true, email: true } },
   inventoryAssetJournalEntry: { select: { id: true, entryNumber: true, entryDate: true, status: true } },
   inventoryAssetReversalJournalEntry: { select: { id: true, entryNumber: true, entryDate: true, status: true } },
@@ -61,10 +68,11 @@ const purchaseReceiptInclude = {
           description: true,
           quantity: true,
           unitPrice: true,
+          taxableAmount: true,
           account: { select: { id: true, code: true, name: true, type: true } },
         },
       },
-      stockMovement: { select: { id: true, type: true, movementDate: true, quantity: true, referenceType: true, referenceId: true } },
+      stockMovement: { select: { id: true, type: true, movementDate: true, quantity: true, referenceType: true, referenceId: true, totalCost: true, valuationVersion: true } },
       voidStockMovement: { select: { id: true, type: true, movementDate: true, quantity: true, referenceType: true, referenceId: true } },
     },
   },
@@ -80,6 +88,7 @@ type PreparedReceiptLine = {
   purchaseBillLineId: string | null;
   quantity: Prisma.Decimal;
   unitCost: Prisma.Decimal | null;
+  totalCost?: Prisma.Decimal;
 };
 
 @Injectable()
@@ -120,7 +129,7 @@ export class PurchaseReceiptService {
       throw new NotFoundException("Purchase receipt not found.");
     }
 
-    const readiness = await this.inventoryAccountingService.previewReadiness(organizationId, ["inventoryAsset", "inventoryClearing"]);
+    const readiness = await this.inventoryAccountingService.previewReadiness(organizationId, ["inventoryAsset"]);
     const blockingReasons = [...readiness.blockingReasons];
     const warnings = [
       "This creates accounting journal entries and affects inventory asset and clearing balances.",
@@ -146,13 +155,16 @@ export class PurchaseReceiptService {
     if (receipt.status !== PurchaseReceiptStatus.POSTED) {
       blockingReasons.push("Purchase receipt asset posting requires a posted purchase receipt.");
     }
-    if (receipt.inventoryAssetJournalEntryId) {
+    if (receipt.inventoryAssetJournalEntryId || receipt.inventoryAssetPostedAt) {
       blockingReasons.push("Inventory asset posting has already been posted for this purchase receipt.");
     }
     if (!receipt.purchaseBill) {
       blockingReasons.push("Purchase receipt asset posting requires a finalized linked purchase bill in inventory clearing mode.");
     } else if (receipt.purchaseBill.status !== PurchaseBillStatus.FINALIZED || receipt.purchaseBill.inventoryPostingMode !== PurchaseBillInventoryPostingMode.INVENTORY_CLEARING) {
       blockingReasons.push("Purchase receipt asset posting requires a finalized INVENTORY_CLEARING purchase bill.");
+    }
+    if (receipt.purchaseBill && receipt.purchaseBill.journalEntry?.status !== JournalEntryStatus.POSTED) {
+      blockingReasons.push("Receipt accounting requires the original active posted purchase bill journal.");
     }
 
     let receiptValue = new Prisma.Decimal(0);
@@ -174,12 +186,12 @@ export class PurchaseReceiptService {
       const quantity = new Prisma.Decimal(line.quantity);
       const lineWarnings: string[] = [];
       let lineValue: Prisma.Decimal | null = null;
-      if (line.unitCost === null) {
+      if (line.stockMovement?.valuationVersion !== 1 || line.stockMovement.totalCost === null) {
         const reason = `Purchase receipt line ${index + 1} is missing unit cost.`;
         lineWarnings.push(reason);
         blockingReasons.push(reason);
       } else {
-        lineValue = quantity.mul(line.unitCost);
+        lineValue = new Prisma.Decimal(line.stockMovement.totalCost);
         receiptValue = receiptValue.plus(lineValue);
       }
 
@@ -191,7 +203,10 @@ export class PurchaseReceiptService {
         const billedQuantity = new Prisma.Decimal(line.purchaseBillLine.quantity);
         matchedQuantity = Prisma.Decimal.min(quantity, billedQuantity);
         unmatchedQuantity = Prisma.Decimal.max(quantity.minus(matchedQuantity), 0);
-        matchedValue = matchedQuantity.mul(line.purchaseBillLine.unitPrice);
+        // The immutable receipt value already contains its cumulative share of the bill's
+        // discounted base-currency amount, including the final partial receipt's rounding residue.
+        matchedValue = lineValue;
+        if (matchedValue === null) matchedValue = new Prisma.Decimal(0);
         matchedBillValue = matchedBillValue.plus(matchedValue);
         totalMatchedQuantity = totalMatchedQuantity.plus(matchedQuantity);
         totalUnmatchedQuantity = totalUnmatchedQuantity.plus(unmatchedQuantity);
@@ -238,7 +253,24 @@ export class PurchaseReceiptService {
     });
 
     const assetAccount = readiness.settings.inventoryAssetAccount;
-    const clearingAccount = readiness.settings.inventoryClearingAccount;
+    // Bill journals freeze the clearing account used at finalization. Current settings may have changed.
+    // Match the original debit to the tracked net cost plus any non-stock lines using that same account.
+    // Ambiguous historical journals fail closed rather than crediting a guessed or current account.
+    const sourceBillLines = receipt.purchaseBill?.lines ?? [];
+    const trackedNet = sourceBillLines.filter((line) => line.item?.inventoryTracking).reduce((sum, line) => sum.plus(line.taxableAmount), new Prisma.Decimal(0));
+    const candidates = (receipt.purchaseBill?.journalEntry?.lines ?? []).filter((line) => {
+      const account = line.account;
+      const untrackedSameAccount = sourceBillLines.filter((billLine) => !billLine.item?.inventoryTracking && billLine.accountId === account.id)
+        .reduce((sum, billLine) => sum.plus(billLine.taxableAmount), new Prisma.Decimal(0));
+      return line.debit.gt(0) && line.credit.eq(0) && trackedNet.gt(0) && line.debit.eq(trackedNet.plus(untrackedSameAccount))
+        && [AccountType.ASSET, AccountType.LIABILITY].includes(account.type as "ASSET" | "LIABILITY") && account.code !== "210" && account.code !== "230"
+        && account.id !== assetAccount?.id && account.isActive && account.allowPosting;
+    });
+    // Unlinked receipts may show a non-postable design using today's mapping. A linked bill never falls back to it.
+    const clearingAccount = sourceKind === "purchaseBill"
+      ? candidates.length === 1 ? candidates[0]!.account : null
+      : readiness.settings.inventoryClearingAccount;
+    if (sourceKind === "purchaseBill" && receiptValue.gt(0) && !clearingAccount) blockingReasons.push("The original purchase bill clearing debit is missing, ambiguous or inactive; accountant reconciliation is required.");
     const receiptValueDifference = receiptValue.minus(matchedBillValue);
     if (sourceKind === "purchaseBill" && receiptValueDifference.eq(0)) {
       unmatchedReceiptValue = new Prisma.Decimal(0);
@@ -246,8 +278,8 @@ export class PurchaseReceiptService {
     if (receipt.lines.length === 0) {
       blockingReasons.push("Purchase receipt asset posting requires at least one receipt line.");
     }
-    if (receiptValue.lte(0)) {
-      blockingReasons.push("Purchase receipt asset posting total must be greater than zero.");
+    if (receiptValue.lt(0)) {
+      blockingReasons.push("Purchase receipt asset posting total must not be negative.");
     }
     const journalLines: Array<{
       lineNumber: number;
@@ -282,7 +314,7 @@ export class PurchaseReceiptService {
         : [];
     const uniqueBlockingReasons = this.uniqueStrings(blockingReasons);
     const canPost = uniqueBlockingReasons.length === 0;
-    const alreadyPosted = Boolean(receipt.inventoryAssetJournalEntryId);
+    const alreadyPosted = Boolean(receipt.inventoryAssetJournalEntryId || receipt.inventoryAssetPostedAt);
     const alreadyReversed = Boolean(receipt.inventoryAssetReversalJournalEntryId);
 
     return {
@@ -334,8 +366,12 @@ export class PurchaseReceiptService {
     };
   }
 
-  async create(organizationId: string, actorUserId: string, dto: CreatePurchaseReceiptDto) {
+  async create(organizationId: string, actorUserId: string, dto: CreatePurchaseReceiptDto, idempotencyKey?: string) {
+    const command = inventoryCommandIdentity(organizationId, "purchase-receipts:create", idempotencyKey, dto);
     const created = await this.prisma.$transaction(async (tx) => {
+      await lockInventory(tx, organizationId);
+      const replayId = await readInventoryCommand(tx, command);
+      if (replayId) return tx.purchaseReceipt.findFirstOrThrow({ where: { id: replayId, organizationId }, include: purchaseReceiptInclude });
       const sourceKind = this.sourceKind(dto);
       const warehouse = await this.findActiveWarehouse(organizationId, dto.warehouseId, tx);
       const receiptDate = this.requiredDate(dto.receiptDate, "Receipt date");
@@ -379,6 +415,7 @@ export class PurchaseReceiptService {
           type: StockMovementType.PURCHASE_RECEIPT_PLACEHOLDER,
           quantity: line.quantity,
           unitCost: line.unitCost,
+          totalCost: line.totalCost,
           referenceType: "PurchaseReceipt",
           referenceId: receipt.id,
           description: `Purchase receipt ${receiptNumber}`,
@@ -391,22 +428,16 @@ export class PurchaseReceiptService {
             purchaseOrderLineId: line.purchaseOrderLineId,
             purchaseBillLineId: line.purchaseBillLineId,
             quantity: line.quantity.toFixed(4),
-            unitCost: line.unitCost?.toFixed(4) ?? null,
+            unitCost: movement.unitCost,
             stockMovementId: movement.id,
           },
         });
       }
 
-      return tx.purchaseReceipt.findUniqueOrThrow({ where: { id: receipt.id }, include: purchaseReceiptInclude });
-    });
-
-    await this.auditLogService.log({
-      organizationId,
-      actorUserId,
-      action: "CREATE",
-      entityType: "PurchaseReceipt",
-      entityId: created.id,
-      after: created,
+      await completeInventoryCommand(tx, command, receipt.id);
+      const result = await tx.purchaseReceipt.findUniqueOrThrow({ where: { id: receipt.id }, include: purchaseReceiptInclude });
+      await this.auditLogService.log({ organizationId, actorUserId, action: "CREATE", entityType: "PurchaseReceipt", entityId: result.id, after: result }, tx);
+      return result;
     });
     return created;
   }
@@ -415,6 +446,7 @@ export class PurchaseReceiptService {
     const existing = await this.get(organizationId, id);
 
     const posted = await this.prisma.$transaction(async (tx) => {
+      await lockInventory(tx, organizationId);
       const receipt = await tx.purchaseReceipt.findFirst({
         where: { id, organizationId },
         include: purchaseReceiptInclude,
@@ -425,7 +457,7 @@ export class PurchaseReceiptService {
       if (receipt.status !== PurchaseReceiptStatus.POSTED) {
         throw new BadRequestException("Purchase receipt asset posting requires a posted purchase receipt.");
       }
-      if (receipt.inventoryAssetJournalEntryId) {
+      if (receipt.inventoryAssetJournalEntryId || receipt.inventoryAssetPostedAt) {
         throw new BadRequestException("Inventory asset posting has already been posted for this purchase receipt.");
       }
 
@@ -434,53 +466,58 @@ export class PurchaseReceiptService {
         throw new BadRequestException(preview.blockingReasons.length > 0 ? preview.blockingReasons : preview.canPostReason);
       }
       const receiptValue = new Prisma.Decimal(preview.journal.totalDebit);
-      if (receiptValue.lte(0)) {
-        throw new BadRequestException("Purchase receipt asset posting total must be greater than zero.");
+      if (receiptValue.lt(0)) {
+        throw new BadRequestException("Purchase receipt asset posting total cannot be negative.");
       }
 
       await this.assertPostingDateAllowed(organizationId, receipt.receiptDate, tx);
       const currency = await resolveOrganizationBaseCurrency(organizationId, tx);
       const postedAt = new Date();
-      const entryNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.JOURNAL_ENTRY, tx);
-      const journalLines = this.previewJournalToCoreLines(preview.journal.lines, currency);
-      const totals = getJournalTotals(journalLines);
-      const journalEntry = await tx.journalEntry.create({
-        data: {
-          organizationId,
-          entryNumber,
-          status: JournalEntryStatus.POSTED,
-          entryDate: receipt.receiptDate,
-          description: `Inventory asset posting for purchase receipt ${receipt.receiptNumber}`,
-          reference: receipt.receiptNumber,
-          currency,
-          totalDebit: totals.debit,
-          totalCredit: totals.credit,
-          postedAt,
-          postedById: actorUserId,
-          createdById: actorUserId,
-          lines: { create: this.toJournalLineCreateMany(organizationId, journalLines) },
-        },
-      });
+      let journalEntryId: string | null = null;
+      // A known zero cost still needs explicit review, but never a zero-value journal.
+      if (receiptValue.gt(0)) {
+        const entryNumber = await this.numberSequenceService.next(organizationId, NumberSequenceScope.JOURNAL_ENTRY, tx);
+        const journalLines = this.previewJournalToCoreLines(preview.journal.lines, currency);
+        const totals = getJournalTotals(journalLines);
+        const journalEntry = await tx.journalEntry.create({
+          data: {
+            organizationId,
+            entryNumber,
+            status: JournalEntryStatus.POSTED,
+            entryDate: receipt.receiptDate,
+            description: `Inventory asset posting for purchase receipt ${receipt.receiptNumber}`,
+            reference: receipt.receiptNumber,
+            currency,
+            totalDebit: totals.debit,
+            totalCredit: totals.credit,
+            postedAt,
+            postedById: actorUserId,
+            createdById: actorUserId,
+            lines: { create: this.toJournalLineCreateMany(organizationId, journalLines) },
+          },
+        });
+        journalEntryId = journalEntry.id;
+      }
 
       const claim = await tx.purchaseReceipt.updateMany({
-        where: { id, organizationId, status: PurchaseReceiptStatus.POSTED, inventoryAssetJournalEntryId: null },
-        data: { inventoryAssetJournalEntryId: journalEntry.id, inventoryAssetPostedAt: postedAt, inventoryAssetPostedById: actorUserId },
+        where: { id, organizationId, status: PurchaseReceiptStatus.POSTED, inventoryAssetJournalEntryId: null, inventoryAssetPostedAt: null },
+        data: { inventoryAssetJournalEntryId: journalEntryId, inventoryAssetPostedAt: postedAt, inventoryAssetPostedById: actorUserId },
       });
       if (claim.count !== 1) {
         throw new BadRequestException("Inventory asset posting has already been posted for this purchase receipt.");
       }
 
-      return tx.purchaseReceipt.findUniqueOrThrow({ where: { id }, include: purchaseReceiptInclude });
-    });
-
-    await this.auditLogService.log({
-      organizationId,
-      actorUserId,
-      action: "POST_INVENTORY_ASSET",
-      entityType: "PurchaseReceipt",
-      entityId: id,
-      before: existing,
-      after: posted,
+      const result = await tx.purchaseReceipt.findUniqueOrThrow({ where: { id }, include: purchaseReceiptInclude });
+      await this.auditLogService.log({
+        organizationId,
+        actorUserId,
+        action: "POST_INVENTORY_ASSET",
+        entityType: "PurchaseReceipt",
+        entityId: id,
+        before: existing,
+        after: result,
+      }, tx);
+      return result;
     });
     return posted;
   }
@@ -489,6 +526,7 @@ export class PurchaseReceiptService {
     const existing = await this.get(organizationId, id);
 
     const reversed = await this.prisma.$transaction(async (tx) => {
+      await lockInventory(tx, organizationId);
       const receipt = await tx.purchaseReceipt.findFirst({
         where: { id, organizationId },
         include: {
@@ -512,6 +550,9 @@ export class PurchaseReceiptService {
       }
       if (receipt.inventoryAssetJournalEntry.status !== JournalEntryStatus.POSTED) {
         throw new BadRequestException("Only an active posted inventory asset journal can be reversed.");
+      }
+      if (await tx.stockMovement.count({ where: { organizationId, type: StockMovementType.PURCHASE_RETURN_OUT, valuationSourceMovementId: { in: receipt.lines.flatMap((line) => line.stockMovementId ? [line.stockMovementId] : []) } } })) {
+        throw new BadRequestException("Returned stock must be reconciled before reversing the original receipt asset journal.");
       }
 
       const reversalDate = new Date();
@@ -594,6 +635,7 @@ export class PurchaseReceiptService {
     }
 
     const voided = await this.prisma.$transaction(async (tx) => {
+      await lockInventory(tx, organizationId);
       const receipt = await tx.purchaseReceipt.findFirst({
         where: { id, organizationId },
         include: { lines: true },
@@ -642,6 +684,7 @@ export class PurchaseReceiptService {
           quantity,
           unitCost,
           referenceType: "PurchaseReceiptVoid",
+          valuationSourceMovementId: line.stockMovementId ?? undefined,
           referenceId: receipt.id,
           description: `Void purchase receipt ${receipt.receiptNumber}`,
         });
@@ -851,6 +894,7 @@ export class PurchaseReceiptService {
         sourceQuantity: line.quantity,
         unitPrice: line.unitPrice,
         account: line.account,
+        sourceNetValue: line.taxableAmount,
       })),
     );
     const accountWarnings = purchaseBill.lines.flatMap((line, index) =>
@@ -934,6 +978,7 @@ export class PurchaseReceiptService {
       description: string;
       sourceQuantity: Prisma.Decimal;
       unitPrice: Prisma.Decimal;
+      sourceNetValue?: Prisma.Decimal;
       account?: { id: string; code: string; name: string; type: AccountType };
     }>,
   ) {
@@ -951,6 +996,7 @@ export class PurchaseReceiptService {
         purchaseBillLineId: true,
         quantity: true,
         unitCost: true,
+        stockMovement: { select: { valuationVersion: true, totalCost: true } },
         receipt: {
           select: {
             id: true,
@@ -986,12 +1032,12 @@ export class PurchaseReceiptService {
       const key = sourceKind === "purchaseOrder" ? receiptLine.purchaseOrderLineId : receiptLine.purchaseBillLineId;
       if (!key) continue;
       const quantity = new Prisma.Decimal(receiptLine.quantity);
-      const lineValue = receiptLine.unitCost === null ? null : quantity.mul(receiptLine.unitCost);
+      const lineValue = receiptLine.stockMovement?.valuationVersion === 1 ? receiptLine.stockMovement.totalCost : null;
       receivedByLine.set(key, (receivedByLine.get(key) ?? new Prisma.Decimal(0)).plus(quantity));
-      if (lineValue) {
+      if (lineValue !== null) {
         valueByLine.set(key, (valueByLine.get(key) ?? new Prisma.Decimal(0)).plus(lineValue));
       } else {
-        warnings.push(`Receipt ${receiptLine.receipt.receiptNumber} has a line without unit cost.`);
+        warnings.push(`Receipt ${receiptLine.receipt.receiptNumber} has no frozen valuation; accountant review is required.`);
       }
       const list = receiptsByLine.get(key) ?? [];
       list.push({
@@ -1016,7 +1062,9 @@ export class PurchaseReceiptService {
       const sourceQuantity = new Prisma.Decimal(line.sourceQuantity);
       const remainingQuantity = inventoryTracking ? Prisma.Decimal.max(sourceQuantity.minus(receivedQuantity), 0) : new Prisma.Decimal(0);
       const overReceivedQuantity = inventoryTracking ? Prisma.Decimal.max(receivedQuantity.minus(sourceQuantity), 0) : new Prisma.Decimal(0);
-      const matchedBillValue = receivedQuantity.mul(line.unitPrice);
+      const matchedBillValue = sourceKind === "purchaseBill" && line.sourceNetValue !== undefined && sourceQuantity.gt(0)
+        ? receivedQuantity.mul(line.sourceNetValue).div(sourceQuantity).toDecimalPlaces(4)
+        : receivedQuantity.mul(line.unitPrice).toDecimalPlaces(4);
       return {
         lineId: line.id,
         item: line.item,
@@ -1076,17 +1124,22 @@ export class PurchaseReceiptService {
       if (purchaseOrder.status === PurchaseOrderStatus.DRAFT || purchaseOrder.status === PurchaseOrderStatus.VOIDED) {
         throw new BadRequestException("Purchase order must be approved or sent before receiving stock.");
       }
+      const baseCurrency = await resolveOrganizationBaseCurrency(organizationId, tx);
+      if (purchaseOrder.currency.toUpperCase() !== baseCurrency) {
+        throw new BadRequestException("Receive foreign-currency purchases against a finalized purchase bill with reviewed exchange-rate and net base-currency costs.");
+      }
       return { purchaseOrderId: purchaseOrder.id, purchaseBillId: null, supplierId: purchaseOrder.supplierId, lines: purchaseOrder.lines };
     }
     if (sourceKind === "purchaseBill") {
       const purchaseBill = await tx.purchaseBill.findFirst({
         where: { id: dto.purchaseBillId, organizationId },
-        include: { lines: { include: { item: true } } },
+        include: { lines: { include: { item: true } }, journalEntry: { select: { status: true } } },
       });
       if (!purchaseBill) throw new BadRequestException("Purchase bill must belong to this organization.");
       if (purchaseBill.status !== PurchaseBillStatus.FINALIZED) {
         throw new BadRequestException("Purchase bill must be finalized before receiving stock.");
       }
+      if (purchaseBill.journalEntry?.status !== JournalEntryStatus.POSTED) throw new BadRequestException("Receiving stock requires the original active posted purchase bill journal.");
       return { purchaseOrderId: null, purchaseBillId: purchaseBill.id, supplierId: purchaseBill.supplierId, lines: purchaseBill.lines };
     }
     if (!dto.supplierId) {
@@ -1104,6 +1157,7 @@ export class PurchaseReceiptService {
         itemId: string | null;
         quantity: Prisma.Decimal;
         unitPrice: Prisma.Decimal;
+        taxableAmount?: Prisma.Decimal;
         item: {
           inventoryTracking: boolean;
           status: ItemStatus;
@@ -1123,6 +1177,7 @@ export class PurchaseReceiptService {
         ? await this.remainingReceiptQuantity(sourceKind, [...sourceLines.keys()], tx)
         : new Map<string, Prisma.Decimal>();
     const requestedBySourceLine = new Map<string, Prisma.Decimal>();
+    const allocationBySourceLine = new Map<string, { quantity: Prisma.Decimal; value: Prisma.Decimal }>();
 
     for (const dto of lineDtos) {
       const quantity = this.positiveDecimal(dto.quantity, "Receipt quantity");
@@ -1167,12 +1222,36 @@ export class PurchaseReceiptService {
         throw new BadRequestException("Receipt quantity cannot exceed the remaining source quantity.");
       }
       requestedBySourceLine.set(sourceLineId, requested);
+      let totalCost: Prisma.Decimal | undefined;
+      let reviewedUnitCost = unitCost ?? new Prisma.Decimal(sourceLine.unitPrice);
+      if (sourceKind === "purchaseBill") {
+        if (sourceLine.taxableAmount === undefined) throw new BadRequestException("Finalized purchase bill base-currency net value is required for inventory receipt costing.");
+        let allocated = allocationBySourceLine.get(sourceLineId);
+        if (!allocated) {
+          const prior = await tx.purchaseReceiptLine.findMany({
+            where: { organizationId, purchaseBillLineId: sourceLineId, receipt: { status: { not: PurchaseReceiptStatus.VOIDED } } },
+            include: { stockMovement: true },
+          });
+          allocated = { quantity: new Prisma.Decimal(0), value: new Prisma.Decimal(0) };
+          for (const line of prior) {
+            if (line.stockMovement?.valuationVersion !== 1 || line.stockMovement.totalCost === null) throw new BadRequestException("Previous receipt costs require accountant reconciliation before additional receipts.");
+            allocated.quantity = allocated.quantity.plus(line.quantity);
+            allocated.value = allocated.value.plus(line.stockMovement.totalCost);
+          }
+        }
+        totalCost = new Prisma.Decimal(allocateInventorySourceCost({ sourceQuantity: sourceLine.quantity, sourceValue: sourceLine.taxableAmount,
+          previouslyAllocatedQuantity: allocated.quantity, previouslyAllocatedValue: allocated.value, quantity }));
+        reviewedUnitCost = totalCost.div(quantity).toDecimalPlaces(4);
+        if (unitCost !== null && !unitCost.eq(reviewedUnitCost)) throw new BadRequestException("Receipt cost must equal the allocated finalized bill net base-currency cost; record price variances separately.");
+        allocationBySourceLine.set(sourceLineId, { quantity: allocated.quantity.plus(quantity), value: allocated.value.plus(totalCost) });
+      }
       prepared.push({
         itemId: sourceLine.itemId,
         purchaseOrderLineId: sourceKind === "purchaseOrder" ? sourceLine.id : null,
         purchaseBillLineId: sourceKind === "purchaseBill" ? sourceLine.id : null,
         quantity,
-        unitCost: unitCost ?? new Prisma.Decimal(sourceLine.unitPrice),
+        unitCost: reviewedUnitCost,
+        totalCost,
       });
     }
     return prepared;
@@ -1257,12 +1336,14 @@ export class PurchaseReceiptService {
       type: StockMovementType;
       quantity: Prisma.Decimal;
       unitCost: Prisma.Decimal | null;
+      totalCost?: Prisma.Decimal;
+      valuationSourceMovementId?: string;
       referenceType: string;
       referenceId: string;
       description: string;
     },
   ) {
-    return tx.stockMovement.create({
+    return createValuedStockMovement(tx, {
       data: {
         organizationId: input.organizationId,
         itemId: input.itemId,
@@ -1271,7 +1352,8 @@ export class PurchaseReceiptService {
         type: input.type,
         quantity: input.quantity.toFixed(4),
         unitCost: input.unitCost?.toFixed(4) ?? null,
-        totalCost: input.unitCost ? input.quantity.mul(input.unitCost).toFixed(4) : null,
+        totalCost: input.totalCost?.toFixed(4) ?? (input.unitCost ? input.quantity.mul(input.unitCost).toFixed(4) : null),
+        valuationSourceMovementId: input.valuationSourceMovementId,
         referenceType: input.referenceType,
         referenceId: input.referenceId,
         description: input.description,
@@ -1371,6 +1453,7 @@ export class PurchaseReceiptService {
   }
 
   private async assertPostingDateAllowed(organizationId: string, postingDate: string | Date, tx?: Prisma.TransactionClient): Promise<void> {
+    if (tx) await tx.$queryRaw`SELECT id FROM "FiscalPeriod" WHERE "organizationId" = ${organizationId}::uuid FOR SHARE`;
     await this.fiscalPeriodGuardService?.assertPostingDateAllowed(organizationId, postingDate, tx);
   }
 }

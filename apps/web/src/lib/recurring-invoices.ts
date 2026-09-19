@@ -1,4 +1,14 @@
 import type { RecurringInvoiceFrequency, RecurringInvoiceTemplateStatus } from "./types";
+import { appIntlLocale, translateCommon, type AppLocale } from "./app-i18n";
+
+/** Schedule dates are calendar days, including API values serialized at midnight UTC. */
+export function formatRecurringScheduleDate(value: string | null | undefined, locale: AppLocale = "en", emptyLabel = "-"): string {
+  if (!value || !/^\d{4}-\d{2}-\d{2}(?:T|$)/.test(value)) return translateCommon(locale, emptyLabel);
+  const day = value.slice(0, 10);
+  const date = new Date(`${day}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== day) return translateCommon(locale, emptyLabel);
+  return new Intl.DateTimeFormat(appIntlLocale(locale), { dateStyle: "medium", timeZone: "UTC" }).format(date);
+}
 
 export interface RecurringSchedulePreviewInput {
   startDate: string;

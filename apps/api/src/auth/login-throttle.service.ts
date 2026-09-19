@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import { LoginRateLimitKeyType } from "@prisma/client";
+import { LoginRateLimitKeyType, Prisma } from "@prisma/client";
 import { createHash } from "crypto";
 import type { Request } from "express";
 import { PrismaService } from "../prisma/prisma.service";
@@ -61,6 +61,28 @@ export class LoginThrottleService {
     );
 
     return { allowed: false, retryAfterSeconds, reason: "rate_limited" };
+  }
+
+  async reserveRegistration(input: LoginThrottleInput): Promise<LoginThrottleDecision> {
+    const keys = this.buildKeys({ email: `registration:${normalizeEmail(input.email)}`, ipAddress: `registration:${normalizeIp(input.ipAddress) ?? "unknown"}` })
+      .map((key) => ({ ...key, limit: key.keyType === LoginRateLimitKeyType.IP ? 10 : 3 }))
+      .sort((a, b) => a.keyHash.localeCompare(b.keyHash));
+    return this.prisma.$transaction(async (tx) => {
+      // Namespaced persistent buckets keep signup separate from login. Sorted
+      // advisory locks serialize first-use and concurrent reservations per IP/email.
+      for (const key of keys) await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtextextended(${key.keyHash}, 0))`;
+      const now = new Date();
+      const records = await tx.loginRateLimit.findMany({ where: { OR: keys.map(({ keyType, keyHash }) => ({ keyType, keyHash })) } });
+      const insideWindow = (record: { windowStartedAt: Date }) => now.getTime() - record.windowStartedAt.getTime() < DEFAULT_WINDOW_SECONDS * 1000;
+      if (keys.some((key) => records.some((record) => record.keyHash === key.keyHash && insideWindow(record) && record.attempts >= key.limit))) return { allowed: false, retryAfterSeconds: DEFAULT_WINDOW_SECONDS, reason: "rate_limited" };
+      for (const key of keys) {
+        const previous = records.find((record) => record.keyHash === key.keyHash);
+        const active = previous && insideWindow(previous);
+        const data = { attempts: active ? previous.attempts + 1 : 1, windowStartedAt: active ? previous.windowStartedAt : now, lockedUntil: null };
+        await tx.loginRateLimit.upsert({ where: { keyType_keyHash: { keyType: key.keyType, keyHash: key.keyHash } }, create: { keyType: key.keyType, keyHash: key.keyHash, ...data }, update: data });
+      }
+      return { allowed: true };
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted });
   }
 
   async recordFailedLogin(input: LoginThrottleInput): Promise<void> {

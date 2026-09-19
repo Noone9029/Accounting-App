@@ -24,6 +24,8 @@ function makePrisma(overrides: Record<string, unknown> = {}) {
     previousInvoiceHash: "initial-hash",
     canonicalInvoiceHash: "canonical-hash",
     status: ZatcaSandboxSubmissionStateStatus.RESERVED,
+    reservationToken: "reservation-token",
+    updatedAt: new Date(),
   };
   const tx = {
     zatcaSandboxProofRun: { findFirst: jest.fn().mockResolvedValue({ id: proofRunId, organizationId, egsUnitId, status: "ACTIVE", syntheticDataVerified: true }) },
@@ -34,6 +36,7 @@ function makePrisma(overrides: Record<string, unknown> = {}) {
         .mockResolvedValueOnce(null),
       create: jest.fn().mockResolvedValue(state),
       update: jest.fn().mockResolvedValue({ ...state, status: ZatcaSandboxSubmissionStateStatus.ACCEPTED }),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     zatcaSandboxSubmissionAttempt: {
@@ -145,6 +148,9 @@ describe("ZATCA sandbox transactional submission state", () => {
 
     await expect(service.reserve(exact)).resolves.toMatchObject({ disposition: "REPLAY", state: { id: existing.id } });
     for (const changed of [
+      { egsUnitId: "different-egs" },
+      { proofRunId: "different-proof" },
+      { invoiceMetadataId: "different-metadata" },
       { signedArtifactHash: "changed-signed-artifact" },
       { canonicalInvoiceHash: "changed-canonical-hash" },
       { invoiceUuid: "changed-invoice-uuid" },
@@ -193,5 +199,63 @@ describe("ZATCA sandbox transactional submission state", () => {
         expect(tx.zatcaSandboxSubmissionState.update).not.toHaveBeenCalled();
       }
     }
+  });
+
+  it("atomically claims an exact uncertain retry and does not reclaim an active owner", async () => {
+    const { prisma, tx, state } = makePrisma();
+    const retry = { ...reserveInput, submissionStateId: state.id };
+    const service = new ZatcaSandboxSubmissionStateService(prisma as never);
+    tx.zatcaSandboxSubmissionState.findFirst.mockReset().mockResolvedValue({ ...state, status: ZatcaSandboxSubmissionStateStatus.UNCERTAIN });
+    const claim = await service.claimExactUncertainRetry(retry);
+    expect(claim).toMatchObject({ disposition: "CLAIMED", retryClaimToken: expect.stringMatching(/^sandbox-retry:/) });
+    expect(tx.zatcaSandboxSubmissionState.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: state.id, organizationId, status: "UNCERTAIN", reservationToken: state.reservationToken } }));
+    tx.zatcaSandboxSubmissionState.findFirst.mockResolvedValue({ ...state, reservationToken: "sandbox-retry:existing-owner" });
+    await expect(service.claimExactUncertainRetry(retry)).resolves.toEqual({ disposition: "RETRY_IN_PROGRESS" });
+    expect(tx.zatcaSandboxSubmissionState.updateMany).toHaveBeenCalledTimes(1);
+    await expect(service.releaseReservation(organizationId, state.id)).rejects.toMatchObject({ code: "ZATCA_SANDBOX_STATE_NOT_ACCEPTABLE" });
+  });
+
+  it("does not authorize a provider call after losing the compare-and-set or tenant/identity checks", async () => {
+    const { prisma, tx, state } = makePrisma();
+    const retry = { ...reserveInput, submissionStateId: state.id };
+    const service = new ZatcaSandboxSubmissionStateService(prisma as never);
+    tx.zatcaSandboxSubmissionState.findFirst.mockReset().mockResolvedValue({ ...state, status: ZatcaSandboxSubmissionStateStatus.UNCERTAIN });
+    tx.zatcaSandboxSubmissionState.updateMany.mockResolvedValue({ count: 0 });
+    await expect(service.claimExactUncertainRetry(retry)).resolves.toEqual({ disposition: "RETRY_IN_PROGRESS" });
+    await expect(service.claimExactUncertainRetry({ ...retry, payloadHash: "changed" })).rejects.toMatchObject({ code: "ZATCA_SANDBOX_RETRY_IDENTITY_MISMATCH" });
+    tx.zatcaSandboxSubmissionState.findFirst.mockResolvedValue(null);
+    await expect(service.claimExactUncertainRetry({ ...retry, organizationId: otherOrganizationId })).rejects.toMatchObject({ code: "ZATCA_SANDBOX_STATE_NOT_ACCEPTABLE" });
+    expect(tx.zatcaSandboxSubmissionState.findFirst).toHaveBeenLastCalledWith({ where: { id: state.id, organizationId: otherOrganizationId } });
+    expect(tx.zatcaSandboxSubmissionState.updateMany).toHaveBeenCalledTimes(1);
+  });
+
+  it("fences missing and stale ownership tokens on every result transition", async () => {
+    for (const transition of ["accept", "reject", "recordUncertain"] as const) {
+      const { prisma, tx, state } = makePrisma();
+      tx.zatcaSandboxSubmissionState.findFirst.mockReset().mockResolvedValue({ ...state, reservationToken: "sandbox-retry:current" });
+      const service = new ZatcaSandboxSubmissionStateService(prisma as never);
+      const attempt = { organizationId, submissionStateId: state.id, requestHash: "request", responseCode: "SIMULATED_ACCEPTED", correlationId: "correlation" };
+      await expect(service[transition](attempt)).rejects.toMatchObject({ code: "ZATCA_SANDBOX_RETRY_OWNERSHIP_LOST" });
+      await expect(service[transition]({ ...attempt, retryClaimToken: "sandbox-retry:old" })).rejects.toMatchObject({ code: "ZATCA_SANDBOX_RETRY_OWNERSHIP_LOST" });
+      expect(tx.zatcaSandboxSubmissionAttempt.create).not.toHaveBeenCalled();
+      await service[transition]({ ...attempt, retryClaimToken: "sandbox-retry:current" });
+      expect(tx.zatcaSandboxSubmissionState.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ reservationToken: expect.stringMatching(/^settled-retry:/) }) }));
+    }
+  });
+
+  it("requires stopped-worker review, minimum age, and exact tenant owner before recovery to uncertain", async () => {
+    const { prisma, tx, state } = makePrisma();
+    const service = new ZatcaSandboxSubmissionStateService(prisma as never);
+    const recovery = { organizationId, submissionStateId: state.id, retryClaimToken: "sandbox-retry:owner", previousWorkerStopped: true, recoveryReviewReference: "local-proof-review-123", correlationId: "recovery-correlation" };
+    tx.zatcaSandboxSubmissionState.findFirst.mockReset().mockResolvedValue({ ...state, reservationToken: recovery.retryClaimToken });
+    await expect(service.recoverAbandonedRetry({ ...recovery, previousWorkerStopped: false })).rejects.toMatchObject({ code: "ZATCA_SANDBOX_RETRY_RECOVERY_NOT_ALLOWED" });
+    await expect(service.recoverAbandonedRetry(recovery)).rejects.toMatchObject({ code: "ZATCA_SANDBOX_RETRY_RECOVERY_NOT_ALLOWED" });
+    tx.zatcaSandboxSubmissionState.findFirst.mockResolvedValue({ ...state, reservationToken: recovery.retryClaimToken, updatedAt: new Date(Date.now() - 16 * 60_000) });
+    await expect(service.recoverAbandonedRetry({ ...recovery, retryClaimToken: "sandbox-retry:wrong" })).rejects.toMatchObject({ code: "ZATCA_SANDBOX_RETRY_OWNERSHIP_LOST" });
+    await service.recoverAbandonedRetry(recovery);
+    expect(tx.zatcaSandboxSubmissionAttempt.create).toHaveBeenCalledTimes(1);
+    expect(tx.zatcaSandboxSubmissionAttempt.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "UNCERTAIN", responseCode: "SANDBOX_RETRY_OWNER_RECOVERY", retryClassification: "NOT_RETRYABLE" }) }));
+    expect(JSON.stringify(tx.zatcaSandboxSubmissionAttempt.create.mock.calls)).not.toContain(recovery.recoveryReviewReference);
+    expect(tx.zatcaSandboxSubmissionState.update).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ status: "UNCERTAIN", reservationToken: expect.stringMatching(/^settled-retry:/) }) }));
   });
 });

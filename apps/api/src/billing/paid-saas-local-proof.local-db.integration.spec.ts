@@ -87,7 +87,7 @@ describeProof("paid SaaS local lifecycle proof", () => {
     expect(first.status).toBe(BillingSubscriptionStatus.TRIALING);
     await expect(lifecycle.transition({ organizationId: orgA, subscriptionId: subscriptionA, expectedVersion: 1, transition: "START_TRIAL", correlationId: `${marker}-trial`, now, trialEndsAt })).resolves.toMatchObject({ replay: true, status: BillingSubscriptionStatus.TRIALING });
     await expect(lifecycle.transition({ organizationId: orgA, subscriptionId: subscriptionA, expectedVersion: 1, transition: "START_TRIAL", correlationId: `${marker}-trial`, now, trialEndsAt: new Date("2026-08-14T10:00:00.000Z") })).rejects.toBeInstanceOf(ConflictException);
-    await expect(entitlements.evaluate(orgA, BILLING_ENTITLEMENT_KEYS.coreAccounting)).resolves.toMatchObject({ code: "ALLOW", subscriptionStatus: BillingSubscriptionStatus.TRIALING });
+    await expect(entitlements.evaluate(orgA, BILLING_ENTITLEMENT_KEYS.coreAccounting, { now })).resolves.toMatchObject({ code: "ALLOW", subscriptionStatus: BillingSubscriptionStatus.TRIALING });
     await expect(entitlements.evaluate(orgB, BILLING_ENTITLEMENT_KEYS.coreAccounting)).resolves.toMatchObject({ code: "DENY_BILLING_STATE" });
   });
 
@@ -126,16 +126,19 @@ describeProof("paid SaaS local lifecycle proof", () => {
     await prisma.organizationMember.create({ data: { id: ids.memberA, organizationId: orgA, userId: ids.userA, roleId: ids.roleA, status: MembershipStatus.ACTIVE } });
     await expect(entitlements.assertSeatInvitationAllowed(orgA, prisma as never)).resolves.toBeUndefined();
     const active = await prisma.organizationSubscription.findUniqueOrThrow({ where: { id: subscriptionA } });
-    const effectiveAt = new Date("2026-08-30T10:00:00.000Z");
+    const effectiveAt = new Date(Date.now() + 86400000);
+    const graceDeadline = new Date(effectiveAt.getTime() + 7 * 86400000);
+    const duringGrace = new Date(effectiveAt.getTime() + 86400000);
+    const afterGrace = new Date(graceDeadline.getTime() + 86400000);
     const scheduled = await lifecycle.schedulePlanChange({ organizationId: orgA, subscriptionId: subscriptionA, expectedVersion: active.version, targetPlanVersionId: ids.growthVersion, effectiveAt, correlationId: `${marker}-growth` });
     await expect(lifecycle.schedulePlanChange({ organizationId: orgA, subscriptionId: subscriptionA, expectedVersion: active.version, targetPlanVersionId: ids.growthVersion, effectiveAt, correlationId: `${marker}-growth` })).resolves.toMatchObject({ id: scheduled.id, replay: true });
     await expect(lifecycle.processDuePlanChanges({ now: effectiveAt, batchSize: 1 })).resolves.toMatchObject({ processed: 1 });
     const grown = await prisma.organizationSubscription.findUniqueOrThrow({ where: { id: subscriptionA } });
     expect(grown.planVersionId).toBe(ids.growthVersion);
-    await lifecycle.transition({ organizationId: orgA, subscriptionId: subscriptionA, expectedVersion: grown.version, transition: "PAYMENT_FAILED", correlationId: `${marker}-payment-failed`, now: effectiveAt, graceDeadline: new Date("2026-09-06T10:00:00.000Z") });
-    await expect(entitlements.organizationAccessMode(orgA, { now: new Date("2026-09-01T10:00:00.000Z") })).resolves.toMatchObject({ accessMode: "FULL", subscriptionStatus: "GRACE" });
-    await expect(lifecycle.processDueTransitions({ now: new Date("2026-09-07T10:00:00.000Z"), batchSize: 1 })).resolves.toMatchObject({ processed: 1 });
-    await expect(entitlements.organizationAccessMode(orgA, { now: new Date("2026-09-07T10:00:00.000Z") })).resolves.toMatchObject({ accessMode: "READ_ONLY", subscriptionStatus: "SUSPENDED" });
+    await lifecycle.transition({ organizationId: orgA, subscriptionId: subscriptionA, expectedVersion: grown.version, transition: "PAYMENT_FAILED", correlationId: `${marker}-payment-failed`, now: effectiveAt, graceDeadline });
+    await expect(entitlements.organizationAccessMode(orgA, { now: duringGrace })).resolves.toMatchObject({ accessMode: "FULL", subscriptionStatus: "GRACE" });
+    await expect(lifecycle.processDueTransitions({ now: afterGrace, batchSize: 1 })).resolves.toMatchObject({ processed: 1 });
+    await expect(entitlements.organizationAccessMode(orgA, { now: afterGrace })).resolves.toMatchObject({ accessMode: "READ_ONLY", subscriptionStatus: "SUSPENDED" });
     await expect(entitlements.assertBackgroundMutationAllowed(orgA)).rejects.toBeInstanceOf(ForbiddenException);
     await expect(prisma.organizationSubscription.findFirst({ where: { id: subscriptionA, organizationId: orgB } })).resolves.toBeNull();
     await expect(prisma.organizationBillingAccount.findFirst({ where: { id: accountA, organizationId: orgB } })).resolves.toBeNull();
@@ -145,8 +148,8 @@ describeProof("paid SaaS local lifecycle proof", () => {
   });
 
   async function createPlan(planId: string, versionId: string, key: BillingPlanKey, seats: number, priceIds: string[]) {
-    await prisma.billingPlan.create({ data: { id: planId, key, displayName: `${marker}-${key}`, internalDescription: marker, status: BillingPlanStatus.ACTIVE, publiclyVisible: false, sellable: false } });
-    await prisma.billingPlanVersion.create({ data: { id: versionId, billingPlanId: planId, version: 1, status: BillingPlanVersionStatus.DRAFT, entitlementSnapshot: { synthetic: true, key } } });
+    const plan = await prisma.billingPlan.upsert({ where: { key }, update: {}, create: { id: planId, key, displayName: `${marker}-${key}`, internalDescription: marker, status: BillingPlanStatus.ACTIVE, publiclyVisible: false, sellable: false } });
+    await prisma.billingPlanVersion.create({ data: { id: versionId, billingPlanId: plan.id, version: 9104, status: BillingPlanVersionStatus.DRAFT, entitlementSnapshot: { synthetic: true, key } } });
     await prisma.billingPlanEntitlement.createMany({ data: [
       { planVersionId: versionId, key: BILLING_ENTITLEMENT_KEYS.coreAccounting, valueType: BillingEntitlementValueType.BOOLEAN, booleanValue: true },
       { planVersionId: versionId, key: BILLING_ENTITLEMENT_KEYS.activeMemberSeats, valueType: BillingEntitlementValueType.INTEGER, integerValue: seats },

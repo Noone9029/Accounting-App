@@ -1,4 +1,7 @@
+"use client";
 import Link from "next/link";
+import { useState } from "react";
+import { useAppLocale } from "@/components/app-locale-provider";
 import type { ReactNode } from "react";
 import { LedgerPageHeader, LedgerPanel, LedgerStatusBadge } from "@/components/ui/ledger-system";
 
@@ -13,12 +16,16 @@ export function AuthPageShell({
   children: ReactNode;
   footer?: ReactNode;
 }>) {
+  const { locale, setLocale, tc } = useAppLocale();
+  const [languageError, setLanguageError] = useState(false);
   return (
     <main className="flex min-h-screen items-center justify-center bg-mist px-4 py-10">
       <LedgerPanel className="w-full max-w-md p-5">
+        <button type="button" className="mb-4 text-sm font-semibold text-palm" onClick={() => void setLocale(locale === "ar" ? "en" : "ar").catch(() => setLanguageError(true))}>{locale === "ar" ? "English" : "العربية"}</button>
+        {languageError ? <p role="alert">{locale === "ar" ? "تعذر تغيير اللغة." : "Unable to change language."}</p> : null}
         <LedgerPageHeader
-          eyebrow="Private beta access"
-          title={title}
+          eyebrow={locale === "ar" ? "حساب LedgerByte" : "LedgerByte account"}
+          title={tc(title)}
           badge={<LedgerStatusBadge tone="draft">Beta</LedgerStatusBadge>}
           description={description}
         />

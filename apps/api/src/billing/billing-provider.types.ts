@@ -21,13 +21,24 @@ export interface BillingCheckoutRequest {
   interval: BillingPriceInterval;
   idempotencyKey: string;
   returnRouteKey: "billing" | "plans";
+  subscriptionId?: string;
+  expectedAmountMinor?: number;
+  checkoutAttemptId?: string;
 }
 
 export interface BillingCheckoutSession {
   provider: BillingProvider;
   providerSessionReference: string;
   redirectUrl: string | null;
-  networkCallPerformed: false;
+  networkCallPerformed: boolean;
+}
+
+export interface BillingCheckoutInspection {
+  providerSessionReference: string;
+  status: "open" | "complete" | "expired";
+  redirectUrl: string | null;
+  safeToRetry: boolean;
+  subscription: BillingSubscriptionSnapshot | null;
 }
 
 export interface BillingCustomerPortalRequest {
@@ -40,7 +51,7 @@ export interface BillingCustomerPortalSession {
   provider: BillingProvider;
   providerSessionReference: string;
   redirectUrl: string | null;
-  networkCallPerformed: false;
+  networkCallPerformed: boolean;
 }
 
 export interface BillingSubscriptionSnapshot {
@@ -53,6 +64,11 @@ export interface BillingSubscriptionSnapshot {
   currentPeriodEndsAt: Date | null;
   graceDeadline: Date | null;
   cancelAtPeriodEnd: boolean;
+  providerPriceReference?: string;
+  localSubscriptionId?: string;
+  currentPeriodStartedAt?: Date | null;
+  trialEndsAt?: Date | null;
+  initialPaymentIncomplete?: boolean;
 }
 
 export interface BillingInvoiceMetadata {
@@ -83,19 +99,21 @@ export interface BillingWebhookVerificationInput {
 
 export interface BillingProviderReadiness {
   provider: BillingProvider;
-  status: "DISABLED" | "READY_FOR_LOCAL_PROOF" | "IMPLEMENTED_DISABLED";
+  status: "DISABLED" | "READY_FOR_LOCAL_PROOF" | "IMPLEMENTED_DISABLED" | "READY_FOR_TEST";
   merchantEligibility: "NOT_ASSESSED" | "PENDING_OWNER_EVIDENCE" | "CONFIRMED";
-  networkEnabled: false;
-  checkoutEnabled: false;
-  portalEnabled: false;
-  webhookIngressEnabled: false;
+  networkEnabled: boolean;
+  checkoutEnabled: boolean;
+  portalEnabled: boolean;
+  webhookIngressEnabled: boolean;
   warnings: string[];
 }
 
 export interface LedgerByteBillingProvider {
   readonly provider: BillingProvider;
   readiness(): BillingProviderReadiness;
+  ensureCustomer?(input: { billingAccountId: string; organizationId: string }): Promise<string>;
   createCheckoutSession(input: BillingCheckoutRequest): Promise<BillingCheckoutSession>;
+  inspectCheckoutSession?(reference: string, expectedCustomer: string, expectedLocalSubscription: string): Promise<BillingCheckoutInspection>;
   createCustomerPortalSession(input: BillingCustomerPortalRequest): Promise<BillingCustomerPortalSession>;
   retrieveSubscription(providerSubscriptionReference: string): Promise<BillingSubscriptionSnapshot | null>;
   cancelAtPeriodEnd(providerSubscriptionReference: string): Promise<BillingSubscriptionSnapshot>;

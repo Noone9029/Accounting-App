@@ -1,5 +1,17 @@
 import { ItemStatus, ItemTrackingMode, ItemType, Prisma, StockMovementType, WarehouseStatus } from "@prisma/client";
 import { StockMovementService } from "./stock-movement.service";
+// Document lifecycle tests isolate the valued writer; real PostgreSQL tests cover
+// cost arithmetic, transaction locking, immutable snapshots and rollback.
+jest.mock("../inventory/valued-stock-movement", () => ({
+  lockInventory: jest.fn().mockResolvedValue(undefined),
+  createValuedStockMovement: jest.fn(async (tx: { stockMovement: { create: (args: unknown) => Promise<object> } }, args: { data: Record<string, unknown> }) => {
+    const { Prisma: P } = jest.requireActual("@prisma/client");
+    const created = await tx.stockMovement.create(args);
+    return { ...args.data, ...created,
+      unitCost: args.data.unitCost == null ? null : new P.Decimal(String(args.data.unitCost)),
+      totalCost: args.data.totalCost == null ? null : new P.Decimal(String(args.data.totalCost)) };
+  }),
+}));
 
 describe("StockMovementService", () => {
   const item = {
@@ -35,6 +47,7 @@ describe("StockMovementService", () => {
         findMany: jest.fn().mockResolvedValue([]),
         findFirst: jest.fn(),
         create: jest.fn().mockResolvedValue(movement),
+        findUniqueOrThrow: jest.fn().mockResolvedValue(movement),
         count: jest.fn().mockResolvedValue(0),
       },
       inventoryBatch: { findFirst: jest.fn() },
@@ -43,6 +56,7 @@ describe("StockMovementService", () => {
       ...overrides,
     };
     const audit = { log: jest.fn() };
+    Object.assign(prisma, { $transaction: jest.fn((callback: (client: typeof prisma) => Promise<unknown>) => callback(prisma)) });
     return { service: new StockMovementService(prisma as never, audit as never), prisma, audit };
   }
 

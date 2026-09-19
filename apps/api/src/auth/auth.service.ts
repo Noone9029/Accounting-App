@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { JwtService } from "@nestjs/jwt";
 import { AuthTokenPurpose, MembershipStatus } from "@prisma/client";
@@ -16,6 +16,7 @@ import { PasswordResetConfirmDto } from "./dto/password-reset-confirm.dto";
 import { PasswordResetRequestDto } from "./dto/password-reset-request.dto";
 import { RegisterDto } from "./dto/register.dto";
 import { readJwtSecret } from "./jwt-secret";
+import { selfServiceEnrollmentEnabled } from "../billing/self-service-policy";
 
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000;
@@ -41,6 +42,7 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
+    if (!selfServiceEnrollmentEnabled(this.config)) throw new ForbiddenException("Self-service registration is not enabled for this environment.");
     const email = dto.email.toLowerCase().trim();
     const existing = await this.prisma.user.findUnique({ where: { email } });
 
@@ -112,6 +114,7 @@ export class AuthService {
         id: true,
         email: true,
         name: true,
+        emailVerifiedAt: true,
         memberships: {
           where: { status: "ACTIVE" },
           select: {
@@ -132,6 +135,28 @@ export class AuthService {
           },
         },
       },
+    });
+  }
+
+  async requestEmailVerification(userId: string, requestMeta: AuthTokenDeliveryRequestMeta = {}) {
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { id: true, email: true, emailVerifiedAt: true } });
+    if (user.emailVerifiedAt) return { verified: true, message: "Your email is already verified." };
+    const limit = await this.authTokenRateLimitService.registerPasswordResetAttempt({ email: user.email, purpose: AuthTokenPurpose.EMAIL_VERIFICATION, ...requestMeta });
+    if (!limit.allowed) throw new BadRequestException("Too many verification requests. Try again later.");
+    const { rawToken } = await this.authTokenService.create({ userId, email: user.email, purpose: AuthTokenPurpose.EMAIL_VERIFICATION, expiresAt: new Date(Date.now() + PASSWORD_RESET_TTL_MS), consumeExistingForUser: true });
+    await this.emailService.sendEmailVerification({ toEmail: user.email, verificationUrl: this.buildWebUrl(`/verify-email?token=${encodeURIComponent(rawToken)}`) });
+    return { verified: false, message: "Verification requested. Check your inbox; the link expires in 1 hour." };
+  }
+
+  async confirmEmailVerification(rawToken: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const token = await this.authTokenService.getTokenForUse(rawToken, AuthTokenPurpose.EMAIL_VERIFICATION, tx);
+      if (!token.userId) throw new BadRequestException("Invalid verification token.");
+      const claimed = await tx.authToken.updateMany({ where: { id: token.id, consumedAt: null, expiresAt: { gt: new Date() } }, data: { consumedAt: new Date() } });
+      if (claimed.count !== 1) throw new BadRequestException("Verification token was already used or expired.");
+      const updated = await tx.user.updateMany({ where: { id: token.userId, email: token.email }, data: { emailVerifiedAt: new Date() } });
+      if (updated.count !== 1) throw new BadRequestException("Verification email no longer matches your account.");
+      return { verified: true, message: "Email verified. Continue to your organization." };
     });
   }
 

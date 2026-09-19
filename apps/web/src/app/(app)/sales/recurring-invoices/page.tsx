@@ -7,9 +7,9 @@ import { StatusMessage } from "@/components/common/status-message";
 import { usePermissions } from "@/components/permissions/permission-provider";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
-import { formatAppDate, formatAppMoney } from "@/lib/app-i18n";
+import { formatAppMoney } from "@/lib/app-i18n";
 import { PERMISSIONS } from "@/lib/permissions";
-import { recurringInvoiceFrequencyLabel, recurringInvoiceStatusBadgeClass, recurringInvoiceStatusLabel } from "@/lib/recurring-invoices";
+import { formatRecurringScheduleDate, recurringInvoiceFrequencyLabel, recurringInvoiceStatusBadgeClass, recurringInvoiceStatusLabel } from "@/lib/recurring-invoices";
 import type { RecurringInvoiceFrequency, RecurringInvoiceTemplate, RecurringInvoiceTemplateStatus } from "@/lib/types";
 
 type StatusFilter = "ALL" | RecurringInvoiceTemplateStatus;
@@ -159,8 +159,8 @@ export default function RecurringInvoicesPage() {
                     <TemplateStatusPill status={template.status} label={tc(recurringInvoiceStatusLabel(template.status))} />
                   </td>
                   <td className="px-4 py-3 text-steel">{frequencyLabel(template.frequency, template.interval, tc)}</td>
-                  <td className="px-4 py-3 text-steel">{formatAppDate(template.nextRunDate, locale, "-")}</td>
-                  <td className="px-4 py-3 text-steel">{formatAppDate(template.lastRunDate, locale, "No runs yet")}</td>
+                  <td className="px-4 py-3 text-steel">{formatRecurringScheduleDate(template.nextRunDate, locale, "-")}</td>
+                  <td className="px-4 py-3 text-steel">{formatRecurringScheduleDate(template.lastRunDate, locale, "No runs yet")}</td>
                   <td className="px-4 py-3 font-mono text-xs">{formatAppMoney(template.total, template.currency, locale)}</td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">

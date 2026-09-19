@@ -61,6 +61,15 @@ function loginThrottle(overrides: Partial<{
 }
 
 describe("AuthController cookie sessions", () => {
+  it("rejects a throttled signup before hashing or creating an account", async () => {
+    const authService = { register: jest.fn() };
+    const throttle = { reserveRegistration: jest.fn().mockResolvedValue({ allowed: false, retryAfterSeconds: 900 }) };
+    const controller = new AuthController(authService as never, config(), throttle as never);
+    const res = response();
+    await expect(controller.register({ email: "signup@example.test", name: "Synthetic", password: "Password123!" }, request() as never, res)).rejects.toMatchObject({ status: 429 });
+    expect(authService.register).not.toHaveBeenCalled();
+    expect(res.setHeader).toHaveBeenCalledWith("Retry-After", "900");
+  });
   it("sets an httpOnly auth cookie and readable CSRF cookie on login", async () => {
     const authService = {
       login: jest.fn().mockResolvedValue({

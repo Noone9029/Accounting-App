@@ -10,7 +10,7 @@ export const PURCHASE_RECEIPT_NO_GL_WARNING = "Purchase receipt GL posting requi
 export const COGS_PREVIEW_ONLY_WARNING = "COGS posting requires an explicit manual post action after review.";
 export const ACCOUNTANT_REVIEW_WARNING = "Accountant review required before enabling financial inventory postings.";
 export const NO_FINANCIAL_POSTING_WARNING = "No automatic financial inventory accounting has been posted.";
-export const MOVING_AVERAGE_REVIEW_WARNING = "Average cost is operational estimate and requires accountant review.";
+export const MOVING_AVERAGE_REVIEW_WARNING = "COGS uses the immutable cost recorded when stock was issued. Review the journal before posting.";
 export const COGS_NOT_ENABLED_WARNING = "COGS posting is not enabled yet.";
 export const PURCHASE_RECEIPT_DESIGN_WARNING =
   "Purchase receipt accounting preview is not enabled because bill/receipt matching and inventory clearing are not finalized.";
@@ -50,7 +50,14 @@ export class InventoryAccountingService {
   }
 
   async updateSettings(organizationId: string, dto: UpdateInventoryAccountingSettingsDto) {
+    if (dto.valuationMethod !== undefined && dto.valuationMethod !== InventoryValuationMethod.MOVING_AVERAGE) {
+      throw new BadRequestException("Perpetual moving average is the supported inventory valuation method.");
+    }
     const existing = await this.ensureSettings(organizationId);
+    if (dto.inventoryAssetAccountId !== undefined && existing.inventoryAssetAccountId && dto.inventoryAssetAccountId !== existing.inventoryAssetAccountId
+      && await this.prisma.stockMovement.count({ where: { organizationId } })) {
+      throw new BadRequestException("Changing the inventory asset account after stock activity requires an accountant-reviewed cutover and reconciliation.");
+    }
     const proposed = {
       valuationMethod: dto.valuationMethod ?? existing.valuationMethod,
       enableInventoryAccounting: dto.enableInventoryAccounting ?? existing.enableInventoryAccounting,
@@ -181,30 +188,15 @@ export class InventoryAccountingService {
         warehouseId,
         movementDate: { lte: asOfDate },
       },
-      select: { type: true, quantity: true, unitCost: true, totalCost: true },
-      orderBy: [{ movementDate: "asc" }, { createdAt: "asc" }],
+      select: { valuationVersion: true, valuationSequence: true, valuationQuantityAfter: true, valuationValueAfter: true },
+      orderBy: [{ movementDate: "desc" }, { valuationSequence: "desc" }],
     });
 
-    let costedInQuantity = new Prisma.Decimal(0);
-    let costedInValue = new Prisma.Decimal(0);
-    let missingCostData = false;
-
-    for (const movement of movements) {
-      if (!STOCK_MOVEMENT_IN_TYPES.has(movement.type)) {
-        continue;
-      }
-      const quantity = new Prisma.Decimal(movement.quantity);
-      const totalCost = this.movementTotalCost(quantity, movement.unitCost, movement.totalCost);
-      if (quantity.gt(0) && totalCost?.gt(0)) {
-        costedInQuantity = costedInQuantity.plus(quantity);
-        costedInValue = costedInValue.plus(totalCost);
-      } else if (quantity.gt(0)) {
-        missingCostData = true;
-      }
-    }
-
+    const latest = movements[0];
+    const missingCostData = movements.some((movement) => movement.valuationVersion !== 1 || movement.valuationQuantityAfter === null || movement.valuationValueAfter === null);
     return {
-      averageUnitCost: costedInQuantity.gt(0) ? costedInValue.div(costedInQuantity) : null,
+      averageUnitCost: !missingCostData && latest?.valuationQuantityAfter?.gt(0)
+        ? latest.valuationValueAfter!.div(latest.valuationQuantityAfter) : null,
       missingCostData,
     };
   }

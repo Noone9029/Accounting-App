@@ -7,7 +7,12 @@ const { pathToFileURL } = require("node:url");
 const testPaths = process.argv.slice(2);
 if (testPaths.length === 0) throw new Error("Usage: node scripts/run-bounded-node-tests.cjs <test paths...>");
 
-const workers = Math.max(1, Math.floor(os.cpus().length / 2));
+const ceiling = Math.max(1, Math.floor(os.cpus().length / 2));
+const requestedWorkers = Number(process.env.LEDGERBYTE_TEST_WORKERS ?? 1);
+if (!Number.isInteger(requestedWorkers) || requestedWorkers < 1 || requestedWorkers > ceiling) {
+  throw new Error(`LEDGERBYTE_TEST_WORKERS must be an integer between 1 and ${ceiling}`);
+}
+const workers = requestedWorkers;
 const requiresTsx = testPaths.some((testPath) => /\.tsx?$/i.test(testPath));
 const tsxArgs = requiresTsx ? ["--import", pathToFileURL(require.resolve("tsx", { paths: [process.cwd()] })).href] : [];
 const result = spawnSync(process.execPath, [...tsxArgs, "--test", `--test-concurrency=${workers}`, ...testPaths], {

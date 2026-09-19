@@ -96,7 +96,7 @@ describeDatabase("ZATCA sandbox submission state: disposable PostgreSQL proof", 
     expect(await prisma.zatcaSandboxSubmissionState.count({ where: { organizationId: fixture.organizationId } })).toBe(1);
   });
 
-  it("allows one concurrent exact retry to own one provider call and one ordered second attempt", async () => {
+  it("allows only one independent application instance to own an exact retry and its provider call", async () => {
     const reservation = await service.reserve(reservationInput(fixture, "concurrent-retry", "retry-payload"));
     await service.recordUncertain({ organizationId: fixture.organizationId, submissionStateId: reservation.state.id, requestHash: "request-one", responseCode: "SIMULATED_TIMEOUT", correlationId: randomUUID(), retryClassification: "RETRYABLE" });
     const retry = { organizationId: fixture.organizationId, submissionStateId: reservation.state.id, sourceIdentityHash: reservation.state.sourceIdentityHash, payloadHash: reservation.state.payloadHash, signedArtifactHash: reservation.state.signedArtifactHash ?? undefined, canonicalInvoiceHash: reservation.state.canonicalInvoiceHash, invoiceUuid: reservation.state.invoiceUuid, invoiceType: reservation.state.invoiceType, previousInvoiceHash: reservation.state.previousInvoiceHash, operation: reservation.state.operation, credentialReferenceId: reservation.state.credentialReferenceId ?? undefined, signingKeyReferenceId: reservation.state.signingKeyReferenceId ?? undefined, certificateFingerprint: reservation.state.certificateFingerprint ?? undefined };
@@ -104,18 +104,56 @@ describeDatabase("ZATCA sandbox submission state: disposable PostgreSQL proof", 
     const baseUrl = await server.start(true);
     const adapter = new FakeLoopbackZatcaSandboxAdapter({ requestComplianceCsid: jest.fn(), requestProductionCsid: jest.fn(), submitComplianceCheck: jest.fn(), submitClearance: jest.fn(), submitReporting: jest.fn() } as never);
     const lifecycle = new ZatcaFakeSandboxLifecycleService(service, adapter);
+    const secondPrisma = new PrismaClient({ datasources: { db: { url: settings.enabled ? settings.databaseUrl : undefined } } });
+    const secondLifecycle = new ZatcaFakeSandboxLifecycleService(new ZatcaSandboxSubmissionStateService(secondPrisma as unknown as PrismaService), adapter);
+    const firstClient = new LoopbackZatcaSandboxHttpClient(baseUrl);
+    const realSubmit = firstClient.submit.bind(firstClient);
+    let releaseRequest!: () => void;
+    let signalClaimed!: () => void;
+    const requestGate = new Promise<void>((resolve) => { releaseRequest = resolve; });
+    const ownerClaimed = new Promise<void>((resolve) => { signalClaimed = resolve; });
+    jest.spyOn(firstClient, "submit").mockImplementation(async (...args) => { signalClaimed(); await requestGate; return realSubmit(...args); });
     try {
-      const results = await Promise.all([
-        lifecycle.retryExactUncertainOverLoopbackHttp({ ...retry, correlationId: randomUUID() }, new LoopbackZatcaSandboxHttpClient(baseUrl)),
-        lifecycle.retryExactUncertainOverLoopbackHttp({ ...retry, correlationId: randomUUID() }, new LoopbackZatcaSandboxHttpClient(baseUrl)),
-      ]);
+      const firstResult = lifecycle.retryExactUncertainOverLoopbackHttp({ ...retry, correlationId: randomUUID() }, firstClient);
+      await Promise.race([ownerClaimed, firstResult.then(() => { throw new Error("Expected the retry to reach literal-loopback transport"); })]);
+      const secondResult = await secondLifecycle.retryExactUncertainOverLoopbackHttp({ ...retry, correlationId: randomUUID() }, new LoopbackZatcaSandboxHttpClient(baseUrl));
+      releaseRequest();
+      const results = [await firstResult, secondResult];
       expect(results.map((result) => result.disposition).sort()).toEqual(["ACCEPTED", "RETRY_IN_PROGRESS"]);
       expect(server.getEvidence().requestCount).toBe(1);
       expect(await prisma.zatcaSandboxSubmissionAttempt.findMany({ where: { submissionStateId: reservation.state.id }, orderBy: { attemptNumber: "asc" }, select: { attemptNumber: true, status: true } })).toEqual([{ attemptNumber: 1, status: "UNCERTAIN" }, { attemptNumber: 2, status: "ACCEPTED" }]);
       expect(await prisma.zatcaEgsUnit.findUniqueOrThrow({ where: { id: fixture.egsUnitId }, select: { lastIcv: true, lastInvoiceHash: true } })).toEqual({ lastIcv: 0, lastInvoiceHash: null });
     } finally {
+      releaseRequest();
+      await secondPrisma.$disconnect();
       await server.stop();
     }
+  });
+
+  it("preserves crash uncertainty, rejects cross-tenant recovery, and fences the previous owner after reviewed recovery", async () => {
+    const input = reservationInput(fixture, "crash-retry", "crash-payload");
+    const reserved = await service.reserve(input);
+    const retry = { ...input, submissionStateId: reserved.state.id };
+    await service.recordUncertain({ organizationId: fixture.organizationId, submissionStateId: reserved.state.id, requestHash: "initial-request", responseCode: "SIMULATED_TIMEOUT", correlationId: randomUUID(), retryClassification: "RETRYABLE" });
+    const claim = await service.claimExactUncertainRetry(retry);
+    if (claim.disposition !== "CLAIMED") throw new Error("Expected a synthetic retry owner");
+    const restarted = new ZatcaSandboxSubmissionStateService(prisma as unknown as PrismaService);
+    await expect(restarted.claimExactUncertainRetry(retry)).resolves.toEqual({ disposition: "RETRY_IN_PROGRESS" });
+    await expect(restarted.releaseReservation(fixture.organizationId, reserved.state.id)).rejects.toMatchObject({ code: "ZATCA_SANDBOX_STATE_NOT_ACCEPTABLE" });
+    const recovery = { organizationId: fixture.organizationId, submissionStateId: reserved.state.id, retryClaimToken: claim.retryClaimToken, correlationId: randomUUID(), previousWorkerStopped: true, recoveryReviewReference: "synthetic-stopped-worker-review" };
+    await expect(restarted.recoverAbandonedRetry(recovery)).rejects.toMatchObject({ code: "ZATCA_SANDBOX_RETRY_RECOVERY_NOT_ALLOWED" });
+    await prisma.zatcaSandboxSubmissionState.update({ where: { id: reserved.state.id }, data: { updatedAt: new Date(Date.now() - 16 * 60_000) } });
+    await expect(restarted.recoverAbandonedRetry({ ...recovery, organizationId: fixture.otherOrganizationId })).rejects.toMatchObject({ code: "ZATCA_SANDBOX_RETRY_RECOVERY_NOT_ALLOWED" });
+    await expect(restarted.recoverAbandonedRetry(recovery)).resolves.toMatchObject({ status: "UNCERTAIN", icv: reserved.state.icv });
+    const lateResult = { organizationId: fixture.organizationId, submissionStateId: reserved.state.id, retryClaimToken: claim.retryClaimToken, requestHash: "late-result", responseCode: "SIMULATED_ACCEPTED", correlationId: randomUUID() };
+    await expect(service.accept(lateResult)).rejects.toMatchObject({ code: "ZATCA_SANDBOX_RETRY_OWNERSHIP_LOST" });
+    const nextClaim = await restarted.claimExactUncertainRetry(retry);
+    expect(nextClaim.disposition).toBe("CLAIMED");
+    await expect(service.accept(lateResult)).rejects.toMatchObject({ code: "ZATCA_SANDBOX_RETRY_OWNERSHIP_LOST" });
+    expect(await prisma.zatcaSandboxSubmissionAttempt.findMany({ where: { submissionStateId: reserved.state.id }, orderBy: { attemptNumber: "asc" }, select: { status: true, responseCode: true } })).toEqual([
+      { status: "UNCERTAIN", responseCode: "SIMULATED_TIMEOUT" }, { status: "UNCERTAIN", responseCode: "SANDBOX_RETRY_OWNER_RECOVERY" },
+    ]);
+    expect(await prisma.zatcaEgsUnit.findUniqueOrThrow({ where: { id: fixture.egsUnitId }, select: { lastIcv: true, lastInvoiceHash: true } })).toEqual({ lastIcv: 0, lastInvoiceHash: null });
   });
 });
 

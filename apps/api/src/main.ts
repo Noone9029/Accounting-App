@@ -14,6 +14,7 @@ async function bootstrap(): Promise<void> {
   const config = app.get(ConfigService);
   const logger = app.get(StructuredLoggerService);
   app.useLogger(logger);
+  app.enableShutdownHooks();
   logger.emit({
     level: "info",
     message: `api.config.startup_readiness ${JSON.stringify(buildStartupConfigSummary(process.env))}`,
@@ -25,7 +26,7 @@ async function bootstrap(): Promise<void> {
   configureOpenApi(app, config);
 
   const port = config.get<number>("API_PORT") ?? 4000;
-  await app.listen(port);
+  await app.listen(port, config.get<string>("API_HOST") ?? "0.0.0.0");
 }
 
 void bootstrap();

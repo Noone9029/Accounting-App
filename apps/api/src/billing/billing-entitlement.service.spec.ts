@@ -5,6 +5,9 @@ import { BILLING_ENTITLEMENT_KEYS } from "./billing-entitlement-registry";
 describe("BillingEntitlementService", () => {
   function makeService(mode: string | undefined, overrides: Record<string, unknown> = {}) {
     const prisma = {
+      $queryRaw: jest.fn().mockResolvedValue([]),
+      subscriptionScheduledChange: { findMany: jest.fn().mockResolvedValue([]) },
+      billingCheckoutAttempt: { findMany: jest.fn().mockResolvedValue([]) },
       organizationBillingAccount: { findFirst: jest.fn() },
       organizationMember: { count: jest.fn().mockResolvedValue(0) },
       ...overrides,
@@ -65,6 +68,15 @@ describe("BillingEntitlementService", () => {
     await expect(service.evaluate("org-a", BILLING_ENTITLEMENT_KEYS.countryKsaModule)).resolves.toMatchObject({
       code: "DENY_OPERATIONAL_READINESS",
     });
+  });
+
+  it("reserves a scheduled downgrade seat limit before renewal even without the worker", async () => {
+    const { service, prisma } = makeService("ENFORCE");
+    prisma.organizationBillingAccount.findFirst.mockResolvedValue(activeAccount([{ key: BILLING_ENTITLEMENT_KEYS.activeMemberSeats, valueType: "INTEGER", integerValue: 10 }]));
+    prisma.organizationMember.count.mockResolvedValue(3);
+    prisma.subscriptionScheduledChange.findMany.mockResolvedValue([{ targetPlanVersion: { entitlements: [{ integerValue: 3 }] } }]);
+    await expect(service.assertSeatInvitationAllowed("org-a", prisma as never)).rejects.toThrow("scheduled plan");
+    expect(prisma.$queryRaw).toHaveBeenCalled();
   });
 
   it("keeps organization decisions tenant-scoped", async () => {

@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/ledger-system";
 import { useActiveOrganizationId } from "@/hooks/use-active-organization";
 import { apiRequest } from "@/lib/api";
+import { completeInventoryCommandKey, inventoryCommandKey } from "@/lib/inventory-command-key";
 import { inventoryOperationalWarning, validateWarehouseTransferInput } from "@/lib/inventory";
 import type { Item, Warehouse, WarehouseTransfer } from "@/lib/types";
 
@@ -92,9 +93,7 @@ export default function NewWarehouseTransferPage() {
     setSubmitting(true);
     const formData = new FormData(event.currentTarget);
     try {
-      const transfer = await apiRequest<WarehouseTransfer>("/warehouse-transfers", {
-        method: "POST",
-        body: {
+      const body = {
           itemId,
           fromWarehouseId,
           toWarehouseId,
@@ -102,8 +101,14 @@ export default function NewWarehouseTransferPage() {
           quantity,
           unitCost: String(formData.get("unitCost") || "") || undefined,
           description: String(formData.get("description") || "") || undefined,
-        },
+      };
+      const commandKey = await inventoryCommandKey(`${organizationId}:warehouse-transfers`, body);
+      const transfer = await apiRequest<WarehouseTransfer>("/warehouse-transfers", {
+        method: "POST",
+        headers: { "Idempotency-Key": commandKey },
+        body,
       });
+      completeInventoryCommandKey(commandKey);
       router.push(`/inventory/transfers/${transfer.id}`);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Unable to create warehouse transfer.");

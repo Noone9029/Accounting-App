@@ -44,6 +44,7 @@ import {
   buildInvoiceEmailPreview,
   buildOrganizationInviteEmail,
   buildPasswordResetEmail,
+  buildEmailVerificationEmail,
   buildPaymentLinkEmailPreview,
   buildPaymentReceiptEmailPreview,
   buildTestEmail,
@@ -93,7 +94,7 @@ interface RunDiagnosticsInput {
 type RelayDiagnosticsStatus = "NOT_RUN" | "SKIPPED_DISABLED" | "READY_FOR_NON_PRODUCTION_TEST" | "ATTEMPTED" | "FAILED";
 type SenderDomainEvidenceStatus = "BLOCKED" | "PARTIAL" | "READY_FOR_REVIEW";
 type MonitoringEvidenceStatus = "BLOCKED" | "PARTIAL" | "READY_FOR_REVIEW";
-type EmailRetryWorkerSchedulerProvider = "NONE" | "FUTURE_CRON" | "FUTURE_QUEUE" | "FUTURE_SERVERLESS_CRON";
+type EmailRetryWorkerSchedulerProvider = "NONE" | "DATABASE_POLL" | "FUTURE_CRON" | "FUTURE_QUEUE" | "FUTURE_SERVERLESS_CRON";
 
 type EmailRetryProcessStatus = "SKIPPED_DISABLED" | "ATTEMPTED";
 type EmailRetryWorkerRunStatus = "SKIPPED_DISABLED" | "SKIPPED_PROCESSOR_DISABLED" | "ATTEMPTED";
@@ -1147,6 +1148,11 @@ export class EmailService {
     });
   }
 
+  async sendEmailVerification(input: { toEmail: string; verificationUrl: string }) {
+    const template = buildEmailVerificationEmail(input.verificationUrl);
+    return this.send({ organizationId: null, toEmail: input.toEmail, fromEmail: this.fromEmail, templateType: EmailTemplateType.EMAIL_VERIFICATION, ...template });
+  }
+
   async sendTestEmail(input: SendTestEmailInput) {
     const template = buildTestEmail({ provider: this.provider.provider });
 
@@ -1744,7 +1750,7 @@ export class EmailService {
 
   private get retryWorkerSchedulerProvider(): EmailRetryWorkerSchedulerProvider {
     const value = this.config.get<string>("LEDGERBYTE_EMAIL_RETRY_WORKER_SCHEDULER_PROVIDER")?.trim().toUpperCase();
-    if (value === "FUTURE_CRON" || value === "FUTURE_QUEUE" || value === "FUTURE_SERVERLESS_CRON") {
+    if (value === "DATABASE_POLL" || value === "FUTURE_CRON" || value === "FUTURE_QUEUE" || value === "FUTURE_SERVERLESS_CRON") {
       return value;
     }
     return "NONE";

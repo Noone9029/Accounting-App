@@ -14,6 +14,13 @@ import {
 } from "@prisma/client";
 import { SalesInventoryReturnService } from "./sales-inventory-return.service";
 
+// Service rules verify source linkage and side effects here; the PostgreSQL
+// valuation suite exercises the real writer's locks, cost allocation and caps.
+jest.mock("../inventory/valued-stock-movement", () => ({
+  ...jest.requireActual("../inventory/valued-stock-movement"),
+  createValuedStockMovement: jest.fn((tx: { stockMovement: { create: (args: unknown) => Promise<unknown> } }, args: unknown) => tx.stockMovement.create(args)),
+}));
+
 describe("sales inventory return rules", () => {
   it("creates a draft operational customer stock return without credit note, refund, journal, VAT, email, or ZATCA side effects", async () => {
     const tx = makeTransactionMock();
@@ -247,6 +254,7 @@ describe("sales inventory return rules", () => {
           itemId: "item-1",
           warehouseId: "warehouse-1",
           type: StockMovementType.SALES_RETURN_IN,
+          valuationSourceMovementId: "issue-movement-1",
           quantity: "2.0000",
           referenceType: "SalesInventoryReturn",
           referenceId: "return-1",
@@ -331,6 +339,7 @@ function makeCreateDto(overrides: Partial<Parameters<SalesInventoryReturnService
 
 function makeTransactionMock(overrides: Record<string, unknown> = {}) {
   const tx: any = {
+    $queryRaw: jest.fn().mockResolvedValue([]),
     contact: {
       findFirst: jest.fn().mockResolvedValue({ id: "customer-1", type: ContactType.CUSTOMER, isActive: true }),
     },
@@ -412,6 +421,7 @@ function makeInventoryReturnPrisma(overrides: Record<string, any> = {}) {
     ],
   });
   return {
+    $queryRaw: jest.fn().mockResolvedValue([]),
     salesInventoryReturn: {
       findFirst: jest.fn().mockResolvedValue(record),
       updateMany: jest.fn(),

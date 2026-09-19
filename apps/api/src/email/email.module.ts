@@ -29,6 +29,6 @@ import { SmtpEmailProvider } from "./smtp-email.provider";
       inject: [ConfigService, MockEmailProvider, SmtpEmailProvider],
     },
   ],
-  exports: [EmailService, DocumentDeliveryService, EMAIL_PROVIDER],
+  exports: [EmailService, DocumentDeliveryService, EmailRetryWorkerService, EMAIL_PROVIDER],
 })
 export class EmailModule {}

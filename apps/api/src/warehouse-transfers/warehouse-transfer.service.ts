@@ -1,4 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { createValuedStockMovement, lockInventory } from "../inventory/valued-stock-movement";
+import { completeInventoryCommand, inventoryCommandIdentity, readInventoryCommand } from "../inventory/inventory-command";
 import { ItemStatus, NumberSequenceScope, Prisma, StockMovementType, WarehouseStatus, WarehouseTransferStatus } from "@prisma/client";
 import { AuditLogService } from "../audit-log/audit-log.service";
 import { NumberSequenceService } from "../number-sequences/number-sequence.service";
@@ -59,12 +61,18 @@ export class WarehouseTransferService {
     return transfer;
   }
 
-  async create(organizationId: string, actorUserId: string, dto: CreateWarehouseTransferDto) {
+  async create(organizationId: string, actorUserId: string, dto: CreateWarehouseTransferDto, idempotencyKey?: string) {
     if (dto.fromWarehouseId === dto.toWarehouseId) {
       throw new BadRequestException("Transfer source and destination warehouses must be different.");
     }
 
+    const command = inventoryCommandIdentity(organizationId, "warehouse-transfers:create", idempotencyKey, dto);
     const created = await this.prisma.$transaction(async (tx) => {
+      await lockInventory(tx, organizationId);
+      const replayId = await readInventoryCommand(tx, command);
+      if (replayId) {
+        return tx.warehouseTransfer.findFirstOrThrow({ where: { id: replayId, organizationId }, include: warehouseTransferInclude });
+      }
       const item = await this.findTrackedActiveItem(organizationId, dto.itemId, tx);
       const [fromWarehouse, toWarehouse] = await Promise.all([
         this.findActiveWarehouse(organizationId, dto.fromWarehouseId, "source", tx),
@@ -121,7 +129,8 @@ export class WarehouseTransferService {
         movementDate: transferDate,
         type: StockMovementType.TRANSFER_IN,
         quantity,
-        unitCost,
+        unitCost: fromMovement.unitCost,
+        totalCost: fromMovement.totalCost,
         referenceType: "WarehouseTransfer",
         referenceId: transfer.id,
         description: `Warehouse transfer ${transferNumber} in`,
@@ -132,18 +141,14 @@ export class WarehouseTransferService {
         data: {
           fromStockMovementId: fromMovement.id,
           toStockMovementId: toMovement.id,
+          unitCost: fromMovement.unitCost,
+          totalCost: fromMovement.totalCost,
         },
       });
-      return tx.warehouseTransfer.findUniqueOrThrow({ where: { id: transfer.id }, include: warehouseTransferInclude });
-    });
-
-    await this.auditLogService.log({
-      organizationId,
-      actorUserId,
-      action: "CREATE",
-      entityType: "WarehouseTransfer",
-      entityId: created.id,
-      after: created,
+      await completeInventoryCommand(tx, command, transfer.id);
+      const result = await tx.warehouseTransfer.findUniqueOrThrow({ where: { id: transfer.id }, include: warehouseTransferInclude });
+      await this.auditLogService.log({ organizationId, actorUserId, action: "CREATE", entityType: "WarehouseTransfer", entityId: result.id, after: result }, tx);
+      return result;
     });
     return created;
   }
@@ -155,6 +160,7 @@ export class WarehouseTransferService {
     }
 
     const voided = await this.prisma.$transaction(async (tx) => {
+      await lockInventory(tx, organizationId);
       const transfer = await tx.warehouseTransfer.findFirst({ where: { id, organizationId } });
       if (!transfer) {
         throw new NotFoundException("Warehouse transfer not found.");
@@ -191,6 +197,7 @@ export class WarehouseTransferService {
         referenceType: "WarehouseTransferVoid",
         referenceId: transfer.id,
         description: `Void warehouse transfer ${transfer.transferNumber} back into source`,
+        valuationSourceMovementId: transfer.fromStockMovementId ?? undefined,
       });
       const voidToMovement = await this.createStockMovement(tx, {
         organizationId,
@@ -204,6 +211,7 @@ export class WarehouseTransferService {
         referenceType: "WarehouseTransferVoid",
         referenceId: transfer.id,
         description: `Void warehouse transfer ${transfer.transferNumber} out of destination`,
+        valuationSourceMovementId: transfer.toStockMovementId ?? undefined,
       });
 
       await tx.warehouseTransfer.update({
@@ -293,13 +301,15 @@ export class WarehouseTransferService {
       type: StockMovementType;
       quantity: Prisma.Decimal;
       unitCost: Prisma.Decimal.Value | null;
+      totalCost?: Prisma.Decimal | null;
+      valuationSourceMovementId?: string;
       referenceType: string;
       referenceId: string;
       description: string;
     },
   ) {
     const unitCost = input.unitCost === null ? null : new Prisma.Decimal(input.unitCost);
-    return tx.stockMovement.create({
+    return createValuedStockMovement(tx, {
       data: {
         organizationId: input.organizationId,
         itemId: input.itemId,
@@ -308,7 +318,8 @@ export class WarehouseTransferService {
         type: input.type,
         quantity: input.quantity.toFixed(4),
         unitCost: unitCost?.toFixed(4) ?? null,
-        totalCost: unitCost ? input.quantity.mul(unitCost).toFixed(4) : null,
+        totalCost: input.totalCost?.toFixed(4) ?? (unitCost ? input.quantity.mul(unitCost).toFixed(4) : null),
+        valuationSourceMovementId: input.valuationSourceMovementId,
         referenceType: input.referenceType,
         referenceId: input.referenceId,
         description: input.description,

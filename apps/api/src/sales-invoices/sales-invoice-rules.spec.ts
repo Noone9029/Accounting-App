@@ -1281,6 +1281,9 @@ function makeVoidTransactionMock(
   } = {},
 ) {
   return {
+    $queryRaw: jest.fn().mockResolvedValue([]),
+    salesStockIssue: { count: jest.fn().mockResolvedValue(0) },
+    salesInventoryReturn: { count: jest.fn().mockResolvedValue(0) },
     salesInvoice: {
       findFirst: jest.fn().mockResolvedValue({
         id: "invoice-1",

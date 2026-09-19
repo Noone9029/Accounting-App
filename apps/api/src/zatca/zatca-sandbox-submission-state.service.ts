@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { createHash, randomUUID } from "node:crypto";
 import {
   ZatcaSandboxRetryClassification,
   ZatcaSandboxSubmissionStateStatus,
@@ -11,6 +12,8 @@ const sensitiveValuePattern = /-----BEGIN [A-Z ]+-----|<\/?(?:\w+:)?(?:Invoice|S
 const sensitiveFieldPattern = /^(?:otp(?:Value)?|secret(?:Body)?|privateKey(?:Pem)?|raw(?:Xml|Request|Response|Certificate)|signedXml(?:Base64)?|xmlBase64|qr(?:Payload|Body)|authorization|authHeader|certificate(?:Body|Pem)?|binarySecurityToken(?:Body)?|tokenBody|requestBody|responseBody)$/i;
 
 type StateClient = Pick<PrismaService, "zatcaSandboxProofRun" | "zatcaSandboxSubmissionState" | "zatcaSandboxSubmissionAttempt">;
+const retryClaimPrefix = "sandbox-retry:";
+const abandonedRetryMinimumAgeMs = 15 * 60 * 1000;
 
 export type ZatcaSandboxSubmissionStateSafeCode =
   | "ZATCA_SANDBOX_SENSITIVE_METADATA"
@@ -18,6 +21,8 @@ export type ZatcaSandboxSubmissionStateSafeCode =
   | "ZATCA_SANDBOX_IDEMPOTENCY_CONFLICT"
   | "ZATCA_SANDBOX_PIH_MISMATCH"
   | "ZATCA_SANDBOX_RETRY_IDENTITY_MISMATCH"
+  | "ZATCA_SANDBOX_RETRY_OWNERSHIP_LOST"
+  | "ZATCA_SANDBOX_RETRY_RECOVERY_NOT_ALLOWED"
   | "ZATCA_SANDBOX_STATE_NOT_ACCEPTABLE";
 
 export class ZatcaSandboxSubmissionStateError extends Error {
@@ -57,6 +62,17 @@ export interface RecordZatcaSandboxAttemptInput {
   warningCodes?: string[];
   errorCodes?: string[];
   retryClassification?: ZatcaSandboxRetryClassification;
+  retryClaimToken?: string;
+}
+
+export interface RecoverAbandonedZatcaSandboxRetryInput {
+  organizationId: string;
+  submissionStateId: string;
+  retryClaimToken: string;
+  correlationId: string;
+  /** The operator must stop the previous worker before recovery; there is no automatic lease expiry. */
+  previousWorkerStopped: boolean;
+  recoveryReviewReference: string;
 }
 
 export interface RetryZatcaSandboxSubmissionInput {
@@ -101,6 +117,7 @@ export class ZatcaSandboxSubmissionStateService {
 
   async reserve(input: ReserveZatcaSandboxSubmissionInput) {
     assertMetadataOnly(input);
+    if (input.reservationToken.startsWith(retryClaimPrefix)) throw new ZatcaSandboxSubmissionStateError("ZATCA_SANDBOX_STATE_NOT_ACCEPTABLE");
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
         return await this.prisma.$transaction((tx) => this.reserveInTransaction(tx, input), { isolationLevel: "Serializable" });
@@ -120,10 +137,11 @@ export class ZatcaSandboxSubmissionStateService {
       if (!state || !([ZatcaSandboxSubmissionStateStatus.RESERVED, ZatcaSandboxSubmissionStateStatus.UNCERTAIN] as ZatcaSandboxSubmissionStateStatus[]).includes(state.status)) {
         throw new ZatcaSandboxSubmissionStateError("ZATCA_SANDBOX_STATE_NOT_ACCEPTABLE");
       }
+      assertAttemptOwnership(state, input);
       await this.createAttempt(tx, input, ZatcaSandboxSubmissionStateStatus.ACCEPTED);
       return tx.zatcaSandboxSubmissionState.update({
         where: { id: state.id },
-        data: { status: ZatcaSandboxSubmissionStateStatus.ACCEPTED, acceptedAt: new Date(), completedAt: new Date() },
+        data: { status: ZatcaSandboxSubmissionStateStatus.ACCEPTED, acceptedAt: new Date(), completedAt: new Date(), ...settledRetryToken(input) },
       });
     }, { isolationLevel: "Serializable" });
   }
@@ -135,8 +153,9 @@ export class ZatcaSandboxSubmissionStateService {
       if (!state || !([ZatcaSandboxSubmissionStateStatus.RESERVED, ZatcaSandboxSubmissionStateStatus.UNCERTAIN] as ZatcaSandboxSubmissionStateStatus[]).includes(state.status)) {
         throw new ZatcaSandboxSubmissionStateError("ZATCA_SANDBOX_STATE_NOT_ACCEPTABLE");
       }
+      assertAttemptOwnership(state, input);
       await this.createAttempt(tx, input, ZatcaSandboxSubmissionStateStatus.UNCERTAIN);
-      return tx.zatcaSandboxSubmissionState.update({ where: { id: state.id }, data: { status: ZatcaSandboxSubmissionStateStatus.UNCERTAIN, completedAt: new Date() } });
+      return tx.zatcaSandboxSubmissionState.update({ where: { id: state.id }, data: { status: ZatcaSandboxSubmissionStateStatus.UNCERTAIN, completedAt: new Date(), ...settledRetryToken(input) } });
     }, { isolationLevel: "Serializable" });
   }
 
@@ -147,8 +166,9 @@ export class ZatcaSandboxSubmissionStateService {
       if (!state || !([ZatcaSandboxSubmissionStateStatus.RESERVED, ZatcaSandboxSubmissionStateStatus.UNCERTAIN] as ZatcaSandboxSubmissionStateStatus[]).includes(state.status)) {
         throw new ZatcaSandboxSubmissionStateError("ZATCA_SANDBOX_STATE_NOT_ACCEPTABLE");
       }
+      assertAttemptOwnership(state, input);
       await this.createAttempt(tx, input, ZatcaSandboxSubmissionStateStatus.REJECTED);
-      return tx.zatcaSandboxSubmissionState.update({ where: { id: state.id }, data: { status: ZatcaSandboxSubmissionStateStatus.REJECTED, rejectedAt: new Date(), completedAt: new Date() } });
+      return tx.zatcaSandboxSubmissionState.update({ where: { id: state.id }, data: { status: ZatcaSandboxSubmissionStateStatus.REJECTED, rejectedAt: new Date(), completedAt: new Date(), ...settledRetryToken(input) } });
     }, { isolationLevel: "Serializable" });
   }
 
@@ -157,16 +177,52 @@ export class ZatcaSandboxSubmissionStateService {
     return this.prisma.$transaction(async (tx) => {
       const state = await tx.zatcaSandboxSubmissionState.findFirst({ where: { id: input.submissionStateId, organizationId: input.organizationId } });
       if (!state || state.status !== ZatcaSandboxSubmissionStateStatus.UNCERTAIN) throw new ZatcaSandboxSubmissionStateError("ZATCA_SANDBOX_STATE_NOT_ACCEPTABLE");
-      const fields: (keyof RetryZatcaSandboxSubmissionInput)[] = ["sourceIdentityHash", "payloadHash", "signedArtifactHash", "canonicalInvoiceHash", "invoiceUuid", "invoiceType", "previousInvoiceHash", "operation", "credentialReferenceId", "signingKeyReferenceId", "certificateFingerprint"];
-      if (fields.some((field) => (input[field] ?? null) !== (state[field as keyof typeof state] ?? null))) throw new ZatcaSandboxSubmissionStateError("ZATCA_SANDBOX_RETRY_IDENTITY_MISMATCH");
+      assertExactRetryIdentity(state, input);
       return state;
+    }, { isolationLevel: "Serializable" });
+  }
+
+  /** Commit ownership before any provider call. A crash leaves a fenced reservation for explicit recovery. */
+  async claimExactUncertainRetry(input: RetryZatcaSandboxSubmissionInput) {
+    assertMetadataOnly(input);
+    return this.prisma.$transaction(async (tx) => {
+      const state = await tx.zatcaSandboxSubmissionState.findFirst({ where: { id: input.submissionStateId, organizationId: input.organizationId } });
+      if (!state) throw new ZatcaSandboxSubmissionStateError("ZATCA_SANDBOX_STATE_NOT_ACCEPTABLE");
+      assertExactRetryIdentity(state, input);
+      if (state.status === ZatcaSandboxSubmissionStateStatus.RESERVED && state.reservationToken.startsWith(retryClaimPrefix)) return { disposition: "RETRY_IN_PROGRESS" as const };
+      if (state.status !== ZatcaSandboxSubmissionStateStatus.UNCERTAIN) throw new ZatcaSandboxSubmissionStateError("ZATCA_SANDBOX_STATE_NOT_ACCEPTABLE");
+      const retryClaimToken = `${retryClaimPrefix}${randomUUID()}`;
+      const claimed = await tx.zatcaSandboxSubmissionState.updateMany({
+        where: { id: state.id, organizationId: input.organizationId, status: ZatcaSandboxSubmissionStateStatus.UNCERTAIN, reservationToken: state.reservationToken },
+        data: { status: ZatcaSandboxSubmissionStateStatus.RESERVED, reservationToken: retryClaimToken, completedAt: null },
+      });
+      if (claimed.count !== 1) return { disposition: "RETRY_IN_PROGRESS" as const };
+      return { disposition: "CLAIMED" as const, state, retryClaimToken };
+    }, { isolationLevel: "ReadCommitted" });
+  }
+
+  /** Local sandbox recovery only; never infer that the provider rejected or accepted a crashed request. */
+  async recoverAbandonedRetry(input: RecoverAbandonedZatcaSandboxRetryInput) {
+    assertMetadataOnly(input);
+    if (!input.previousWorkerStopped || input.recoveryReviewReference.trim().length < 8 || input.recoveryReviewReference.length > 160) {
+      throw new ZatcaSandboxSubmissionStateError("ZATCA_SANDBOX_RETRY_RECOVERY_NOT_ALLOWED");
+    }
+    return this.prisma.$transaction(async (tx) => {
+      const state = await tx.zatcaSandboxSubmissionState.findFirst({ where: { id: input.submissionStateId, organizationId: input.organizationId } });
+      if (!state || state.status !== ZatcaSandboxSubmissionStateStatus.RESERVED || !state.reservationToken.startsWith(retryClaimPrefix) || Date.now() - state.updatedAt.getTime() < abandonedRetryMinimumAgeMs) {
+        throw new ZatcaSandboxSubmissionStateError("ZATCA_SANDBOX_RETRY_RECOVERY_NOT_ALLOWED");
+      }
+      const attempt = { ...input, requestHash: createHash("sha256").update(input.recoveryReviewReference).digest("hex"), responseCode: "SANDBOX_RETRY_OWNER_RECOVERY", retryClassification: ZatcaSandboxRetryClassification.NOT_RETRYABLE };
+      assertAttemptOwnership(state, attempt);
+      await this.createAttempt(tx, attempt, ZatcaSandboxSubmissionStateStatus.UNCERTAIN);
+      return tx.zatcaSandboxSubmissionState.update({ where: { id: state.id }, data: { status: ZatcaSandboxSubmissionStateStatus.UNCERTAIN, completedAt: new Date(), ...settledRetryToken(attempt) } });
     }, { isolationLevel: "Serializable" });
   }
 
   async releaseReservation(organizationId: string, submissionStateId: string) {
     return this.prisma.$transaction(async (tx) => {
       const state = await tx.zatcaSandboxSubmissionState.findFirst({ where: { id: submissionStateId, organizationId } });
-      if (!state || state.status !== ZatcaSandboxSubmissionStateStatus.RESERVED) {
+      if (!state || state.status !== ZatcaSandboxSubmissionStateStatus.RESERVED || state.reservationToken.startsWith(retryClaimPrefix)) {
         throw new ZatcaSandboxSubmissionStateError("ZATCA_SANDBOX_STATE_NOT_ACCEPTABLE");
       }
       return tx.zatcaSandboxSubmissionState.delete({ where: { id: state.id } });
@@ -250,6 +306,9 @@ function isRetryableReservationConflict(error: unknown): boolean {
 
 function hasExactSubmissionIdentity(existing: Record<string, unknown>, input: ReserveZatcaSandboxSubmissionInput): boolean {
   const fields: (keyof ReserveZatcaSandboxSubmissionInput)[] = [
+    "egsUnitId",
+    "proofRunId",
+    "invoiceMetadataId",
     "payloadHash",
     "signedArtifactHash",
     "canonicalInvoiceHash",
@@ -263,4 +322,19 @@ function hasExactSubmissionIdentity(existing: Record<string, unknown>, input: Re
     "certificateSerialNumber",
   ];
   return fields.every((field) => (input[field] ?? null) === (existing[field] ?? null));
+}
+
+function assertExactRetryIdentity(state: Record<string, unknown>, input: RetryZatcaSandboxSubmissionInput): void {
+  const fields: (keyof RetryZatcaSandboxSubmissionInput)[] = ["sourceIdentityHash", "payloadHash", "signedArtifactHash", "canonicalInvoiceHash", "invoiceUuid", "invoiceType", "previousInvoiceHash", "operation", "credentialReferenceId", "signingKeyReferenceId", "certificateFingerprint"];
+  if (fields.some((field) => (input[field] ?? null) !== (state[field] ?? null))) throw new ZatcaSandboxSubmissionStateError("ZATCA_SANDBOX_RETRY_IDENTITY_MISMATCH");
+}
+
+function assertAttemptOwnership(state: { status: ZatcaSandboxSubmissionStateStatus; reservationToken: string }, input: RecordZatcaSandboxAttemptInput): void {
+  if (input.retryClaimToken ? state.status !== ZatcaSandboxSubmissionStateStatus.RESERVED || state.reservationToken !== input.retryClaimToken : state.reservationToken.startsWith(retryClaimPrefix)) {
+    throw new ZatcaSandboxSubmissionStateError("ZATCA_SANDBOX_RETRY_OWNERSHIP_LOST");
+  }
+}
+
+function settledRetryToken(input: RecordZatcaSandboxAttemptInput): { reservationToken?: string } {
+  return input.retryClaimToken ? { reservationToken: `settled-retry:${randomUUID()}` } : {};
 }

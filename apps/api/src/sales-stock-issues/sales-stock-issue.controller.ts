@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Headers, Param, Post, UseGuards } from "@nestjs/common";
 import { PERMISSIONS } from "@ledgerbyte/shared";
 import { AuthenticatedUser } from "../auth/auth.types";
 import { CurrentOrganizationId } from "../auth/decorators/current-organization.decorator";
@@ -28,8 +28,9 @@ export class SalesStockIssueController {
     @CurrentOrganizationId() organizationId: string,
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: CreateSalesStockIssueDto,
+    @Headers("idempotency-key") idempotencyKey?: string,
   ) {
-    return this.salesStockIssueService.create(organizationId, user.id, dto);
+    return this.salesStockIssueService.create(organizationId, user.id, dto, idempotencyKey);
   }
 
   @Get(":id")

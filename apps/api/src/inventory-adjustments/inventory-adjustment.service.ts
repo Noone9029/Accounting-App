@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { createValuedStockMovement, lockInventory } from "../inventory/valued-stock-movement";
 import {
   InventoryAdjustmentStatus,
   InventoryAdjustmentType,
@@ -69,6 +70,7 @@ export class InventoryAdjustmentService {
 
   async create(organizationId: string, actorUserId: string, dto: CreateInventoryAdjustmentDto) {
     const created = await this.prisma.$transaction(async (tx) => {
+      await lockInventory(tx, organizationId);
       const item = await this.findTrackedActiveItem(organizationId, dto.itemId, tx);
       const warehouse = await this.findActiveWarehouse(organizationId, dto.warehouseId, tx);
       const quantity = this.positiveDecimal(dto.quantity, "Quantity");
@@ -114,6 +116,7 @@ export class InventoryAdjustmentService {
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
+      await lockInventory(tx, organizationId);
       const data: Prisma.InventoryAdjustmentUncheckedUpdateInput = {};
 
       if (dto.itemId !== undefined) {
@@ -192,6 +195,7 @@ export class InventoryAdjustmentService {
 
   async approve(organizationId: string, actorUserId: string, id: string) {
     const approved = await this.prisma.$transaction(async (tx) => {
+      await lockInventory(tx, organizationId);
       const adjustment = await tx.inventoryAdjustment.findFirst({ where: { id, organizationId } });
       if (!adjustment) {
         throw new NotFoundException("Inventory adjustment not found.");
@@ -236,7 +240,7 @@ export class InventoryAdjustmentService {
 
       await tx.inventoryAdjustment.update({
         where: { id },
-        data: { stockMovementId: movement.id },
+        data: { stockMovementId: movement.id, unitCost: movement.unitCost, totalCost: movement.totalCost },
       });
       return tx.inventoryAdjustment.findUniqueOrThrow({ where: { id }, include: inventoryAdjustmentInclude });
     });
@@ -259,6 +263,7 @@ export class InventoryAdjustmentService {
     }
 
     const voided = await this.prisma.$transaction(async (tx) => {
+      await lockInventory(tx, organizationId);
       const adjustment = await tx.inventoryAdjustment.findFirst({ where: { id, organizationId } });
       if (!adjustment) {
         throw new NotFoundException("Inventory adjustment not found.");
@@ -305,6 +310,7 @@ export class InventoryAdjustmentService {
         quantity,
         unitCost: adjustment.unitCost,
         referenceType: "InventoryAdjustmentVoid",
+        valuationSourceMovementId: adjustment.stockMovementId ?? undefined,
         referenceId: adjustment.id,
         description: `Void inventory adjustment ${adjustment.adjustmentNumber}`,
       });
@@ -388,13 +394,14 @@ export class InventoryAdjustmentService {
       type: StockMovementType;
       quantity: Prisma.Decimal;
       unitCost: Prisma.Decimal.Value | null;
+      valuationSourceMovementId?: string;
       referenceType: string;
       referenceId: string;
       description: string;
     },
   ) {
     const unitCost = input.unitCost === null ? null : new Prisma.Decimal(input.unitCost);
-    return tx.stockMovement.create({
+    return createValuedStockMovement(tx, {
       data: {
         organizationId: input.organizationId,
         itemId: input.itemId,
@@ -403,6 +410,7 @@ export class InventoryAdjustmentService {
         type: input.type,
         quantity: input.quantity.toFixed(4),
         unitCost: unitCost?.toFixed(4) ?? null,
+        valuationSourceMovementId: input.valuationSourceMovementId,
         totalCost: unitCost ? input.quantity.mul(unitCost).toFixed(4) : null,
         referenceType: input.referenceType,
         referenceId: input.referenceId,
