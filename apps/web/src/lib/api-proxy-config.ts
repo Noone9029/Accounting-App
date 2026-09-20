@@ -17,12 +17,14 @@ export function createApiProxyConfig(configuredUpstream: string | undefined): Pi
     async rewrites() {
       return {
         beforeFiles: [],
-        afterFiles: [],
-        fallback: [{
+        // Exact filesystem routes win, but the app's [...placeholder] must not
+        // swallow API requests before they reach this external rewrite.
+        afterFiles: [{
           // Keep Next's locale endpoint local for every method, including its 405 responses.
           source: "/api/:path((?!locale(?:/|$)).*)",
           destination: `${upstream}/:path`,
         }],
+        fallback: [],
       };
     },
   };

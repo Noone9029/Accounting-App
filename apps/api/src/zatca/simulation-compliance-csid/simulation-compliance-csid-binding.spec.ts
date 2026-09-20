@@ -52,6 +52,8 @@ const EXPECTED = {
   egsReference: "synthetic-egs-001",
 };
 const BASE64_CSR = "c3ludGhldGljLWNzcg==";
+// Synthetic approval and certificate fixtures share a fixed July 2026 clock.
+const FIXTURE_NOW = new Date("2026-07-29T00:30:00.000Z");
 
 const REQUIRED_ONE_SHOT_MATRIX = [
   "accepted-credential", "invalid-otp", "expired-otp", "authentication-rejection", "duplicate-request", "business-rejection", "rate-limit", "server-error",
@@ -273,12 +275,12 @@ describe("strict response parsing and atomic custody", () => {
 
   it("rejects duplicate JSON members and only exposes material inside a disposal callback", async () => {
     const duplicate = Buffer.from('{"requestID":"1","requestID":"2"}', "utf8");
-    await expect(withParsedSimulationComplianceCsidResponse({ body: duplicate, expectedPublicKeyFingerprint: "f".repeat(64), requiredResponseFields: CONTRACT.response.fields, inspector }, async () => undefined)).rejects.toMatchObject({ code: "RESPONSE_DUPLICATE_JSON_MEMBER" });
+    await expect(withParsedSimulationComplianceCsidResponse({ body: duplicate, expectedPublicKeyFingerprint: "f".repeat(64), requiredResponseFields: CONTRACT.response.fields, inspector, now: FIXTURE_NOW }, async () => undefined)).rejects.toMatchObject({ code: "RESPONSE_DUPLICATE_JSON_MEMBER" });
     expect(duplicate.every((value) => value === 0)).toBe(true);
 
     const raw = Buffer.from(JSON.stringify({ requestID: "synthetic-request", dispositionMessage: "ISSUED", binarySecurityToken: Buffer.from("synthetic-certificate").toString("base64"), secret: "synthetic-secret" }), "utf8");
     let leaked: Buffer | undefined;
-    const metadata = await withParsedSimulationComplianceCsidResponse({ body: raw, expectedPublicKeyFingerprint: "f".repeat(64), requiredResponseFields: CONTRACT.response.fields, inspector }, async (material) => {
+    const metadata = await withParsedSimulationComplianceCsidResponse({ body: raw, expectedPublicKeyFingerprint: "f".repeat(64), requiredResponseFields: CONTRACT.response.fields, inspector, now: FIXTURE_NOW }, async (material) => {
       leaked = material.secret;
       return { seen: material.certificate.length > 0 };
     });
@@ -289,12 +291,23 @@ describe("strict response parsing and atomic custody", () => {
 
   it("rejects non-canonical credential encoding and production-marked response metadata", async () => {
     const malformedToken = Buffer.from(JSON.stringify({ requestID: "synthetic-request", dispositionMessage: "ISSUED", binarySecurityToken: "AB==", secret: "synthetic-secret" }), "utf8");
-    await expect(withParsedSimulationComplianceCsidResponse({ body: malformedToken, expectedPublicKeyFingerprint: "f".repeat(64), requiredResponseFields: CONTRACT.response.fields, inspector }, async () => undefined)).rejects.toMatchObject({ code: "RESPONSE_REQUIRED_FIELD_MISSING" });
+    await expect(withParsedSimulationComplianceCsidResponse({ body: malformedToken, expectedPublicKeyFingerprint: "f".repeat(64), requiredResponseFields: CONTRACT.response.fields, inspector, now: FIXTURE_NOW }, async () => undefined)).rejects.toMatchObject({ code: "RESPONSE_REQUIRED_FIELD_MISSING" });
     expect(malformedToken.every((value) => value === 0)).toBe(true);
 
     const productionMessage = Buffer.from(JSON.stringify({ requestID: "synthetic-request", dispositionMessage: "production credential", binarySecurityToken: Buffer.from("synthetic-certificate").toString("base64"), secret: "synthetic-secret" }), "utf8");
-    await expect(withParsedSimulationComplianceCsidResponse({ body: productionMessage, expectedPublicKeyFingerprint: "f".repeat(64), requiredResponseFields: CONTRACT.response.fields, inspector }, async () => undefined)).rejects.toMatchObject({ code: "RESPONSE_REQUIRED_FIELD_MISSING" });
+    await expect(withParsedSimulationComplianceCsidResponse({ body: productionMessage, expectedPublicKeyFingerprint: "f".repeat(64), requiredResponseFields: CONTRACT.response.fields, inspector, now: FIXTURE_NOW }, async () => undefined)).rejects.toMatchObject({ code: "RESPONSE_REQUIRED_FIELD_MISSING" });
     expect(productionMessage.every((value) => value === 0)).toBe(true);
+  });
+
+  it.each(["2026-08-29T00:00:00.000Z", "2026-08-29T00:00:00.001Z"])("rejects certificate expiry before custody at %s and disposes response material", async (now) => {
+    const raw = Buffer.from(JSON.stringify({ requestID: "synthetic-request", dispositionMessage: "ISSUED", binarySecurityToken: Buffer.from("synthetic-certificate").toString("base64"), secret: "synthetic-secret" }), "utf8");
+    const custody = jest.fn(async () => undefined);
+    await expect(withParsedSimulationComplianceCsidResponse({
+      body: raw, expectedPublicKeyFingerprint: "f".repeat(64), requiredResponseFields: CONTRACT.response.fields,
+      inspector, now: new Date(now),
+    }, custody)).rejects.toMatchObject({ code: "RESPONSE_CERTIFICATE_INVALID" });
+    expect(custody).not.toHaveBeenCalled();
+    expect(raw.every((value) => value === 0)).toBe(true);
   });
 
   it("rolls back partial DPAPI custody and never returns credential bodies", async () => {
@@ -426,6 +439,7 @@ describe("literal-loopback one-shot CSID matrix", () => {
           const response = await client.requestComplianceCsidOnce(plan);
           return withParsedSimulationComplianceCsidResponse({
             body: response.body,
+            now: FIXTURE_NOW,
             expectedPublicKeyFingerprint: "f".repeat(64),
             requiredResponseFields: CONTRACT.response.fields,
             inspector: { inspect: () => ({ fingerprint: "e".repeat(64), issuer: "CN=SYNTHETIC", serialNumber: "SYNTHETIC-001", expiresAt: "2026-08-29T00:00:00.000Z", publicKeyFingerprint: "f".repeat(64), curve: "secp256k1" as const }) },
@@ -500,13 +514,13 @@ describe("literal-loopback one-shot CSID matrix", () => {
         const response = await client.requestComplianceCsidOnce(plan);
         const inspector = { inspect: () => ({ fingerprint: "e".repeat(64), issuer: "CN=SYNTHETIC", serialNumber: "SYNTHETIC", expiresAt: "2026-08-29T00:00:00.000Z", publicKeyFingerprint: scenario === "CSID_CERTIFICATE_KEY_MISMATCH" ? "d".repeat(64) : "f".repeat(64), curve: "secp256k1" as const }) };
         if (kind === "accepted") {
-          await expect(withParsedSimulationComplianceCsidResponse({ body: response.body, expectedPublicKeyFingerprint: "f".repeat(64), requiredResponseFields: CONTRACT.response.fields, inspector }, async () => undefined)).resolves.toBeUndefined();
+          await expect(withParsedSimulationComplianceCsidResponse({ body: response.body, expectedPublicKeyFingerprint: "f".repeat(64), requiredResponseFields: CONTRACT.response.fields, inspector, now: FIXTURE_NOW }, async () => undefined)).resolves.toBeUndefined();
         } else if (kind === "responseProtocol") {
-          await expect(withParsedSimulationComplianceCsidResponse({ body: response.body, expectedPublicKeyFingerprint: "f".repeat(64), requiredResponseFields: CONTRACT.response.fields, inspector }, async () => undefined)).rejects.toBeInstanceOf(SimulationComplianceCsidResponseError);
+          await expect(withParsedSimulationComplianceCsidResponse({ body: response.body, expectedPublicKeyFingerprint: "f".repeat(64), requiredResponseFields: CONTRACT.response.fields, inspector, now: FIXTURE_NOW }, async () => undefined)).rejects.toBeInstanceOf(SimulationComplianceCsidResponseError);
         } else if (kind === "partialCustody") {
           const revokeReference = jest.fn(async () => undefined);
           const provider = { storeComplianceCertificate: jest.fn(async () => ({ provider: "SANDBOX_LOCAL_DPAPI" as const, referenceId: "synthetic-cert", versionId: null, createdAt: new Date(), bodyReturned: false as const, productionCompliance: false as const })), storeComplianceSecret: jest.fn(async () => { throw new Error("synthetic failure"); }), revokeReference };
-          await expect(withParsedSimulationComplianceCsidResponse({ body: response.body, expectedPublicKeyFingerprint: "f".repeat(64), requiredResponseFields: CONTRACT.response.fields, inspector }, async (material) => storeSimulationComplianceCredentialAtomically({ provider, organizationId: "synthetic-org", egsUnitId: "synthetic-egs", requestId: material.requestId, certificate: material.certificate, secret: material.secret, certificateMetadata: material.certificateMetadata }))).rejects.toMatchObject({ code: "CUSTODY_PARTIAL_STORAGE_ROLLED_BACK" });
+          await expect(withParsedSimulationComplianceCsidResponse({ body: response.body, expectedPublicKeyFingerprint: "f".repeat(64), requiredResponseFields: CONTRACT.response.fields, inspector, now: FIXTURE_NOW }, async (material) => storeSimulationComplianceCredentialAtomically({ provider, organizationId: "synthetic-org", egsUnitId: "synthetic-egs", requestId: material.requestId, certificate: material.certificate, secret: material.secret, certificateMetadata: material.certificateMetadata }))).rejects.toMatchObject({ code: "CUSTODY_PARTIAL_STORAGE_ROLLED_BACK" });
           expect(revokeReference).toHaveBeenCalledTimes(1);
         } else {
           response.body.fill(0);

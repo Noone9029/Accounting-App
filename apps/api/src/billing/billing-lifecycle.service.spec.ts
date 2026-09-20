@@ -4,6 +4,8 @@ import { BillingSubscriptionStatus } from "@prisma/client";
 import { BillingLifecycleService } from "./billing-lifecycle.service";
 
 describe("BillingLifecycleService", () => {
+  beforeEach(() => jest.useFakeTimers().setSystemTime(new Date("2026-07-30T00:00:00.000Z")));
+  afterEach(() => jest.useRealTimers());
   function harness(
     status: BillingSubscriptionStatus = BillingSubscriptionStatus.PENDING,
     version = 1,

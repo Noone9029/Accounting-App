@@ -13,7 +13,7 @@ describe("same-origin beta API routing", () => {
     const config = createApiProxyConfig(upstream + "/");
     expect(config.env?.NEXT_PUBLIC_API_URL).toBe("/api");
     const rewrites = await config.rewrites!();
-    expect(rewrites).toMatchObject({ beforeFiles: [], afterFiles: [], fallback: [expect.any(Object)] });
+    expect(rewrites).toMatchObject({ beforeFiles: [], afterFiles: [expect.any(Object)], fallback: [] });
   });
 
   it.each([

@@ -1,10 +1,10 @@
 # Existing Vercel beta repair — 2026-09-20
 
-Status: **Local repair and database reconciliation verified; deployment pending.** This record concerns only the existing `ledgerbyte-web-test` / `ledgerbyte-api-test` Vercel projects and Supabase project `xynelbjqcmbgtscfmmzv`. It is not a production launch or recovery proof.
+Status: **API promoted and verified; first web candidate rolled back; corrected web deployment pending.** Database reconciliation is verified. This record concerns only the existing `ledgerbyte-web-test` / `ledgerbyte-api-test` Vercel projects and Supabase project `xynelbjqcmbgtscfmmzv`. It is not a production launch or recovery proof.
 
 ## Source and before state
 
-Repair checkout: `E:\AccountingAppWorktrees\beta-vercel-repair`, branch `codex/beta-vercel-repair`, based on verified main `90e0eaa4896a55c1c8cda1c4101f4ab1323a4a61`. The repair is still uncommitted when this entry is prepared; the coordinating task must record its final revision and provider outcomes.
+Repair checkout: `E:\AccountingAppWorktrees\beta-vercel-repair`, branch `codex/beta-vercel-repair`, based on verified main `90e0eaa4896a55c1c8cda1c4101f4ab1323a4a61`. API source `c2e615a9c529185807ba93f26cee40daf4ed6069` is deployed. The first web candidate used `bd7f3c9d1cb36eadfb7918da01a642b30f7944fe` and was rolled back; a subsequent routing revision and replacement deployment are pending.
 
 | Surface | Confirmed current deployment before repair | Immutable deployment hostname |
 | --- | --- | --- |
@@ -26,7 +26,7 @@ Draft PR #421 and its Saudi launch changes are excluded: no perpetual inventory 
 
 ## Database reconciliation before deployment
 
-Current inspection found **103 successful Prisma migration records**. Three fixed-asset migrations already have schema effects and corresponding Supabase history, but lack their canonical Prisma history records:
+Initial inspection found **103 successful Prisma migration records**. Three fixed-asset migrations already had schema effects and corresponding Supabase history, but lacked their canonical Prisma history records:
 
 | Canonical repository migration | Existing Supabase history version |
 | --- | --- |
@@ -59,6 +59,33 @@ Checks used a bounded Windows process job (18 GiB aggregate, 50% CPU) with one t
 
 The coordinating task also added `.vercelignore` to exclude local logs, environment files and generated build artifacts. CLI dry-run packaging reported 3,013 files / 39.9 MB with zero excluded artifacts remaining in the upload set. This is packaging verification, not a deployed result.
 
+An expanded web check later passed 41 tests before the first web candidate was deployed. Those tests did not expose the route-resolver interaction described below. The additional seven real Next resolver cases now pass, including a negative control reproducing the old catch-all failure. The corrected fresh web build passes; its compiled manifest places the proxy in afterFiles with no fallback rules. Total targeted web coverage is 48 passing tests.
+
+## Live API outcome
+
+API deployment **`dpl_BiGBrtvjARvfwMCaSJSYgRMcABsh`**, from `c2e615a9c529185807ba93f26cee40daf4ed6069`, built successfully and was promoted to `https://ledgerbyte-api-test.vercel.app`. It remains live and healthy after the web rollback.
+
+| Bounded API check | Observed result |
+| --- | --- |
+| Health / readiness | 200 / 200, database OK |
+| Cookie login | 201 |
+| Authenticated `/auth/me`, `/contacts`, `/accounts` | 200 each |
+| Cookie-authenticated contact request without CSRF | 403 |
+| Contact request with valid CSRF and empty object | 400 validation rejection |
+| Unauthorized tenant access | 403 |
+| Unauthenticated request | 401 |
+| Logout / subsequent revoked-session request | 201 / 401 |
+
+The valid-CSRF request reached payload validation. It did not establish successful contact creation; **no contact was created**. These checks validate the API directly, not the web proxy or a completed browser business write.
+
+## First web candidate and rollback
+
+Web deployment **`dpl_cWEvUqs92MXDvnb8yXYLpBifE1FW`**, from `bd7f3c9d1cb36eadfb7918da01a642b30f7944fe`, built and was promoted. Live checks found that the application catch-all route intercepted `/api` requests before the proxy's fallback rewrite. Those requests returned **200 HTML**, rather than the API response. A successful build and HTTP 200 were therefore insufficient acceptance.
+
+The coordinator immediately rolled the web alias back to its previous deployment, **`dpl_87moFnjjBpesJ2p8k2exWoegdv5N`**. The repaired API remained promoted. This demonstrates a limited **web application rollback** while leaving the additive database schema and API in place; it is not a database restore, disaster-recovery test, or complete system rollback.
+
+The routing correction moves the proxy to `afterFiles`, ahead of dynamic catch-all resolution while retaining the local locale endpoint. The seven-case real Next resolver regression and corrected local build pass. Starting a compiled local Next server was rejected by automatic approval review (blocked by policy); no local listener started. Hosted same-origin acceptance remains required.
+
 ## Pending completion evidence
 
-Record the final source revision, new API/web deployment IDs and alias promotion. Verify API health/readiness, same-origin login, a bounded authorized business write and its read-back, logout/revocation, and language switching through the actual aliases. Keep existing accounting records intact and provider/production gates unchanged. Update this record with actual results rather than treating local tests or an HTTP 200 page as hosted acceptance.
+Record the verified routing-fix revision, replacement web deployment ID and promotion. Prove that `/api` returns the API response through the real web origin, then verify same-origin login, a bounded authorized business write and its read-back, logout/revocation, and language switching. Keep existing accounting records intact and provider/production gates unchanged. API checks above are complete; the replacement web checks are not. Update this record with actual results rather than treating local tests or an HTTP 200 page as hosted acceptance.
