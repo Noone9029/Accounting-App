@@ -1,5 +1,20 @@
 # LedgerByte Codex Handoff
 
+## Existing Vercel beta repair (2026-09-20)
+
+Completed on `codex/beta-vercel-repair` in `E:\AccountingAppWorktrees\beta-vercel-repair`, based on verified main `90e0eaa4896a55c1c8cda1c4101f4ab1323a4a61`. Latest deployed web source is `fc76b2d74b5f76bee444daa0b7825d695dc1a8a8`; API source is `c2e615a9c529185807ba93f26cee40daf4ed6069`. [PR423](https://github.com/Noone9029/Accounting-App/pull/423) contains the repair and remains unmerged. Full evidence is in [the repair record](docs/deployment/BETA_VERCEL_REPAIR_2026-09-20.md).
+
+- Web/API are deployed and promoted on the existing Vercel beta projects, both Node 22. API: `dpl_BiGBrtvjARvfwMCaSJSYgRMcABsh`. Web: `dpl_FsD7tYvW8mdkghyZjhHc7hZY5bjz`.
+- Fixed contact writes failing with `403 Invalid CSRF token`: the web now proxies `/api` to a fixed API upstream and can read its own CSRF cookie. The rewrite runs after exact filesystem routes and before the dynamic catch-all. Locale stays local. PDF/export/attachment URLs retain the `/api` prefix.
+- Repaired missing UAE runtime package output and two Nest injection failures, refreshed vulnerable dependencies, bounded build commands and excluded local secrets/logs/generated outputs from uploads.
+- Supabase now has 112 verified finished Prisma migrations with no unresolved entries or invalid indexes. Three already-applied fixed-asset schemas received verified metadata reconciliation; six later additive migrations were applied atomically with browser/PUBLIC grants revoked on 15 new tables.
+- Live cookie journey through web `/api` passed: login201; business reads200; contact create201/update200/read-back200/deactivate200; missing-CSRF403, wrong-tenant403, unauthenticated401 and revoked-session401. One marked synthetic contact remains inactive. Final counts: organizations16, contacts118, stock movements259, journals635. Original accounting records were preserved.
+- Local checks: 54 focused API tests, 48 web tests, ten build guards, API/web builds and dependency audit with zero high/critical findings. CI exposed stale clock fixtures; test-only fixes passed all59 affected API tests. Check PR423 for the latest CI status.
+- First web candidate was rolled back after live checks exposed catch-all interception; corrected deployment passed. This proves limited application rollback, not database recovery. Starting a compiled local Next server was rejected by automatic approval review; hosted checks supplied the live routing evidence.
+- English/Arabic public pages were browser-checked. Authenticated business evidence is HTTP cookie/CSRF testing through the deployed web origin. Testers should reload and log in again so cookies belong to the web host.
+- Supabase Free has no available backup; no recovery proof is claimed. Draft PR421's inventory/trial/Stripe launch implementation remains excluded from beta deployment. No public launch, paid billing, ZATCA production/provider activation, reset/reseed, historical accounting rewrite or permission expansion occurred.
+
+Next recommended arc: **Review and merge the verified beta repair, then resume Saudi launch acceptance and inventory cutover planning**. Keep the beta data separate from new production organizations. Hosted recovery, accountant/legal review, seller details and official ZATCA simulation/production acceptance remain release blockers.
 ## ARC-07B-07A Simulation compliance-CSID binding (2026-07-29)
 
 - Clean implementation branch: `codex/zatca-arc-07b-07a-simulation-csid-binding`, based on merged 06H main `999d10a17116708bea8e5cb46a216be47f422bbe`.

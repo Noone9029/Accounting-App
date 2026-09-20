@@ -1,6 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
+  "installCommand": "corepack enable && NODE_OPTIONS=--max-old-space-size=4096 UV_THREADPOOL_SIZE=1 corepack pnpm install --frozen-lockfile --child-concurrency=1 --network-concurrency=4",
+  "buildCommand": "node --max-old-space-size=4096 scripts/vercel-postinstall.cjs --verify-api-build",
   "functions": {
     "api/index.js": {
       "maxDuration": 70

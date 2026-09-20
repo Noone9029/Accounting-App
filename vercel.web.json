@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "corepack enable && corepack pnpm install --frozen-lockfile",
-  "buildCommand": "corepack pnpm --filter @ledgerbyte/web build",
+  "installCommand": "corepack enable && NODE_OPTIONS=--max-old-space-size=4096 UV_THREADPOOL_SIZE=1 corepack pnpm install --frozen-lockfile --child-concurrency=1 --network-concurrency=4",
+  "buildCommand": "NODE_OPTIONS=--max-old-space-size=4096 UV_THREADPOOL_SIZE=1 LEDGERBYTE_NEXT_BUILD_CPUS=1 corepack pnpm --workspace-concurrency=1 --filter @ledgerbyte/web build",
   "outputDirectory": ".next"
 }

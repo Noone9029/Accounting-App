@@ -6,7 +6,8 @@
       "codex/**": false
     }
   },
-  "buildCommand": "corepack pnpm --filter @ledgerbyte/api db:generate",
+  "installCommand": "corepack enable && NODE_OPTIONS=--max-old-space-size=4096 UV_THREADPOOL_SIZE=1 corepack pnpm install --frozen-lockfile --child-concurrency=1 --network-concurrency=4",
+  "buildCommand": "NODE_OPTIONS=--max-old-space-size=4096 UV_THREADPOOL_SIZE=1 corepack pnpm --workspace-concurrency=1 --filter @ledgerbyte/api db:generate",
   "functions": {
     "api/index.ts": {
       "maxDuration": 70,

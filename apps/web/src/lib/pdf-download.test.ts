@@ -24,6 +24,8 @@ import {
   fixedAssetRegisterPdfPath,
 } from "./pdf-download";
 
+let mockApiBaseUrl = "http://localhost:4000";
+
 jest.mock("./api", () => ({
   ApiError: class ApiError extends Error {
     constructor(
@@ -34,11 +36,13 @@ jest.mock("./api", () => ({
       super(message);
     }
   },
-  apiBaseUrl: "http://localhost:4000",
+  get apiBaseUrl() { return mockApiBaseUrl; },
   getActiveOrganizationId: jest.fn(() => "org-1"),
 }));
 
 describe("PDF download helpers", () => {
+  beforeEach(() => { mockApiBaseUrl = "http://localhost:4000"; });
+  afterEach(() => { jest.restoreAllMocks(); jest.useRealTimers(); });
   it("builds invoice and receipt PDF paths", () => {
     expect(invoicePdfPath("invoice-1")).toBe("/sales-invoices/invoice-1/pdf");
     expect(salesQuotePdfPath("quote 1")).toBe("/sales-quotes/quote%201/pdf");
@@ -69,6 +73,14 @@ describe("PDF download helpers", () => {
     expect(pdfApiUrl("/sales-invoices/invoice-1/pdf")).toBe("http://localhost:4000/sales-invoices/invoice-1/pdf");
   });
 
+  it.each(["/api", "/api/"])("retains the same-origin %s prefix, encoded IDs and export query", (base) => {
+    mockApiBaseUrl = base;
+    expect(pdfApiUrl(invoicePdfPath("invoice / 1"))).toBe("/api/sales-invoices/invoice%20%2F%201/pdf");
+    expect(pdfApiUrl(accountingCloseEvidenceExportPath("cycle-1", "csv"))).toBe("/api/accounting-close/cycles/cycle-1/export?format=csv");
+    expect(pdfApiUrl(statementPdfPath("contact-1", "2026-01-01", "2026-01-31"))).toBe("/api/contacts/contact-1/statement.pdf?from=2026-01-01&to=2026-01-31");
+    expect(pdfApiUrl("/attachments/attachment-1/download")).toBe("/api/attachments/attachment-1/download");
+  });
+
   it("builds generated document archive download paths", () => {
     expect(generatedDocumentDownloadPath("doc-1")).toBe("/generated-documents/doc-1/download");
   });
@@ -90,7 +102,9 @@ describe("PDF download helpers", () => {
     expect(accountingCloseEvidenceExportPath("cycle / 1", "pdf")).toBe("/accounting-close/cycles/cycle%20%2F%201/export?format=pdf");
   });
 
-  it("downloads authenticated files with cookie credentials and no bearer authorization", async () => {
+  it.each(["http://localhost:4000", "/api"])("downloads through %s with cookie credentials and no bearer authorization", async (base) => {
+    mockApiBaseUrl = base;
+    jest.useFakeTimers();
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -115,6 +129,7 @@ describe("PDF download helpers", () => {
     const init = jest.mocked(fetch).mock.calls[0]?.[1] as RequestInit;
     const headers = new Headers(init.headers);
 
+    expect(jest.mocked(fetch).mock.calls[0]?.[0]).toBe(`${base}/reports/trial-balance.csv`);
     expect(init.credentials).toBe("include");
     expect(headers.get("x-organization-id")).toBe("org-1");
     expect(headers.has("authorization")).toBe(false);
