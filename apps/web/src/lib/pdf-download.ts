@@ -103,7 +103,9 @@ export function generatedDocumentDownloadPath(documentId: string): string {
 }
 
 export function pdfApiUrl(path: string): string {
-  return new URL(path, apiBaseUrl).toString();
+  // Match apiRequest: retain a same-origin /api prefix instead of treating it as
+  // an absolute URL base (which URL rejects, or drops for root-relative paths).
+  return `${apiBaseUrl.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
 }
 
 export async function downloadPdf(path: string, filename?: string): Promise<void> {
