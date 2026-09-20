@@ -12,7 +12,7 @@ import { BillingManagementService } from "./billing-management.service";
 @Module({
   imports: [AuditLogModule],
   controllers: [BillingWebhookController, BillingManagementController],
-  providers: [BillingEntitlementService, BillingLifecycleService, FakeBillingProvider, BillingProviderRegistry, BillingWebhookService, BillingManagementService],
+  providers: [BillingEntitlementService, BillingLifecycleService, { provide: FakeBillingProvider, useFactory: () => new FakeBillingProvider() }, BillingProviderRegistry, BillingWebhookService, BillingManagementService],
   exports: [BillingEntitlementService, BillingLifecycleService, BillingProviderRegistry, BillingWebhookService],
 })
 export class BillingModule {}

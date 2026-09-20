@@ -1,5 +1,19 @@
 # LedgerByte Codex Handoff
 
+## Existing Vercel beta repair (2026-09-20)
+
+This entry supersedes the historical branch summaries below for the current repair. Work is in `E:\AccountingAppWorktrees\beta-vercel-repair` on `codex/beta-vercel-repair`, based on latest inspected main `90e0eaa4896a55c1c8cda1c4101f4ab1323a4a61`. Repair changes are not yet committed when this entry is prepared. **Database reconciliation is verified; deployment remains pending.**
+
+- Confirmed before-deployment IDs: API `dpl_9xC8cNziAJeVSXbSpstXG7txfrUV`; web `dpl_87moFnjjBpesJ2p8k2exWoegdv5N`. These July 15 CLI deployments have no provider metadata SHA; historical correlation with `bf369ceb` is not proof of exact deployed source.
+- Reproduced cookie-authenticated contact creation failing with `403 Invalid CSRF token`, while `/auth/me`, `/contacts` and `/accounts` reads returned 200. Added opt-in same-origin `/api` proxy with a fixed beta upstream and a preserved Next `/api/locale` route; CSRF remains enforced.
+- Fixed missing UAE workspace build output and two Nest dependency-injection startup failures. Vercel build/install commands are bounded and serial, API remains rooted at the repository root and web at `apps/web`. The web provider root/build settings were confirmed and Node was changed from 24 to 22; API is also confirmed on Node 22. Carried over dependency security updates only.
+- Root verification passed: 54 API tests, 30 web tests, 10 build/compatibility checks, API and web builds, and production dependency audit with zero critical/high findings. Evidence and scope are in [the repair record](docs/deployment/BETA_VERCEL_REPAIR_2026-09-20.md). No hosted acceptance is inferred from these local results.
+- Supabase initially had 103 successful Prisma records plus three fixed-asset migrations already represented in schema/Supabase history. Guarded metadata reconciliation and all six later main migrations are now verified: 112 finished records, zero unresolved migrations and zero invalid indexes. Each provider transaction was followed by `historyVerified=true` read-back. The 15 new tables have zero browser/PUBLIC table grants; billing plans/subscriptions remain zero. Counts stayed at 16 organizations, 117 contacts, 259 stock movements and 635 journals. The Supabase UI confirms FREE with no backups; this additive repair uses provider transaction atomicity and old-application rollback with schema retained, not a claimed full recovery point.
+- Added `.vercelignore`; CLI dry-run packaging reported 3,013 files / 39.9 MB with zero excluded artifacts remaining. This does not establish deployed behavior.
+- Existing accounting records must be retained. Draft PR #421, perpetual inventory/cutover, new self-service trials, Stripe integration and September launch migrations are excluded. Production/ZATCA/provider behavior is not being enabled.
+
+Next recommended arc: **Complete existing beta redeployment and authenticated verification**. Record the final repair commit, new deployment IDs and actual same-origin authenticated write/read-back evidence. The new [repair runbook](docs/deployment/BETA_VERCEL_REPAIR_2026-09-20.md) contains before-state IDs, verified migration outcomes, local checks and pending deployment gates. Do not deploy the separate Saudi launch branch to bypass this repair.
+
 ## ARC-07B-07A Simulation compliance-CSID binding (2026-07-29)
 
 - Clean implementation branch: `codex/zatca-arc-07b-07a-simulation-csid-binding`, based on merged 06H main `999d10a17116708bea8e5cb46a216be47f422bbe`.
